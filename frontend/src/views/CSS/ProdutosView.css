@@ -1,0 +1,193 @@
+/* /frontend/src/views/CSS/ProdutosView.css */
+
+/* Estilos gerais da view (já definidos pelo App.vue/centralização) */
+.produtos-view {
+    /* Define a largura máxima desejada para o conteúdo */
+    max-width: 750px; /* Ou 800px, etc. */
+    width: 100%; /* Ocupa até o max-width */
+  
+    /* Centraliza horizontalmente o próprio container .produtos-view */
+    margin-left: auto;
+    margin-right: auto;
+  
+    /* Manter flex se precisar organizar header/content-area internamente */
+    display: flex;
+    flex-direction: column;
+  
+    /* Adicionar um padding superior/inferior se necessário,
+       pois o justify-content do pai foi removido */
+    padding-top: 1rem;
+    padding-bottom: 2rem;
+  }
+  
+  /* Cabeçalho da Página */
+  .page-header {
+    /* Remover borda inferior, deixar apenas espaçamento */
+    padding-bottom: 0;
+    margin-bottom: 2rem; /* Aumentar espaço antes do card */
+    text-align: center;
+  }
+  
+  .page-header h1 {
+    color: #1a202c; /* Tom de preto mais suave */
+    font-size: 1.75rem; /* Ligeiramente maior */
+    font-weight: 700; /* Mais peso */
+  }
+  
+  /* Área de conteúdo (não precisa de estilos específicos agora) */
+  .content-area {
+    width: 100%;
+  }
+  
+  /* Card Principal */
+  .card.form-card {
+    background: #ffffff;
+    border-radius: 12px; /* Bordas mais arredondadas */
+    padding: 2.5rem; /* Mais padding interno */
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.08); /* Sombra mais suave e definida */
+    border: 1px solid #e2e8f0; /* Borda sutil */
+    margin-bottom: 2rem;
+  }
+  
+  .card-title {
+    color: #2d3748;
+    margin: 0 0 2rem 0; /* Aumentar margem inferior, remover outras */
+    font-size: 1.4rem;
+    font-weight: 600;
+    text-align: center;
+    padding-bottom: 1rem; /* Espaço abaixo do título */
+    border-bottom: 1px solid #edf2f7; /* Linha divisória sutil */
+  }
+  
+  /* Formulário */
+  .form-cadastro {
+    display: flex;
+    flex-direction: column;
+    gap: 1.75rem; /* Aumentar espaçamento entre os campos */
+  }
+  
+  .form-group {
+    display: flex;
+    flex-direction: column;
+    position: relative; /* Para posicionamento de ícones ou labels flutuantes (futuro) */
+  }
+  
+  .form-label {
+    margin-bottom: 0.6rem; /* Mais espaço abaixo do label */
+    font-weight: 600; /* Mais destaque */
+    color: #4a5568; /* Cinza escuro */
+    font-size: 0.875rem; /* Ligeiramente menor */
+  }
+  
+  /* Estilos unificados para Inputs, Select, Textarea */
+  .form-input,
+  .form-select,
+  .form-textarea {
+    padding: 0.8rem 1.1rem; /* Ajustar padding */
+    border: 1px solid #cbd5e0; /* Cinza claro para borda */
+    border-radius: 8px; /* Bordas consistentes */
+    font-size: 1rem;
+    color: #2d3748; /* Cor do texto do input */
+    background-color: #fdfdff; /* Fundo muito sutilmente diferente do card */
+    transition: border-color 0.2s ease, box-shadow 0.2s ease; /* Transições suaves */
+    width: 100%;
+    appearance: none; /* Remove estilos padrão do navegador (importante para select) */
+    -webkit-appearance: none;
+    -moz-appearance: none;
+  }
+  
+  /* Estilo específico para o Select (adicionar seta customizada) */
+  .form-select {
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
+    background-position: right 0.7rem center;
+    background-repeat: no-repeat;
+    background-size: 1.5em 1.5em;
+    padding-right: 2.8rem; /* Espaço para a seta */
+  }
+  
+  /* Placeholder */
+  .form-input::placeholder,
+  .form-textarea::placeholder {
+    color: #a0aec0; /* Cinza mais claro */
+  }
+  
+  /* Estado de Foco */
+  .form-input:focus,
+  .form-select:focus,
+  .form-textarea:focus {
+    outline: none;
+    border-color: #42b983; /* Verde Vue como cor de destaque */
+    /* Sombra de foco mais moderna */
+    box-shadow: 0 0 0 3px rgba(66, 185, 131, 0.15);
+  }
+  
+  /* Ações do Formulário (Botão) */
+  .form-actions {
+    margin-top: 1.5rem; /* Mais espaço antes do botão */
+    display: flex;
+  }
+  
+  .submit-button {
+    background: linear-gradient(to right, #42b983, #36a476); /* Gradiente sutil */
+    color: white;
+    padding: 0.9rem 2.5rem; /* Botão maior */
+    border: none;
+    border-radius: 8px;
+    font-size: 1rem;
+    font-weight: 600; /* Mais peso */
+    cursor: pointer;
+    transition: all 0.3s ease;
+    width: 100%; /* Ocupar largura total */
+    box-shadow: 0 4px 10px rgba(66, 185, 131, 0.2); /* Sombra sutil do botão */
+    letter-spacing: 0.5px; /* Leve espaçamento entre letras */
+  }
+  
+  .submit-button:hover {
+    background: linear-gradient(to right, #36a476, #2f8f67);
+    box-shadow: 0 6px 12px rgba(66, 185, 131, 0.3);
+    transform: translateY(-2px); /* Leve elevação no hover */
+  }
+  
+  .submit-button:active {
+    transform: translateY(0);
+    box-shadow: 0 4px 10px rgba(66, 185, 131, 0.2);
+  }
+  
+  /* --- Responsividade --- */
+  @media (max-width: 768px) {
+    .card.form-card {
+      padding: 1.5rem;
+    }
+    .page-header h1 {
+      font-size: 1.5rem;
+    }
+     .card-title {
+      font-size: 1.25rem;
+      margin-bottom: 1.5rem;
+     }
+     .form-cadastro {
+       gap: 1.25rem;
+     }
+  }
+  
+  @media (max-width: 480px) {
+    .card.form-card {
+      padding: 1.2rem;
+      border: none; /* Remover borda em telas pequenas */
+      box-shadow: none; /* Remover sombra em telas pequenas */
+      background: transparent; /* Fundo transparente, usa o do body */
+    }
+     .page-header {
+       margin-bottom: 1.5rem;
+     }
+     .form-input,
+     .form-select,
+     .form-textarea {
+      padding: 0.8rem 1rem;
+      font-size: 0.95rem;
+     }
+     /* Manter o botão com largura total já definido antes */
+     .submit-button {
+       padding: 0.8rem;
+     }
+  }
