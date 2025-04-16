@@ -75,6 +75,9 @@ async function setupDatabase() {
         descricao TEXT,
         unidade_medida TEXT NOT NULL,
         categoria TEXT NOT NULL,
+        quantidade REAL,             
+        valor REAL,                  
+        data_vencimento TEXT,        
         data_cadastro DATETIME DEFAULT CURRENT_TIMESTAMP
     );`;
 

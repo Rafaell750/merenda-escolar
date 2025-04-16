@@ -8,7 +8,7 @@
         <h2 class="auth-title">Login</h2>
         <!-- 4. Formulário com a classe correta -->
         <form class="auth-form" @submit.prevent="handleLogin">
-          <!-- 5. Grupo de formulário (já estava ok) -->
+          <!-- 5. Grupo de formulário -->
           <div class="form-group">
             <!-- 6. Label com a classe correta -->
             <label for="username" class="form-label">Usuário:</label>
@@ -37,7 +37,6 @@
   import { ref } from 'vue';
   import { useRouter } from 'vue-router';
   import apiService from '@/services/apiService';
-  // CSS importado (correto)
   import '@/styles/auth-styles.css';
   
   const username = ref('');
