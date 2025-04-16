@@ -1,0 +1,154 @@
+/* --- /frontend/src/styles/register-view.css --- */
+/* Estilos específicos e layout aprimorado para Cadastro */
+
+/* Container que engloba form e lista no registro */
+.register-container .register-content-wrapper {
+    display: flex;
+    flex-direction: column; /* Empilha por padrão */
+    align-items: center;   /* Centraliza os cards empilhados */
+    width: 100%;
+    max-width: 1100px; /* Define uma largura máxima para o layout lado a lado */
+    margin: 0 auto;    /* Centraliza o wrapper */
+    gap: 2.5rem;       /* Espaço entre form e lista */
+}
+
+/* No modo de registro, o card do formulário pode ter um max-width diferente */
+.register-container .auth-card {
+    max-width: 480px; /* Mantém o max-width padrão */
+    width: 100%; /* Garante que ocupe o espaço no flex */
+}
+
+/* Card da Lista de Usuários */
+.user-list-card {
+    padding: 1.8rem 2rem;
+    background-color: var(--auth-card-bg);
+    border-radius: var(--auth-border-radius-lg);
+    box-shadow: var(--auth-shadow);
+    width: 100%; /* Ocupa o espaço disponível */
+    max-width: 600px; /* Permite ser mais largo que o form */
+    text-align: left;
+    border: 1px solid var(--auth-border-color);
+    box-sizing: border-box;
+}
+
+.user-list-title {
+    font-size: 1.3rem;
+    font-weight: 600;
+    color: var(--auth-text-color);
+    margin-bottom: 1.25rem;
+    padding-bottom: 0.75rem;
+    border-bottom: 1px solid var(--auth-border-color);
+}
+
+.user-list ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    max-height: 350px; /* Aumenta um pouco a altura */
+    overflow-y: auto;
+    /* Estilização da barra de rolagem (opcional) */
+    scrollbar-width: thin;
+    scrollbar-color: var(--auth-border-color) transparent;
+}
+.user-list ul::-webkit-scrollbar {
+    width: 6px;
+}
+.user-list ul::-webkit-scrollbar-track {
+    background: transparent;
+}
+.user-list ul::-webkit-scrollbar-thumb {
+    background-color: var(--auth-border-color);
+    border-radius: 6px;
+}
+
+.user-list li {
+    padding: 0.8rem 0.4rem; /* Mais padding vertical */
+    border-bottom: 1px solid var(--auth-border-color);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.9rem;
+    color: var(--auth-text-muted-color);
+    transition: background-color 0.2s ease; /* Hover suave */
+}
+.user-list li:last-child {
+    border-bottom: none;
+}
+.user-list li:hover {
+    background-color: var(--auth-body-bg); /* Fundo sutil no hover */
+}
+.user-list .user-info { /* Span para agrupar nome/email */
+    color: var(--auth-text-color);
+    font-weight: 500;
+}
+
+.user-list .role-tag {
+    font-size: 0.7rem; /* Menor */
+    padding: 0.2rem 0.6rem; /* Ajuste no padding */
+    border-radius: 50px; /* Formato "pill" */
+    font-weight: 600;
+    margin-left: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+/* Cores das Tags mais vivas (Exemplo) */
+.user-list .role-tag.admin {
+    color: #991b1b; /* Darker Red text */
+    background-color: #fee2e2; /* Lighter Red bg */
+}
+.user-list .role-tag.user {
+    color: #1f2937; /* Dark Gray text */
+    background-color: #e5e7eb; /* Lighter Gray bg */
+}
+
+.loading-users {
+    margin-top: 1.5rem; /* Mais espaço */
+    text-align: center;
+    color: var(--auth-text-muted-color);
+    font-style: italic;
+}
+
+/* --- Layout Lado a Lado para Telas Maiores (Registro) --- */
+@media (min-width: 992px) { /* Ajuste o breakpoint conforme necessário */
+    .register-container .register-content-wrapper {
+        flex-direction: row;     /* Lado a lado */
+        align-items: flex-start; /* Alinha os cards pelo topo */
+        justify-content: center; /* Centraliza os itens no espaço disponível */
+        gap: 3rem;               /* Aumenta o espaço entre os cards */
+    }
+
+    .register-container .auth-card {
+        flex: 1 1 450px; /* Controla o tamanho do card do form */
+        max-width: 480px; /* Mantém o max-width */
+    }
+
+    .user-list-card {
+        flex: 1 1 550px; /* Controla o tamanho do card da lista */
+        max-width: 600px; /* Mantém o max-width */
+        margin-top: 0; /* Remove margem superior quando lado a lado */
+    }
+}
+
+/* --- Ajustes de Responsividade Específicos da Lista --- */
+@media (max-width: 480px) {
+     /* Herda a maioria dos estilos do .auth-card no mobile */
+    .user-list-card {
+        margin-top: 1.5rem; /* Reduz espaço */
+        padding: 1.5rem 1.2rem;
+         /* Pode remover sombra/borda se o auth-card também remover */
+        /* box-shadow: none; */
+        /* border: none; */
+        /* background: none; */
+    }
+    .user-list-title {
+        font-size: 1.15rem;
+        margin-bottom: 1rem;
+    }
+    .user-list li {
+        font-size: 0.85rem;
+        padding: 0.7rem 0.2rem;
+    }
+    .user-list .role-tag {
+        margin-left: 0.5rem;
+    }
+}
