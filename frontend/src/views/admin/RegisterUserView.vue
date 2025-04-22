@@ -3,7 +3,7 @@
   <!-- 1. Container principal da view (adiciona a classe 'register-container' para o layout específico) -->
   <div class="auth-view-container register-container">
 
-    <!-- **** NOVO TÍTULO PRINCIPAL DA PÁGINA **** -->
+    <!-- **** TÍTULO PRINCIPAL DA PÁGINA **** -->
     <h1 class="page-main-title">Autenticação de Usuários</h1>
 
       <!-- 2. Wrapper para conteúdo lado a lado (form + lista) -->

@@ -6,14 +6,30 @@
       </header>
 
       <div class="content-area">
-        <!-- Card do Formulário (mantido como está) -->
+        <!-- Card do Formulário -->
         <div class="card form-card">
-          <h2 class="card-title">Adicionar Novo Produto</h2>
-          <form @submit.prevent="cadastrarProduto" class="form-cadastro">
-            <!-- Feedback -->
-            <div v-if="validationError" class="feedback-message error form-feedback">
-              {{ validationError }}
-            </div>
+          <!-- Cabeçalho do Card com Título e Botão Toggle -->
+          <div class="form-card-header">
+            <h2 class="card-title">Adicionar Novo Produto</h2>
+            <button @click="toggleForm" type="button" class="toggle-form-button">
+              <!-- Ícone ou Texto que muda -->
+              <svg v-if="isFormExpanded" xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-chevron-up" viewBox="0 0 16 16">
+                <path fill-rule="evenodd" d="M7.646 4.646a.5.5 0 0 1 .708 0l6 6a.5.5 0 0 1-.708.708L8 5.707l-5.646 5.647a.5.5 0 0 1-.708-.708z"/>
+              </svg>
+              <svg v-else xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-chevron-down" viewBox="0 0 16 16">
+                <path fill-rule="evenodd" d="M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708"/>
+              </svg>
+            </button>
+          </div>
+
+          <!-- Conteúdo Colapsável com Transição -->
+          <Transition name="collapse">
+            <div v-if="isFormExpanded" class="form-collapsible-content">
+              <form @submit.prevent="cadastrarProduto" class="form-cadastro">
+                <!-- Feedback -->
+                <div v-if="validationError" class="feedback-message error form-feedback">
+                  {{ validationError }}
+                </div>
 
             <!-- === LINHA 1: Nome (maior) e Unidade (menor) === -->
             <div class="form-row">
@@ -37,9 +53,10 @@
               </div>
             </div>
 
-             <!-- === LINHA 2: Categoria === -->
+             <!-- === LINHA 2: Categoria, Quantidade, Valor e Vencimento === -->
              <div class="form-row">
-                <div class="form-group">
+                <!-- Categoria -->
+                <div class="form-group col-1-of-4"> <!-- MUDANÇA: Adicionado col-1-of-4 -->
                     <label for="categoriaProduto" class="form-label">Categoria:</label>
                     <select id="categoriaProduto" v-model="novoProduto.categoria" class="form-select" required>
                         <option disabled value="">Selecione a categoria</option>
@@ -54,23 +71,23 @@
                         <option value="outros">Outros</option>
                     </select>
                 </div>
-             </div>
-
-            <!-- === LINHA 3: Quantidade, Valor e Vencimento === -->
-            <div class="form-row">
-              <div class="form-group col-1-of-3">
-                <label for="quantidadeProduto" class="form-label">Quantidade:</label>
-                <input type="number" id="quantidadeProduto" v-model.number="novoProduto.quantidade" class="form-input" placeholder="Ex: 10" step="any" min="0"/>
-              </div>
-              <div class="form-group col-1-of-3">
-                <label for="valorProduto" class="form-label">Valor (R$):</label>
-                <input type="number" id="valorProduto" v-model.number="novoProduto.valor" class="form-input" placeholder="Ex: 15,50" step="0.01" min="0"/>
-              </div>
-              <div class="form-group col-1-of-3">
-                <label for="vencimentoProduto" class="form-label">Vencimento:</label>
-                <input type="date" id="vencimentoProduto" v-model="novoProduto.data_vencimento" class="form-input"/>
-              </div>
+                <!-- Quantidade -->
+                <div class="form-group col-1-of-4"> <!-- MUDANÇA: Alterado de col-1-of-3 para col-1-of-4 -->
+                    <label for="quantidadeProduto" class="form-label">Quantidade:</label>
+                    <input type="number" id="quantidadeProduto" v-model.number="novoProduto.quantidade" class="form-input" placeholder="Ex: 10" step="any" min="0"/>
+                </div>
+                <!-- Valor -->
+                <div class="form-group col-1-of-4"> <!-- MUDANÇA: Alterado de col-1-of-3 para col-1-of-4 -->
+                    <label for="valorProduto" class="form-label">Valor (R$):</label>
+                    <input type="number" id="valorProduto" v-model.number="novoProduto.valor" class="form-input" placeholder="Ex: 15,50" step="0.01" min="0"/>
+                </div>
+                <!-- Vencimento -->
+                <div class="form-group col-1-of-4"> <!-- MUDANÇA: Alterado de col-1-of-3 para col-1-of-4 -->
+                    <label for="vencimentoProduto" class="form-label">Vencimento:</label>
+                    <input type="date" id="vencimentoProduto" v-model="novoProduto.data_vencimento" class="form-input"/>
+                </div>
             </div>
+
 
             <!-- === LINHA 4: Descrição === -->
             <div class="form-row">
@@ -88,7 +105,9 @@
               </button>
             </div>
           </form>
-        </div>
+        </div> <!-- Fim de .form-collapsible-content -->
+      </Transition>
+    </div> <!-- Fim de .card.form-card -->
 
         <!-- **** NOVA ÁREA PARA LISTA E FILTROS LADO A LADO **** -->
         <div class="list-filter-container">
@@ -154,6 +173,7 @@
   import ProdutoFiltros from '../views/ProdutoFiltros.vue'; // Importa o novo componente (ajuste o caminho se necessário)
 
   const toast = useToast();
+  const isFormExpanded = ref(false); // Começa recolhido (false)
 
   // Estado Reativo Inicial
   const getInitialNovoProduto = () => ({
@@ -185,6 +205,12 @@
     frutas: 'Frutas', verduras_legumes: 'Verduras/Legumes', nao_pereciveis: 'Não Perecíveis',
     congelados: 'Congelados', limpeza: 'Limpeza', outros: 'Outros'
   };
+
+  // --- NOVA FUNÇÃO PARA ALTERNAR O ESTADO ---
+  const toggleForm = () => {
+  isFormExpanded.value = !isFormExpanded.value;
+  };
+
   const getCategoriaLabel = (key) => categoriasMap[key] || key;
 
   // --- Funções de Formatação ---

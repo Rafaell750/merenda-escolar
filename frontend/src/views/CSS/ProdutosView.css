@@ -1,18 +1,12 @@
 /* /frontend/src/views/CSS/ProdutosView.css */
-
-/* ======================================== */
-/* Variáveis Globais (Opcional, mas útil) */
-/* ======================================== */
-:root {
-    --form-row-gap: 1.5rem; /* Define o espaço entre colunas */
-  }
   
   /* ======================================== */
   /* Estilos Gerais da View e Cabeçalho       */
   /* ======================================== */
   
   .produtos-view {
-    max-width: 900px; /* Aumenta um pouco mais a largura máxima para comportar colunas */
+    --form-row-gap: 0.4rem;
+    max-width: 1150px; /* Aumenta um pouco mais a largura máxima para comportar colunas */
     width: 100%;
     margin: 2rem auto 3rem auto;
     padding: 0 1rem;
@@ -20,10 +14,10 @@
   }
   
   .page-header {
-    margin-bottom: 2.5rem;
+    margin-bottom: 1.8rem;
     text-align: center;
     padding-bottom: 1rem;
-    border-bottom: 1px solid #e2e8f0;
+    border-bottom: 2px solid #e2e8f0;
   }
   
   .page-header h1 {
@@ -56,7 +50,79 @@
   /* ======================================== */
   
   .card.form-card {
+    padding: 0; /* Mover padding para dentro se necessário ou ajustar */
+    /* overflow: hidden; /* Mantém overflow hidden no card PAI */
+  }
+  
+  .form-card-header {
+    display: flex;
+    justify-content: flex-start;
+    /* align-items: center; */  /* Mude de center */
+    align-items: baseline; /* <<< PARA baseline */
+    padding: 1.5rem 2.5rem;
+    border-bottom: 1px solid #e2e8f0;
+    cursor: pointer;
+    gap: 0.8rem;
+  }
+  
+  .card-title {
+    margin-bottom: 0;
+    /* Opcional: impedir que o título cresça e empurre o ícone */
+    flex-shrink: 0;
+  }
+  
+  .toggle-form-button.icon-only {
+    background-color: transparent;
+    border: none;
+    color: #4a5568;
+    padding: 0;
+    border-radius: 0;
+    cursor: pointer;
+    display: inline-flex; /* Pode ajudar no alinhamento com baseline */
+    align-items: center; /* Centraliza o SVG dentro do botão, se necessário */
+    justify-content: center;
+    line-height: 1; /* Mantém para o SVG */
+    transition: color 0.2s ease;
+  }
+  
+  .toggle-form-button.icon-only:hover {
+    color: #2d3748;
+    background-color: transparent;
+    border-color: transparent;
+  }
+  
+  .toggle-form-button.icon-only svg {
+      width: 1.1em;
+      height: 1.1em;
+      display: block;
+      /* vertical-align: middle; /* Outra opção se baseline não funcionar */
+  }
+  
+  /* --- Estilos para a Transição 'collapse' (Manter como antes) --- */
+  .form-collapsible-content {
     padding: 2rem 2.5rem 2.5rem 2.5rem;
+    overflow: hidden;
+  }
+  
+  .collapse-enter-active,
+  .collapse-leave-active {
+    transition: max-height 0.4s ease-in-out, opacity 0.3s ease-in-out, padding-top 0.4s ease-in-out, padding-bottom 0.4s ease-in-out;
+    overflow: hidden;
+  }
+  
+  .collapse-enter-from,
+  .collapse-leave-to {
+    max-height: 0;
+    opacity: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+  }
+  
+  .collapse-enter-to,
+  .collapse-leave-from {
+    opacity: 1;
+    padding-top: 2rem;
+    padding-bottom: 2.5rem;
   }
   
   .card-title {
@@ -86,7 +152,6 @@
   .form-group {
     display: flex;
     flex-direction: column;
-    width: 100%; /* Padrão: ocupa toda a largura (importante para quando não há classe de coluna) */
     box-sizing: border-box;
   }
   
@@ -95,7 +160,7 @@
   /* Ocupa o espaço restante disponível na linha */
   .form-group.col-grow {
     flex-grow: 1;
-    /* flex-basis: 0; Ajuda a garantir que o grow funcione bem */
+    flex-basis: 0;
      width: auto; /* Permite que flex-grow controle a largura */
   }
   
@@ -106,24 +171,27 @@
     flex-basis: 180px; /* Ajuste essa largura conforme necessário */
     width: 180px; /* Garante a largura */
   }
-  
-  /* Ocupa 1/3 da linha, considerando o gap */
-  .form-group.col-1-of-3 {
-    flex-grow: 0; /* Não cresce além da base */
-    flex-shrink: 1; /* Pode encolher se necessário */
-    /* Calcula a largura base como 1/3 menos a proporção do gap */
-    flex-basis: calc(33.3333% - (var(--form-row-gap) * 2 / 3));
-    width: calc(33.3333% - (var(--form-row-gap) * 2 / 3)); /* Garante a largura */
-    min-width: 120px; /* Evita ficar muito estreito */
+
+  /* Adicione esta nova classe */
+.form-group.col-1-of-4 {
+    flex-grow: 1; /* Permite crescer e encolher igualmente */
+    flex-shrink: 1;
+    flex-basis: 0;
+    min-width: 100px; /* Ajuste conforme necessário */
   }
   
-  /* Adicione outras classes se precisar (ex: col-1-of-2, col-2-of-3) */
-  /* .form-group.col-1-of-2 {
-    flex-grow: 0;
+
+
+  /* Largura para Quantidade, Valor, Vencimento (ex: 20% cada) */
+.form-group.col-quant-valor-venc {
+    flex-grow: 1; /* Deixa crescer menos que categoria */
     flex-shrink: 1;
-    flex-basis: calc(50% - (var(--form-row-gap) / 2));
-    width: calc(50% - (var(--form-row-gap) / 2));
-  } */
+    flex-basis: 0; /* Baseado no espaço disponível */
+    /* Ou defina uma base percentual: */
+    /* flex-basis: calc(20% - (var(--form-row-gap) * 3 / 4)); */
+    /* width: calc(20% - (var(--form-row-gap) * 3 / 4)); */
+    min-width: 100px; /* Garante um mínimo */
+  }
   
   
   /* --- Estilos dos Elementos do Formulário --- */
@@ -192,12 +260,12 @@
   }
   
   .form-actions {
-    margin-top: 1.5rem;
+    margin-top: 0rem;
     display: flex;
   }
   
   .submit-button {
-    background: linear-gradient(to right, #42b983, #36a476);
+    background: linear-gradient(to right, #36a476, #36a476);
     color: white;
     padding: 0.9rem 1.5rem;
     border: none;
@@ -429,11 +497,13 @@
     /* Reseta as larguras/bases das colunas para que ocupem 100% */
     .form-group.col-grow,
     .form-group.col-small,
-    .form-group.col-1-of-3 {
+    .form-group.col-categoria,       /* Se usou Opção A */
+    .form-group.col-quant-valor-venc,/* Se usou Opção A */
+    .form-group.col-1-of-4           /* Se usou Opção B */ {
         flex-grow: 1;
         flex-shrink: 1;
-        flex-basis: auto !important; /* Importante para sobrescrever */
-        width: 100% !important;      /* Importante para sobrescrever */
+        flex-basis: auto !important;
+        width: 100% !important;
         min-width: auto;
     }
     /* ------------------------------------ */
