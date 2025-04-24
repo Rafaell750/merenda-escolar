@@ -51,6 +51,33 @@
           <span class="menu-item-text">Movimentações</span>
         </router-link>
 
+         <!-- Separador e Título para Escolas -->
+        <hr v-if="!escolasStore.loading && escolasStore.listaEscolas.length > 0" class="sidebar-divider">
+        <div v-if="!isSidebarCollapsed && !escolasStore.loading && escolasStore.listaEscolas.length > 0" class="menu-section-title">
+            Escolas Cadastradas
+        </div>
+
+        <!-- Links Dinâmicos para Escolas -->
+        <div v-if="escolasStore.isLoading" class="menu-item loading-item">
+            <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+            <span class="menu-item-text" style="margin-left: 5px;">Carregando Escolas...</span>
+        </div>
+        <div v-else>
+            <router-link
+                v-for="escola in escolasStore.listaEscolas"
+                :key="escola.id"
+                :to="{ name: 'EscolaDetalhes', params: { id: escola.id } }"
+                class="menu-item"
+                :class="{ 'active': $route.name === 'EscolaDetalhes' && $route.params.id == escola.id }"
+                :title="escola.nome"
+            >
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" class="bi bi-bank menu-icon" viewBox="0 0 16 16">
+                  <path d="m8 0 6.61 3h.89a.5.5 0 0 1 .5.5v2a.5.5 0 0 1-.5.5H15v7a.5.5 0 0 1 .485.38l.5 2a.498.498 0 0 1-.485.62H.5a.498.498 0 0 1-.485-.62l.5-2A.5.5 0 0 1 1 13V6H.5a.5.5 0 0 1-.5-.5v-2A.5.5 0 0 1 .5 3h.89zM3.777 3h8.447L8 1zM2 6v7h1V6zm2 0v7h1V6zm2 0v7h1V6zm2 0v7h1V6zm2 0v7h1V6zm2 0v7h1V6zM1 4h14V3H1z"/>
+                </svg>
+                <span class="menu-item-text">{{ escola.nome }}</span>
+            </router-link>
+        </div>
+
         <!-- Adicionar link para Cadastro de Usuário se for Admin -->
          <router-link v-if="isAdmin" to="/admin/register-user" class="menu-item" :class="{ 'active': $route.name === 'RegisterUser' }" title="Cadastrar Usuário">
               <!-- Ícone de Usuário -->
@@ -87,11 +114,13 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router'; // Importa useRoute e useRouter
+import { useEscolasStore } from '@/stores/escolas';
 
 const route = useRoute(); // Hook para acessar a rota atual
 const router = useRouter(); // Hook para navegação programática (logout)
+const escolasStore = useEscolasStore();
 
 const isSidebarCollapsed = ref(false);
 
@@ -125,11 +154,20 @@ const logout = () => {
     console.log("Executando logout...");
     localStorage.removeItem('authToken');
     localStorage.removeItem('authUser');
+    escolasStore.escolas = []; // <<< Limpa a lista de escolas no logout
     // Força recarga completa para garantir limpeza de estado e ir para login
     window.location.href = '/login';
     // Ou usar router.push, mas a recarga é mais garantida:
     // router.push({ name: 'Login' }).then(() => { router.go(0); }); // Tenta navegar e recarregar
-}
+};
+
+// <<< Buscar escolas quando o componente for montado >>>
+onMounted(() => {
+    // Só busca se não estiver na página de login
+    if (!isLoginPage.value) {
+        escolasStore.fetchEscolas();
+    }
+});
 
 </script>
 
@@ -262,6 +300,63 @@ body { font-family: 'Inter', sans-serif; background-color: var(--content-bg-colo
 .fade-leave-active { transition: opacity 0.2s ease; }
 .fade-enter-from,
 .fade-leave-to { opacity: 0; }
+
+/* Estilo para o divisor (opcional) */
+.sidebar-divider {
+    border: 0;
+    height: 1px;
+    background-color: rgba(255, 255, 255, 0.1);
+    margin: 1rem 1rem; /* Ajuste as margens */
+}
+
+/* Estilo para o título da seção (opcional) */
+.menu-section-title {
+    padding: 0.5rem 1.5rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #9ca3af; /* Cinza claro */
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-top: 0.5rem;
+    white-space: nowrap;
+    overflow: hidden;
+}
+.sidebar.collapsed .menu-section-title {
+    display: none; /* Ou mostrar só um ícone/letra */
+}
+
+/* Estilo para item de carregamento (opcional) */
+.loading-item {
+    display: flex;
+    align-items: center;
+    padding: 0.8rem 1.5rem;
+    color: var(--sidebar-text-color);
+    opacity: 0.7;
+    cursor: default;
+}
+.sidebar.collapsed .loading-item {
+    justify-content: center;
+     padding: 0.8rem 0;
+}
+.sidebar.collapsed .loading-item .menu-item-text {
+    display: none;
+}
+
+/* Bootstrap spinner (adicione se não estiver usando Bootstrap globalmente) */
+.spinner-border {
+    display: inline-block;
+    width: 1rem;
+    height: 1rem;
+    vertical-align: text-bottom;
+    border: .2em solid currentColor;
+    border-right-color: transparent;
+    border-radius: 50%;
+    -webkit-animation: spinner-border .75s linear infinite;
+    animation: spinner-border .75s linear infinite;
+}
+@keyframes spinner-border {
+  to { transform: rotate(360deg); }
+}
 
 
 /* --- Responsividade --- */

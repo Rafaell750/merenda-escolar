@@ -18,6 +18,7 @@ const { authenticateToken, authorizeAdmin } = require('./middleware/authMiddlewa
 const authRoutes = require('./routes/authRoutes');
 const userRoutes = require('./routes/userRoutes');
 const produtoRoutes = require('./routes/produtoRoutes');
+const escolaRoutes = require('./routes/escolaRoutes');
 
 // --- 2. Inicialização do Express ---
 const app = express();
@@ -38,6 +39,9 @@ app.use('/api/auth', authRoutes);
 
 // Rotas de Produtos - Protegidas por autenticação
 app.use('/api/produtos', authenticateToken, produtoRoutes);
+
+// Rotas de escolas
+app.use('/api/escolas', authenticateToken, escolaRoutes);
 
 // Rotas de Usuários (proteção interna nas rotas específicas que precisam)
 app.use('/api/users', userRoutes);
@@ -90,6 +94,14 @@ async function setupDatabase() {
         data_cadastro DATETIME DEFAULT CURRENT_TIMESTAMP
     );`;
 
+    const createEscolasTableSql = `
+    CREATE TABLE IF NOT EXISTS escolas (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        nome TEXT NOT NULL UNIQUE,
+        endereco TEXT,
+        data_cadastro DATETIME DEFAULT CURRENT_TIMESTAMP
+    );`;
+
     // Usar a instância 'db' importada de dbConnection.js
     db.serialize(() => {
         db.run(createProdutosTableSql, (err) => {
@@ -133,6 +145,12 @@ async function setupDatabase() {
                     }
                 });
             }
+        });
+                
+        // <<< NOVO: Executar SQL para tabela de escolas >>>
+        db.run(createEscolasTableSql, (err) => {
+        if (err) console.error('Erro ao criar/verificar tabela "escolas":', err.message);
+        else console.log('Tabela "escolas" verificada/criada com sucesso.');
         });
     });
      console.log("Setup do banco de dados concluído."); // Log para saber que terminou

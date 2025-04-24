@@ -2,6 +2,7 @@
 import { createRouter, createWebHistory } from 'vue-router';
 import LoginView from '../views/LoginView.vue'; // Importar Login
 import RegisterUserView from '../views/admin/RegisterUserView.vue'; // Importar Cadastro
+import EscolaDetalhesView from '../views/EscolaDetalhesView.vue'; // <<< NOVO
 
 // --- Função Helper para verificar Auth (exemplo com localStorage) ---
 function isAuthenticated() {
@@ -42,6 +43,19 @@ const router = createRouter({
       component: LoginView,
       meta: { requiresGuest: true } // Para redirecionar se já estiver logado
     },
+    {
+      path: '/escolas/:id', // Rota dinâmica para cada escola
+      name: 'EscolaDetalhes',
+      component: EscolaDetalhesView,
+      props: true, // Passa o :id como prop para o componente
+      meta: { requiresAuth: true }
+    },
+     // --- Rota de Não Autorizado (opcional mas recomendado) ---
+     {
+        path: '/unauthorized',
+        name: 'Unauthorized',
+        component: () => import('../views/UnauthorizedView.vue') // Crie esta view simples
+     },
     {
       path: '/admin/register-user', // Rota de cadastro
       name: 'RegisterUser',
