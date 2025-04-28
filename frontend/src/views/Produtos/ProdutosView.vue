@@ -1,4 +1,4 @@
-<!-- /frontend/src/views/ProdutosView.vue -->
+<!-- /frontend/src/views/Produtos/ProdutosView.vue -->
 <template>
     <div class="produtos-view">
       <header class="page-header">
@@ -170,7 +170,7 @@
   <script setup>
   import { ref, onMounted, computed } from 'vue'; // Importa 'computed'
   import { useToast } from "vue-toastification";
-  import ProdutoFiltros from '../views/ProdutoFiltros.vue'; // Importa o novo componente (ajuste o caminho se necessário)
+  import ProdutoFiltros from './ProdutoFiltros.vue'; // Importa o novo componente (ajuste o caminho se necessário)
 
   const toast = useToast();
   const isFormExpanded = ref(false); // Começa recolhido (false)
@@ -438,6 +438,6 @@
   </script>
 
   <!-- Mantém o link para o CSS externo -->
-  <style scoped src="./CSS/ProdutosView.css"></style>
+  <style scoped src="../CSS/ProdutosView.css"></style>
 
   

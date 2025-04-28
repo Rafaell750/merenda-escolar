@@ -1,3 +1,4 @@
+<!-- /frontend/src/views/Escolas/CadastroEscolasView.vue -->
 <template>
     <div class="cadastro-escolas-container">
       <h1>Cadastro de Nova Escola</h1>

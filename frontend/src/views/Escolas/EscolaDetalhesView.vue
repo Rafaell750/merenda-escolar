@@ -1,3 +1,4 @@
+<!-- /frontend/src/views/Escolas/EscolaDetalhesView.vue -->
 <template>
     <div class="escola-detalhes-container">
       <h1>Escola: {{ escolaNome || 'Carregando...' }}</h1>

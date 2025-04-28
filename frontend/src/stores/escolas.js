@@ -123,8 +123,6 @@ export const useEscolasStore = defineStore('escolas', {
                  const dataToSend = {
                      nome: escolaData.nome,
                      endereco: escolaData.endereco,
-                     cidade: escolaData.cidade,
-                     uf: escolaData.uf,
                      responsavel: escolaData.responsavel
                  };
 

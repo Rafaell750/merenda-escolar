@@ -7,20 +7,18 @@ const router = express.Router();
 
 // --- ROTA POST /api/escolas - Cadastrar Nova Escola ---
 router.post('/', async (req, res) => {
-    const { nome, endereco, cidade, uf, responsavel } = req.body;
+    const { nome, endereco, responsavel } = req.body;
 
     // Validação básica
     if (!nome || typeof nome !== 'string' || nome.trim() === '') {
         return res.status(400).json({ message: 'O nome da escola é obrigatório.' });
     }
 
-    const sql = `INSERT INTO escolas (nome, endereco, cidade, uf, responsavel) VALUES (?, ?, ?, ?, ?)`;
+    const sql = `INSERT INTO escolas (nome, endereco, responsavel) VALUES (?, ?, ?, ?, ?)`;
     // Salva null se os campos opcionais estiverem vazios/undefined
     const params = [
         nome.trim(),
         endereco || null,
-        cidade || null,
-        uf || null,
         responsavel || null
     ];
 
@@ -37,8 +35,6 @@ router.post('/', async (req, res) => {
             id: this.lastID,
             nome: nome.trim(),
             endereco: endereco || null,
-            cidade: cidade || null,
-            uf: uf || null,
             responsavel: responsavel || null
         });
     });
@@ -48,7 +44,7 @@ router.post('/', async (req, res) => {
 // *** MODIFICADO: Retorna mais campos para edição ***
 router.get('/', (req, res) => {
     // Seleciona todas as colunas necessárias para a lista e edição
-    const sql = "SELECT id, nome, endereco, cidade, uf, responsavel FROM escolas ORDER BY nome";
+    const sql = "SELECT id, nome, endereco, responsavel FROM escolas ORDER BY nome";
 
     db.all(sql, [], (err, rows) => {
         if (err) {
@@ -108,7 +104,7 @@ router.delete('/:id', (req, res) => {
 // *** IMPLEMENTADO/REFINADO ***
 router.put('/:id', (req, res) => {
     const id = parseInt(req.params.id, 10);
-    const { nome, endereco, cidade, uf, responsavel } = req.body;
+    const { nome, endereco, responsavel } = req.body;
 
     // Validação
     if (isNaN(id)) {
@@ -125,15 +121,11 @@ router.put('/:id', (req, res) => {
     const sql = `UPDATE escolas SET
                     nome = ?,
                     endereco = ?,
-                    cidade = ?,
-                    uf = ?,
                     responsavel = ?
                  WHERE id = ?`;
     const params = [
         nome.trim(),
         endereco || null,
-        cidade || null,
-        uf || null,
         responsavel || null,
         id
     ];
@@ -155,8 +147,6 @@ router.put('/:id', (req, res) => {
              id: id,
              nome: nome.trim(),
              endereco: endereco || null,
-             cidade: cidade || null,
-             uf: uf || null,
              responsavel: responsavel || null
             });
     });

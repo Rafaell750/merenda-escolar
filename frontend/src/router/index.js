@@ -2,7 +2,7 @@
 import { createRouter, createWebHistory } from 'vue-router';
 import LoginView from '../views/LoginView.vue'; // Importar Login
 import RegisterUserView from '../views/admin/RegisterUserView.vue'; // Importar Cadastro
-import EscolaDetalhesView from '../views/EscolaDetalhesView.vue'; // <<< NOVO
+import EscolaDetalhesView from '../views/Escolas/EscolaDetalhesView.vue'; // <<< NOVO
 
 // --- Função Helper para verificar Auth (exemplo com localStorage) ---
 function isAuthenticated() {
@@ -28,13 +28,13 @@ const router = createRouter({
     {
       path: '/',
       name: 'painelControle',
-      component: () => import('../views/PainelControleView.vue'),
+      component: () => import('../views/Escolas/PainelControleView.vue'),
       meta: { requiresAuth: true }
     },
     {
       path: '/produtos', // Rota para a nova view
       name: 'produtos',
-      component: () => import('../views/ProdutosView.vue'), // Aponta para o novo componente
+      component: () => import('../views/Produtos/ProdutosView.vue'), // Aponta para o novo componente
       meta: { requiresAuth: true }
     },
     {

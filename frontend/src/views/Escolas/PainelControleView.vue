@@ -1,4 +1,4 @@
-<!-- /frontend/src/components/PainelControleView.vue -->
+<!-- /frontend/src/views/Escolas/PainelControleView.vue -->
 <template>
   <div class="painel-controle-content">
     <!-- Cabeçalho da Página -->
@@ -36,8 +36,8 @@
           <li v-for="escola in escolasStore.listaEscolas" :key="escola.id" class="escola-item">
             <div class="escola-info">
                 <span class="escola-nome">{{ escola.nome }}</span>
-                <span class="escola-detalhe" v-if="escola.cidade || escola.endereco">
-                  {{ escola.cidade }}{{ escola.uf ? `/${escola.uf}` : '' }}{{ escola.endereco ? ` - ${escola.endereco}` : '' }}
+                <span class="escola-detalhe" v-if="escola.endereco"> <!-- Apenas endereço -->
+                  {{ escola.endereco }}
                 </span>
                 <span class="escola-detalhe" v-if="escola.responsavel">Responsável: {{ escola.responsavel }}</span>
             </div>
@@ -59,59 +59,50 @@
       </section>
       <!-- Fim da Seção Lista (Bloco 1) -->
 
-      <!-- Bloco 2: Formulário (Visível Condicionalmente) -->
+      <!-- Bloco 2: Formulário (Visível Condicionalmente com Transição) -->
       <transition name="form-slide-fade">
-      <section v-if="isFormExpanded" class="form-section card" :key="formMode">
-        <div class="form-header">
-          <h2>{{ isEditing ? `Editando Escola: ${formData.nome || '...'}` : 'Cadastrar Nova Escola' }}</h2>
-          <button @click="closeFormPanel" class="btn-toggle-form btn-close" title="Fechar Formulário">
-             <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" class="bi bi-x-lg" viewBox="0 0 16 16">
-               <path d="M2.146 2.854a.5.5 0 1 1 .708-.708L8 7.293l5.146-5.147a.5.5 0 0 1 .708.708L8.707 8l5.147 5.146a.5.5 0 0 1-.708.708L8 8.707l-5.146 5.147a.5.5 0 0 1-.708-.708L7.293 8z"/>
-            </svg>
-          </button>
-        </div>
+        <section v-if="isFormExpanded" class="form-section card" :key="formMode">
+          <div class="form-header">
+            <h2>{{ isEditing ? `Editando Escola: ${formData.nome || '...'}` : 'Cadastrar Nova Escola' }}</h2>
+            <button @click="closeFormPanel" class="btn-toggle-form btn-close" title="Fechar Formulário">
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" class="bi bi-x-lg" viewBox="0 0 16 16">
+                <path d="M2.146 2.854a.5.5 0 1 1 .708-.708L8 7.293l5.146-5.147a.5.5 0 0 1 .708.708L8.707 8l5.147 5.146a.5.5 0 0 1-.708.708L8 8.707l-5.146 5.147a.5.5 0 0 1-.708-.708L7.293 8z"/>
+              </svg>
+            </button>
+          </div>
 
-        <div class="form-content">
-          <form @submit.prevent="handleSubmit" class="escola-form">
-            <!-- Campos do formulário (iguais a antes) -->
-             <div class="form-group">
-              <label for="form-nome">Nome da Escola <span class="required">*</span></label>
-              <input type="text" id="form-nome" v-model="formData.nome" required>
-            </div>
-            <div class="form-group">
-              <label for="form-endereco">Endereço</label>
-              <input type="text" id="form-endereco" v-model="formData.endereco">
-            </div>
-            <div class="form-row">
+          <div class="form-content">
+            <form @submit.prevent="handleSubmit" class="escola-form">
+              <!-- Campos do formulário -->
               <div class="form-group">
-                <label for="form-cidade">Cidade</label>
-                <input type="text" id="form-cidade" v-model="formData.cidade">
+                <label for="form-nome">Nome da Escola <span class="required">*</span></label>
+                <input type="text" id="form-nome" v-model="formData.nome" required>
               </div>
               <div class="form-group">
-                <label for="form-uf">UF</label>
-                <input type="text" id="form-uf" v-model="formData.uf" maxlength="2">
+                <label for="form-endereco">Endereço</label>
+                <input type="text" id="form-endereco" v-model="formData.endereco">
               </div>
-            </div>
-            <div class="form-group">
-              <label for="form-responsavel">Responsável</label>
-              <input type="text" id="form-responsavel" v-model="formData.responsavel">
-            </div>
+              <!-- Campos de Cidade e UF foram removidos -->
+              <div class="form-group">
+                <label for="form-responsavel">Responsável</label>
+                <input type="text" id="form-responsavel" v-model="formData.responsavel">
+              </div>
 
-            <div v-if="formError" class="error-message"> {{ formError }} </div>
-            <div v-if="formSuccessMessage" class="success-message"> {{ formSuccessMessage }} </div>
+              <div v-if="formError" class="error-message"> {{ formError }} </div>
+              <div v-if="formSuccessMessage" class="success-message"> {{ formSuccessMessage }} </div>
 
-            <div class="form-actions">
-                <button v-if="isEditing" type="button" @click="cancelEdit" class="btn-cancel">
-                  Cancelar Edição
-                </button>
-                <button type="submit" :disabled="escolasStore.isLoading" class="submit-button">
-                  {{ isEditing ? (escolasStore.isLoading ? 'Salvando...' : 'Salvar Alterações') : (escolasStore.isLoading ? 'Cadastrando...' : 'Cadastrar Escola') }}
-                </button>
-            </div>
-          </form>
-        </div>
-      </section>
-    </transition>
+              <div class="form-actions">
+                  <button v-if="isEditing" type="button" @click="cancelEdit" class="btn-cancel">
+                    Cancelar Edição
+                  </button>
+                  <button type="submit" :disabled="escolasStore.isLoading" class="submit-button">
+                    {{ isEditing ? (escolasStore.isLoading ? 'Salvando...' : 'Salvar Alterações') : (escolasStore.isLoading ? 'Cadastrando...' : 'Cadastrar Escola') }}
+                  </button>
+              </div>
+            </form>
+          </div>
+        </section>
+      </transition>
       <!-- Fim da Seção Formulário (Bloco 2) -->
 
     </div> <!-- Fim do .main-layout -->
@@ -126,10 +117,11 @@ import { useEscolasStore } from '@/stores/escolas';
 const escolasStore = useEscolasStore();
 
 // --- Estado ---
-const isFormExpanded = ref(false); // Controla visibilidade do PAINEL do formulário
+const isFormExpanded = ref(false);
 const isEditing = ref(false);
 const editingEscolaId = ref(null);
-const formData = ref({ nome: '', endereco: '', cidade: '', uf: '', responsavel: '' });
+// formData agora sem cidade e uf
+const formData = ref({ nome: '', endereco: '', responsavel: '' });
 const formError = ref('');
 const formSuccessMessage = ref('');
 const listError = ref('');
@@ -138,27 +130,26 @@ const listError = ref('');
 const resetForm = () => {
     isEditing.value = false;
     editingEscolaId.value = null;
-    formData.value = { nome: '', endereco: '', cidade: '', uf: '', responsavel: '' };
+    // Reseta para a estrutura atualizada
+    formData.value = { nome: '', endereco: '', responsavel: '' };
     formError.value = '';
-    // Não limpa a mensagem de sucesso aqui, para dar tempo de ver
-    // Não mexe em isFormExpanded aqui
 };
 
-// Abre o painel do formulário para ADICIONAR
 const openFormPanel = () => {
-    resetForm(); // Limpa dados anteriores
-    formSuccessMessage.value = ''; // Limpa msg de sucesso anterior
+    resetForm();
+    formSuccessMessage.value = '';
     isFormExpanded.value = true;
     nextTick(() => {
         document.getElementById('form-nome')?.focus();
     });
 };
 
-// Fecha o painel do formulário
 const closeFormPanel = () => {
     isFormExpanded.value = false;
-    resetForm(); // Garante que o estado de edição seja limpo ao fechar
-    formSuccessMessage.value = ''; // Limpa msg ao fechar
+    setTimeout(() => {
+        resetForm();
+        formSuccessMessage.value = '';
+    }, 300); // Delay para animação
 };
 
 // --- Lógica Cadastro ---
@@ -166,34 +157,38 @@ const submitCadastro = async () => {
     formError.value = '';
     formSuccessMessage.value = '';
     try {
+        // Envia o formData atualizado (sem cidade/uf)
         const novaEscola = await escolasStore.addEscola(formData.value);
         formSuccessMessage.value = `Escola "${novaEscola.nome}" cadastrada com sucesso!`;
-        resetForm(); // Limpa os campos do form após sucesso
-        // Mantém o painel aberto por um tempo para ver a msg, depois fecha
+        resetForm();
         setTimeout(() => {
-            closeFormPanel();
+             if (isFormExpanded.value) {
+                closeFormPanel();
+             }
         }, 2000);
     } catch (error) {
         console.error("Falha no cadastro:", error.message);
         formError.value = error.message || 'Falha ao cadastrar escola.';
-        // Não fecha em caso de erro
     }
 };
 
 // --- Lógica Edição ---
 const startEdit = (escola) => {
-    resetForm(); // Limpa estado anterior
-    formSuccessMessage.value = ''; // Limpa msg de sucesso anterior
-    const escolaDataCopy = JSON.parse(JSON.stringify(escola));
+    resetForm();
+    formSuccessMessage.value = '';
+    // Copia apenas os campos existentes no formData atual
+    const escolaDataCopy = {
+        nome: escola.nome,
+        endereco: escola.endereco || '', // Garante que seja string vazia se não existir
+        responsavel: escola.responsavel || ''
+    };
     formData.value = escolaDataCopy;
     isEditing.value = true;
     editingEscolaId.value = escola.id;
-    isFormExpanded.value = true; // Abre/Garante que o painel esteja visível
+    isFormExpanded.value = true;
 
     nextTick(() => {
         document.getElementById('form-nome')?.focus();
-        // Scroll opcional para o formulário se a página for longa
-        // document.querySelector('.form-section')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     });
 };
 
@@ -203,26 +198,25 @@ const submitUpdate = async () => {
     if (!editingEscolaId.value) return;
 
     try {
+         // Envia o formData atualizado (sem cidade/uf)
         const escolaAtualizada = await escolasStore.updateEscola(editingEscolaId.value, formData.value);
         formSuccessMessage.value = `Escola "${escolaAtualizada.nome}" atualizada com sucesso!`;
-        resetForm(); // Limpa estado de edição após sucesso
-         // Mantém o painel aberto por um tempo para ver a msg, depois fecha
+        resetForm();
         setTimeout(() => {
-           closeFormPanel();
+           if (isFormExpanded.value) {
+              closeFormPanel();
+           }
         }, 2000);
     } catch (error) {
         console.error("Falha na atualização:", error.message);
         formError.value = error.message || 'Falha ao atualizar escola.';
-        // Não fecha em caso de erro
     }
 };
 
-// Chamado pelo botão "Cancelar Edição"
 const cancelEdit = () => {
-    closeFormPanel(); // Fecha o painel e reseta
+    closeFormPanel();
 };
 
-// Função unificada para o submit do formulário
 const handleSubmit = () => {
     if (isEditing.value) {
         submitUpdate();
@@ -236,8 +230,6 @@ const formMode = computed(() => isEditing.value ? `edit-${editingEscolaId.value}
 // --- Lógica Exclusão ---
 const confirmDeleteEscola = async (id, nome) => {
     listError.value = '';
-    // Não permite excluir se o formulário estiver aberto (editando ou adicionando)
-    // Isso simplifica o estado e evita exclusão acidental enquanto digita
     if (isFormExpanded.value) {
         listError.value = "Feche o painel de cadastro/edição antes de excluir.";
         setTimeout(() => { listError.value = ''; }, 3500);
@@ -247,9 +239,6 @@ const confirmDeleteEscola = async (id, nome) => {
     if (confirm(`Tem certeza que deseja excluir a escola "${nome}"? Esta ação não pode ser desfeita.`)) {
         try {
             await escolasStore.deleteEscola(id);
-            // Opcional: mostrar mensagem de sucesso na lista
-            // listSuccessMessage.value = `Escola "${nome}" excluída.`;
-            // setTimeout(() => { listSuccessMessage.value = ''; }, 3000);
         } catch (error) {
             console.error("Erro ao excluir escola (View):", error);
             listError.value = error.message || `Falha ao excluir a escola "${nome}".`;
@@ -270,7 +259,7 @@ onMounted(() => {
 
 <style scoped>
 /* --- Estilos Gerais --- */
-.painel-controle-content { width: 100%; max-width: 1400px; /* Aumentado um pouco mais */ margin: 0 auto; padding: 1rem; }
+.painel-controle-content { width: 100%; max-width: 1400px; margin: 0 auto; padding: 1rem; }
 .page-header { margin-bottom: 1.5rem; text-align: center; }
 .page-header h1 { color: #2c3e50; font-size: 1.8rem; font-weight: 600; }
 .card { background: white; border-radius: 8px; padding: 1.5rem; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08); display: flex; flex-direction: column; }
@@ -286,22 +275,22 @@ onMounted(() => {
 .lista-escolas-section {
   flex: 1 1 auto; /* Cresce e encolhe, baseia-se no conteúdo */
   min-width: 350px; /* Largura mínima para a lista */
-  /* A altura será determinada pelo conteúdo */
+  transition: flex-basis 0.4s ease-out; /* Anima a mudança de tamanho da lista */
 }
 .list-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
   margin-bottom: 1.5rem;
-  flex-wrap: wrap; /* Permite quebrar linha se não couber */
+  flex-wrap: wrap;
   gap: 1rem;
 }
 .list-header h2 {
   color: #2c3e50;
-  margin-bottom: 0; /* Controlado pelo gap do .list-header */
+  margin-bottom: 0;
   font-size: 1.5rem;
   font-weight: 600;
-  flex-grow: 1; /* Tenta ocupar espaço */
+  flex-grow: 1;
 }
 .btn-add-new {
   background-color: #007bff;
@@ -316,20 +305,19 @@ onMounted(() => {
   align-items: center;
   gap: 0.4rem;
   transition: background-color 0.2s ease, opacity 0.2s ease;
-  flex-shrink: 0; /* Não encolhe */
+  flex-shrink: 0;
 }
 .btn-add-new:hover:not(:disabled) { background-color: #0056b3; }
 .btn-add-new:disabled { background-color: #6c757d; opacity: 0.6; cursor: not-allowed; }
 .btn-add-new svg { width: 1em; height: 1em; }
 
-/* Conteúdo da Lista (mensagens, ul) */
-.loading-message, .empty-list-message { text-align: center; padding: 1.5rem; color: #5a6a7a; font-style: italic; flex-grow: 1; /* Ocupa espaço vertical se a lista estiver vazia */ }
+.loading-message, .empty-list-message { text-align: center; padding: 1.5rem; color: #5a6a7a; font-style: italic; flex-grow: 1; }
 .loading-message .spinner-border { margin-right: 0.5rem; vertical-align: middle; width: 1.2rem; height: 1.2rem;}
-.error-message { /* Reutilizado para erros da lista */
+.error-message {
     padding: 0.7rem; border-radius: 4px; margin-top: 0.8rem; text-align: center; border: 1px solid transparent; font-size: 0.85rem;
     color: #721c24; background-color: #f8d7da; border-color: #f5c6cb;
 }
-.escolas-list { list-style: none; padding: 0; margin: 0; /* Não precisa de flex-grow aqui, os itens preenchem */ }
+.escolas-list { list-style: none; padding: 0; margin: 0; }
 .escola-item { display: flex; justify-content: space-between; align-items: center; padding: 0.8rem 0; border-bottom: 1px solid #eee; flex-wrap: wrap; gap: 0.5rem; }
 .escola-item:last-child { border-bottom: none; }
 .escola-info { display: flex; flex-direction: column; flex-grow: 1; margin-right: 1rem; gap: 0.2rem; }
@@ -343,23 +331,22 @@ onMounted(() => {
 .btn-delete { color: #dc3545; border-color: #dc3545; }
 .btn-delete:hover:not(:disabled) { background-color: #dc3545; color: white; }
 .action-buttons button:disabled { cursor: not-allowed; opacity: 0.5; }
-.list-error-margin { margin-top: 1rem; } /* Margem para erro no final da lista */
+.list-error-margin { margin-top: 1rem; }
 
 
 /* --- Bloco 2: Formulário --- */
 .form-section {
-  flex: 0 0 450px; /* Não cresce, não encolhe, largura fixa */
-  max-width: 450px; /* Garante que não exceda */
-  /* Altura será determinada pelo conteúdo */
-   /* Adiciona uma leve sombra para destacar quando aparece */
-   box-shadow: 0 6px 15px rgba(0, 0, 0, 0.1);
+  flex: 0 0 450px;
+  max-width: 450px;
+  box-shadow: 0 6px 15px rgba(0, 0, 0, 0.1);
+  /* A transição é aplicada pelo wrapper <transition> */
 }
 .form-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
   margin-bottom: 1.5rem;
-  flex-wrap: nowrap; /* Evita quebra de linha aqui */
+  flex-wrap: nowrap;
   gap: 1rem;
 }
 .form-section h2 {
@@ -368,15 +355,15 @@ onMounted(() => {
   margin-bottom: 0;
   font-size: 1.4rem;
   font-weight: 600;
-  white-space: nowrap; /* Evita quebra de linha do título */
+  white-space: nowrap;
   overflow: hidden;
-  text-overflow: ellipsis; /* Adiciona '...' se o título for muito longo */
+  text-overflow: ellipsis;
 }
-.btn-toggle-form.btn-close { /* Botão X para fechar */
+.btn-toggle-form.btn-close {
   background: none;
   border: none;
   color: #6c757d;
-  padding: 0.2rem; /* Menor padding */
+  padding: 0.2rem;
   border-radius: 50%;
   cursor: pointer;
   display: inline-flex;
@@ -384,27 +371,25 @@ onMounted(() => {
   justify-content: center;
   transition: background-color 0.2s ease, color 0.2s ease;
   flex-shrink: 0;
-  width: 28px; /* Tamanho fixo */
+  width: 28px;
   height: 28px;
 }
 .btn-toggle-form.btn-close:hover { background-color: #f1f1f1; color: #333; }
 .btn-toggle-form.btn-close svg { width: 1em; height: 1em; }
 
-.form-content { overflow-y: auto; /* Scroll se necessário */ }
-.escola-form { display: flex; flex-direction: column; gap: 0.8rem; }
+.form-content { overflow-y: auto; }
+.escola-form { display: flex; flex-direction: column; gap: 0.8rem; } /* Reduzido gap */
 .form-group { display: flex; flex-direction: column; }
-.form-row { display: flex; gap: 1rem; flex-wrap: wrap; }
-.form-row .form-group { flex: 1; min-width: 120px; }
+/* .form-row não é mais usado */
 label { margin-bottom: 0.3rem; font-weight: 500; color: #555; font-size: 0.9rem; }
 input[type="text"] { padding: 0.6rem; border: 1px solid #ccc; border-radius: 4px; font-size: 0.95rem; }
 input[type="text"]:focus { outline: none; border-color: #34d399; box-shadow: 0 0 0 2px rgba(52, 211, 153, 0.25); }
 .required { color: red; margin-left: 2px; }
-/* Mensagens de Erro/Sucesso do Formulário */
 .form-section .error-message, .form-section .success-message { padding: 0.7rem; border-radius: 4px; margin-top: 0.8rem; text-align: center; border: 1px solid transparent; font-size: 0.85rem; }
 .form-section .error-message { color: #721c24; background-color: #f8d7da; border-color: #f5c6cb; }
 .form-section .success-message { color: #155724; background-color: #d4edda; border-color: #c3e6cb; }
 
-.form-actions { display: flex; justify-content: flex-end; gap: 0.8rem; margin-top: 1rem; flex-wrap: wrap; padding-top: 1rem; border-top: 1px solid #eee; /* Linha separadora */ }
+.form-actions { display: flex; justify-content: flex-end; gap: 0.8rem; margin-top: 1rem; flex-wrap: wrap; padding-top: 1rem; border-top: 1px solid #eee; }
 .form-actions button { padding: 0.7rem 1.2rem; border: none; border-radius: 4px; cursor: pointer; font-size: 0.9rem; font-weight: 500; transition: background-color 0.2s ease, opacity 0.2s ease; min-width: 110px; }
 .submit-button { background-color: #28a745; color: white; }
 .submit-button:hover:not(:disabled) { background-color: #218838; }
@@ -413,19 +398,19 @@ input[type="text"]:focus { outline: none; border-color: #34d399; box-shadow: 0 0
 .btn-cancel:hover { background-color: #5a6268; }
 
 /* --- Responsividade --- */
-@media (max-width: 992px) { /* Ponto onde o layout quebra para coluna */
+@media (max-width: 992px) {
   .main-layout {
-    flex-direction: column; /* Empilha */
+    flex-direction: column;
   }
   .form-section {
-    flex-basis: auto; /* Reseta base flex */
-    width: 100%; /* Ocupa largura total */
-    max-width: 100%; /* Garante que o max-width fixo não atrapalhe */
-    order: 2; /* Garante que o formulário venha depois da lista no DOM visual */
+    flex-basis: auto;
+    width: 100%;
+    max-width: 100%;
+    order: 2;
   }
    .lista-escolas-section {
-     order: 1; /* Garante que a lista venha primeiro */
-     min-width: unset; /* Remove largura mínima */
+     order: 1;
+     min-width: unset;
    }
 }
 
@@ -435,8 +420,8 @@ input[type="text"]:focus { outline: none; border-color: #34d399; box-shadow: 0 0
 }
 
 @media (max-width: 600px) {
-  .list-header { flex-direction: column; align-items: flex-start; } /* Empilha título e botão */
-  .btn-add-new { width: 100%; justify-content: center; } /* Botão ocupa largura */
+  .list-header { flex-direction: column; align-items: flex-start; }
+  .btn-add-new { width: 100%; justify-content: center; }
   .escola-info { margin-right: 0; margin-bottom: 0.8rem; width: 100%;}
   .action-buttons { width: 100%; justify-content: flex-end; }
 }
@@ -449,32 +434,25 @@ input[type="text"]:focus { outline: none; border-color: #34d399; box-shadow: 0 0
     .form-actions button { width: 100%; }
 }
 
-/* Estilos de entrada (aparecendo) */
+/* --- Transições --- */
 .form-slide-fade-enter-active {
-  transition: all 1.0s ease-out; /* Duração e easing da entrada */
+  transition: all 0.4s ease-out;
 }
-.form-slide-fade-enter-from {
-  transform: translateX(30px); /* Começa ligeiramente à direita */
-  opacity: 0;                 /* Começa transparente */
+.form-slide-fade-leave-active {
+  transition: all 0.3s ease-in;
+  /* position: absolute; */ /* Teste se necessário */
 }
-.form-slide-fade-enter-to {
-  transform: translateX(0);   /* Termina na posição normal */
-  opacity: 1;                 /* Termina opaco */
+.form-slide-fade-enter-from,
+.form-slide-fade-leave-to {
+  transform: translateX(30px);
+  opacity: 0;
+}
+.form-slide-fade-enter-to,
+.form-slide-fade-leave-from {
+  transform: translateX(0);
+  opacity: 1;
 }
 
-/* Estilos de saída (desaparecendo) */
-.form-slide-fade-leave-active {
-  transition: all 0.5s ease-in; /* Duração e easing da saída (pode ser mais rápido) */
-  /* position: absolute; */ /* Opcional: pode ajudar a evitar que a lista "salte" imediatamente */
-}
-.form-slide-fade-leave-from {
-  transform: translateX(0);   /* Começa na posição normal */
-  opacity: 1;                 /* Começa opaco */
-}
-.form-slide-fade-leave-to {
-  transform: translateX(30px); /* Termina ligeiramente à direita */
-  opacity: 0;                 /* Termina transparente */
-}
 
 /* Spinner (mantido) */
 .spinner-border{display:inline-block;width:1rem;height:1rem;vertical-align:text-bottom;border:.2em solid currentColor;border-right-color:transparent;border-radius:50%;-webkit-animation:spinner-border .75s linear infinite;animation:spinner-border .75s linear infinite}@keyframes spinner-border{to{transform:rotate(360deg)}}.spinner-border-sm{width:1rem;height:1rem;border-width:.2em}

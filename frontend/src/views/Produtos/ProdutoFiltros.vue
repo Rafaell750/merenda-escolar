@@ -1,4 +1,4 @@
-<!-- /frontend/src/components/ProdutoFiltros.vue -->
+<!-- /frontend/src/views/Produtos/ProdutoFiltros.vue -->
 <template>
     <div class="card filter-card">
       <h3 class="card-title filter-title">Opções de Filtro</h3>
