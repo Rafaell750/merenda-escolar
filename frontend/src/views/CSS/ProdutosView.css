@@ -1,216 +1,191 @@
 /* /frontend/src/views/CSS/ProdutosView.css */
   
-  /* ======================================== */
-  /* Estilos Gerais da View e Cabeçalho       */
-  /* ======================================== */
-  
-  .produtos-view {
+/* ======================================== */
+/* Estilos Gerais da View e Cabeçalho       */
+/* ======================================== */
+
+.produtos-view {
     --form-row-gap: 0.4rem;
-    max-width: 1150px; /* Aumenta um pouco mais a largura máxima para comportar colunas */
+    max-width: 1150px;
     width: 100%;
     margin: 2rem auto 3rem auto;
     padding: 0 1rem;
     box-sizing: border-box;
-  }
-  
-  .page-header {
+}
+
+.page-header {
     margin-bottom: 1.8rem;
     text-align: center;
     padding-bottom: 1rem;
     border-bottom: 2px solid #e2e8f0;
-  }
-  
-  .page-header h1 {
+}
+
+.page-header h1 {
     color: #1a202c;
     font-size: 2rem;
     font-weight: 700;
-  }
-  
-  .content-area {
+}
+
+.content-area {
     width: 100%;
     display: flex;
     flex-direction: column;
     gap: 2.5rem;
-  }
-  
-  /* ======================================== */
-  /* Card Base (Aplicado a ambos os cards)    */
-  /* ======================================== */
-  
-  .card {
+}
+
+/* ======================================== */
+/* Card Base (Aplicado a todos os cards)    */
+/* ======================================== */
+
+.card {
     background: #ffffff;
     border-radius: 12px;
     box-shadow: 0 6px 18px rgba(0, 0, 0, 0.07);
     border: 1px solid #e2e8f0;
-    overflow: hidden;
-  }
-  
-  /* ======================================== */
-  /* Card do Formulário de Cadastro         */
-  /* ======================================== */
-  
-  .card.form-card {
-    padding: 0; /* Mover padding para dentro se necessário ou ajustar */
-    /* overflow: hidden; /* Mantém overflow hidden no card PAI */
-  }
-  
-  .form-card-header {
+    overflow: hidden; /* MANTENHA ISSO */
+}
+
+/* ======================================== */
+/* Card do Formulário de Cadastro         */
+/* ======================================== */
+
+.card.form-card {
+    padding: 0;
+}
+
+.form-card-header {
     display: flex;
-    justify-content: flex-start;
-    /* align-items: center; */  /* Mude de center */
-    align-items: baseline; /* <<< PARA baseline */
-    padding: 1.5rem 2.5rem;
+    justify-content: space-between; /* Alterado para space-between */
+    align-items: center; /* Centraliza verticalmente */
+    padding: 1.5rem 2rem; /* Ajuste padding */
     border-bottom: 1px solid #e2e8f0;
     cursor: pointer;
-    gap: 0.8rem;
-  }
-  
-  .card-title {
+    gap: 1rem; /* Espaço entre título e botão */
+}
+
+.card-title {
     margin-bottom: 0;
-    /* Opcional: impedir que o título cresça e empurre o ícone */
-    flex-shrink: 0;
-  }
-  
-  .toggle-form-button.icon-only {
+    color: #2d3748;
+    font-size: 1.5rem;
+    font-weight: 600;
+    text-align: left;
+}
+
+.toggle-form-button.icon-only {
     background-color: transparent;
     border: none;
     color: #4a5568;
-    padding: 0;
-    border-radius: 0;
+    padding: 0.3rem; /* Pequeno padding para área de clique */
+    border-radius: 50%;
     cursor: pointer;
-    display: inline-flex; /* Pode ajudar no alinhamento com baseline */
-    align-items: center; /* Centraliza o SVG dentro do botão, se necessário */
+    display: inline-flex;
+    align-items: center;
     justify-content: center;
-    line-height: 1; /* Mantém para o SVG */
-    transition: color 0.2s ease;
-  }
-  
-  .toggle-form-button.icon-only:hover {
+    line-height: 1;
+    transition: color 0.2s ease, background-color 0.2s ease;
+}
+
+.toggle-form-button.icon-only:hover {
     color: #2d3748;
-    background-color: transparent;
-    border-color: transparent;
-  }
-  
-  .toggle-form-button.icon-only svg {
-      width: 1.1em;
-      height: 1.1em;
-      display: block;
-      /* vertical-align: middle; /* Outra opção se baseline não funcionar */
-  }
-  
-  /* --- Estilos para a Transição 'collapse' (Manter como antes) --- */
-  .form-collapsible-content {
+    background-color: #edf2f7; /* Fundo leve no hover */
+}
+
+.toggle-form-button.icon-only svg {
+    width: 1.1em;
+    height: 1.1em;
+    display: block;
+}
+
+/* --- Estilos para a Transição 'collapse' --- */
+.form-collapsible-content {
     padding: 2rem 2.5rem 2.5rem 2.5rem;
     overflow: hidden;
-  }
-  
-  .collapse-enter-active,
-  .collapse-leave-active {
+}
+
+.collapse-enter-active,
+.collapse-leave-active {
     transition: max-height 0.4s ease-in-out, opacity 0.3s ease-in-out, padding-top 0.4s ease-in-out, padding-bottom 0.4s ease-in-out;
     overflow: hidden;
-  }
-  
-  .collapse-enter-from,
-  .collapse-leave-to {
+}
+
+.collapse-enter-from,
+.collapse-leave-to {
     max-height: 0;
     opacity: 0;
     padding-top: 0;
     padding-bottom: 0;
-  }
-  
-  .collapse-enter-to,
-  .collapse-leave-from {
+}
+
+/* Ajuste: Define max-height explicitamente para a animação funcionar bem */
+.collapse-enter-to,
+.collapse-leave-from {
+    max-height: 1000px; /* Ajuste para um valor grande o suficiente */
     opacity: 1;
     padding-top: 2rem;
     padding-bottom: 2.5rem;
-  }
-  
-  .card-title {
-    color: #2d3748;
-    margin: 0 0 2rem 0;
-    font-size: 1.5rem;
-    font-weight: 600;
-    text-align: left;
-  }
-  
-  .form-cadastro {
+}
+
+
+.form-cadastro {
     display: flex;
     flex-direction: column;
-    gap: 1.75rem; /* Espaçamento vertical entre as linhas */
-  }
-  
-  /* --- Layout em Linhas e Colunas --- */
-  .form-row {
+    gap: 1.75rem;
+}
+
+/* --- Layout em Linhas e Colunas (Formulário) --- */
+.form-row {
     display: flex;
-    flex-wrap: wrap; /* Quebra linha em telas menores */
-    gap: var(--form-row-gap); /* Usa a variável para o espaçamento horizontal */
-    /* align-items: flex-end; Alinhamento na base pode ser irregular com alturas diferentes,
-                             vamos tentar alinhar no topo ou stretch */
-     align-items: flex-start; /* Alinha labels no topo */
-  }
-  
-  .form-group {
+    flex-wrap: wrap;
+    gap: var(--form-row-gap);
+     align-items: flex-start;
+}
+
+.form-group {
     display: flex;
     flex-direction: column;
     box-sizing: border-box;
-  }
-  
-  /* --- Classes de Largura das Colunas --- */
-  
-  /* Ocupa o espaço restante disponível na linha */
-  .form-group.col-grow {
+    flex-grow: 1; /* Faz todos crescerem por padrão */
+}
+
+/* --- Classes de Largura das Colunas (Formulário) --- */
+.form-group.col-grow {
+    flex-grow: 3; /* Nome ocupa mais espaço */
+    flex-basis: 0;
+    width: auto;
+}
+
+.form-group.col-small {
     flex-grow: 1;
-    flex-basis: 0;
-     width: auto; /* Permite que flex-grow controle a largura */
-  }
-  
-  /* Define uma largura base menor, não cresce */
-  .form-group.col-small {
-    flex-grow: 0;
-    flex-shrink: 0; /* Impede que encolha */
-    flex-basis: 180px; /* Ajuste essa largura conforme necessário */
-    width: 180px; /* Garante a largura */
-  }
+    flex-shrink: 0;
+    flex-basis: 150px; /* Largura base menor para unidade */
+    width: 150px;
+    min-width: 120px; /* Mínimo */
+}
 
-  /* Adicione esta nova classe */
 .form-group.col-1-of-4 {
-    flex-grow: 1; /* Permite crescer e encolher igualmente */
+    flex-grow: 1;
     flex-shrink: 1;
     flex-basis: 0;
-    min-width: 100px; /* Ajuste conforme necessário */
-  }
-  
+    min-width: 130px; /* Garante um mínimo para cada um */
+}
 
-
-  /* Largura para Quantidade, Valor, Vencimento (ex: 20% cada) */
-.form-group.col-quant-valor-venc {
-    flex-grow: 1; /* Deixa crescer menos que categoria */
-    flex-shrink: 1;
-    flex-basis: 0; /* Baseado no espaço disponível */
-    /* Ou defina uma base percentual: */
-    /* flex-basis: calc(20% - (var(--form-row-gap) * 3 / 4)); */
-    /* width: calc(20% - (var(--form-row-gap) * 3 / 4)); */
-    min-width: 100px; /* Garante um mínimo */
-  }
-  
-  
-  /* --- Estilos dos Elementos do Formulário --- */
-  .form-label {
+/* Estilos dos Elementos do Formulário (Inputs, Selects, Labels, etc.) - MANTENHA OS EXISTENTES */
+.form-label {
     margin-bottom: 0.5rem;
     font-weight: 600;
     color: #4a5568;
     font-size: 0.875rem;
     display: block;
-  }
-  
-  .form-label.optional {
-      font-weight: 400;
-      font-size: 0.8rem;
-      color: #718096;
-  }
-  
-  .form-input,
-  .form-select {
+}
+
+.form-label.optional {
+    font-weight: 400;
+    font-size: 0.8rem;
+    color: #718096;
+}
+
+.form-input,
+.form-select {
     padding: 0.8rem 1rem;
     border: 1px solid #cbd5e0;
     border-radius: 8px;
@@ -218,53 +193,53 @@
     color: #2d3748;
     background-color: #fdfdff;
     transition: border-color 0.2s ease, box-shadow 0.2s ease;
-    width: 100%; /* Ocupa 100% do form-group pai */
+    width: 100%;
     box-sizing: border-box;
     appearance: none;
     -webkit-appearance: none;
     -moz-appearance: none;
-  }
-  
-  .form-select {
+}
+
+.form-select {
     background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
     background-position: right 0.7rem center;
     background-repeat: no-repeat;
     background-size: 1.5em 1.5em;
     padding-right: 2.8rem;
-  }
-  
-  .form-input::placeholder {
+}
+
+.form-input::placeholder {
     color: #a0aec0;
-  }
-  
-  .form-input:focus,
-  .form-select:focus {
+}
+
+.form-input:focus,
+.form-select:focus {
     outline: none;
     border-color: #42b983;
     box-shadow: 0 0 0 3px rgba(66, 185, 131, 0.15);
-  }
-  
-  /* --- Feedback e Ações --- */
-  .form-feedback {
+}
+
+/* --- Feedback e Ações (Formulário) --- */
+.form-feedback {
     margin-bottom: 1rem;
     text-align: left;
     padding: 0.8rem 1rem;
     border-radius: 6px;
     font-size: 0.9rem;
-  }
-  
-  .feedback-message.error {
+}
+
+.feedback-message.error {
     background-color: #fed7d7;
     color: #c53030;
     border: 1px solid #fc8181;
-  }
-  
-  .form-actions {
+}
+
+.form-actions {
     margin-top: 0rem;
     display: flex;
-  }
-  
-  .submit-button {
+}
+
+.submit-button {
     background: linear-gradient(to right, #36a476, #36a476);
     color: white;
     padding: 0.9rem 1.5rem;
@@ -282,28 +257,28 @@
     justify-content: center;
     gap: 0.5rem;
     min-height: 48px;
-  }
-  
-  .submit-button:hover:not(:disabled) {
+}
+
+.submit-button:hover:not(:disabled) {
     background: linear-gradient(to right, #36a476, #2f8f67);
     box-shadow: 0 6px 12px rgba(66, 185, 131, 0.3);
     transform: translateY(-2px);
-  }
-  
-  .submit-button:active:not(:disabled) {
+}
+
+.submit-button:active:not(:disabled) {
     transform: translateY(0);
     box-shadow: 0 4px 10px rgba(66, 185, 131, 0.2);
-  }
-  
-  .submit-button:disabled {
+}
+
+.submit-button:disabled {
     opacity: 0.6;
     cursor: not-allowed;
     background: #a0aec0;
     box-shadow: none;
-  }
-  
-  @keyframes spinner-border { to { transform: rotate(360deg); } }
-  .spinner {
+}
+
+@keyframes spinner-border { to { transform: rotate(360deg); } }
+.spinner {
     display: inline-block;
     width: 1.2em;
     height: 1.2em;
@@ -312,324 +287,316 @@
     border-right-color: transparent;
     border-radius: 50%;
     animation: spinner-border .75s linear infinite;
-  }
-  
-  
-  /* ======================================== */
-  /* Card da Lista de Produtos (Sem alterações significativas aqui) */
-  /* ======================================== */
-  
-  .product-list-card {
-     padding-top: 0;
-     padding-bottom: 0;
-  }
-  
-  .list-title {
+}
+
+
+/* ===================================================== */
+/* Container da Lista e Filtros Lado a Lado              */
+/* ===================================================== */
+
+.list-filter-container {
+    display: flex;
+    flex-wrap: wrap; /* Permite quebrar linha */
+    gap: 25px; /* Espaço entre a lista e os filtros */
+    align-items: flex-start; /* Alinha os cards no topo */
+    margin-top: 30px;
+}
+
+.product-list-card {
+   flex: 3; /* Lista ocupa mais espaço */
+   min-width: 400px; /* Largura mínima para a lista/tabela */
+   padding: 0; /* Remover padding do card pai da lista */
+   display: flex; /* Para controlar o conteúdo interno */
+   flex-direction: column; /* Empilha título e tabela */
+}
+
+/* O componente ProdutoFiltros recebe a classe .filter-card no template */
+.list-filter-container > .filter-card {
+    flex: 1; /* Filtro ocupa menos espaço */
+    min-width: 250px;
+    max-width: 350px;
+    /* Adiciona padding interno se o componente filho não tiver */
+    /* padding: 1.5rem; */
+    /* O componente filho já tem estilo de card, então pode não precisar de mais nada aqui */
+    align-self: flex-start; /* Garante que fique alinhado ao topo */
+    position: sticky; /* Opcional: faz os filtros "seguirem" a rolagem */
+    top: 20px; /* Ajuste conforme necessário se usar sticky */
+}
+
+/* ===================================================== */
+/* Estilos da TABELA de Produtos                         */
+/* ===================================================== */
+
+.list-title {
     color: #2d3748;
     font-size: 1.5rem;
     font-weight: 600;
-    padding: 1.5rem 1.5rem 1rem 1.5rem;
+    padding: 1.5rem 2rem 1rem 2rem; /* Adiciona padding ao título */
     margin: 0;
     border-bottom: 1px solid #edf2f7;
-  }
-  
-  .loading-list, .empty-list {
+    flex-shrink: 0; /* Impede que o título encolha */
+}
+
+.loading-list, .empty-list {
     text-align: center;
     padding: 3rem 1rem;
     color: #718096;
     font-style: italic;
     font-size: 1rem;
-  }
-  
-  .product-list {
-    list-style: none;
-    padding: 0;
-    margin: 0;
-    max-height: 450px;
-    overflow-y: auto;
-    scrollbar-width: thin;
-    scrollbar-color: #a0aec0 #edf2f7;
-  }
-  .product-list::-webkit-scrollbar { width: 8px; }
-  .product-list::-webkit-scrollbar-track { background: #edf2f7; border-radius: 0 12px 12px 0; }
-  .product-list::-webkit-scrollbar-thumb { background-color: #a0aec0; border-radius: 4px; border: 2px solid #edf2f7; }
-  
-  .product-item {
+    flex-grow: 1; /* Ocupa espaço se a tabela não for exibida */
     display: flex;
-    justify-content: space-between;
     align-items: center;
-    padding: 1rem 1.5rem;
-    border-bottom: 1px solid #edf2f7;
-    transition: background-color 0.2s ease;
-    gap: 1rem;
-  }
-  .product-item:last-child {
-    border-bottom: none;
-  }
-  .product-item:hover {
-    background-color: #f7fafc;
-  }
-  
-  .product-info {
-    display: flex;
-    flex-direction: column;
-    gap: 0.25rem;
-    flex-grow: 1;
-  }
-  
-  .product-name {
-    font-weight: 600;
+    justify-content: center;
+}
+
+.table-responsive {
+    width: 100%;
+    overflow-x: auto; /* Habilita scroll horizontal SE necessário */
+    flex-grow: 1; /* Permite que a área da tabela cresça */
+    -webkit-overflow-scrolling: touch; /* Melhora scroll em iOS */
+}
+
+.product-table {
+    width: 100%;
+    min-width: 650px; /* Largura mínima antes do scroll aparecer */
+    border-collapse: collapse;
+    font-size: 0.95rem;
     color: #2d3748;
-    font-size: 1rem;
-    line-height: 1.3;
-  }
-  
-  .product-details {
-    font-size: 0.875rem;
-    color: #718096;
-    line-height: 1.4;
+}
+
+.product-table thead {
+    background-color: #f8fafc; /* Cor de fundo leve para o cabeçalho */
+}
+
+.product-table th,
+.product-table td {
+    padding: 0.9rem 1rem; /* Espaçamento interno das células */
+    text-align: left;
+    border-bottom: 1px solid #e2e8f0; /* Linha separadora */
+    vertical-align: middle; /* Alinha conteúdo verticalmente */
+    white-space: nowrap; /* Impede quebra de linha por padrão */
+}
+/* Permite quebra de linha no nome se ficar muito longo */
+.product-table th:first-child,
+.product-table td:first-child {
     white-space: normal;
-  }
-  
-  .extra-details {
-     font-size: 0.85rem;
-     color: #4a5568;
-     line-height: 1.4;
-     white-space: normal;
-  }
-  .extra-details > span:not(:last-child)::after {
-      content: " | ";
-      margin: 0 0.3em;
-      color: #cbd5e0;
-  }
-  .extra-details > span:last-child::after {
-      content: "";
-      margin: 0;
-  }
-  
-  
-  .delete-button {
+}
+
+
+.product-table th {
+    font-weight: 600;
+    color: #4a5568;
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+/* Alinhamentos específicos */
+.product-table .text-right { text-align: right; }
+.product-table .text-center { text-align: center; }
+.product-table .actions-cell { text-align: center; }
+
+
+.product-table tbody tr {
+    transition: background-color 0.2s ease;
+}
+
+.product-table tbody tr:hover {
+    background-color: #f7fafc; /* Hover sutil nas linhas */
+}
+
+.product-table tbody tr:last-child td {
+    border-bottom: none; /* Remove borda da última linha */
+}
+
+/* Botão de Excluir dentro da tabela */
+.product-table .delete-button {
     background: none;
     border: none;
     color: #e53e3e;
     cursor: pointer;
-    padding: 0.5rem;
+    padding: 0.4rem; /* Ajuste o padding se necessário */
     border-radius: 50%;
-    display: flex;
+    display: inline-flex; /* Mude para inline-flex */
     align-items: center;
     justify-content: center;
     transition: background-color 0.2s ease, color 0.2s ease;
-    flex-shrink: 0;
-    width: 32px;
-    height: 32px;
-  }
-  .delete-button:hover {
+    /* Não precisa de flex-shrink aqui */
+    width: 30px; /* Tamanho fixo */
+    height: 30px;
+}
+.product-table .delete-button:hover {
     background-color: #fed7d7;
     color: #9b2c2c;
-  }
-  .delete-button svg {
+}
+.product-table .delete-button svg {
     display: block;
-    width: 16px;
-    height: 16px;
-  }
-  
-  /* ======================================== */
-  /* Animações da Lista (TransitionGroup)     */
-  /* ======================================== */
-  
-  .list-enter-active,
-  .list-leave-active {
-    transition: all 0.5s ease;
-  }
-  .list-enter-from,
-  .list-leave-to {
-    opacity: 0;
-    transform: translateX(-30px);
-  }
-  .list-leave-active {
-    position: absolute;
-    width: calc(100% - 3rem);
-    box-sizing: border-box;
-  }
-  
-  /* ======================================== */
-  /* Responsividade                           */
-  /* ======================================== */
-  
-  /* Telas Médias (Ex: Tablets) */
-  @media (max-width: 992px) {
-     .produtos-view {
-         max-width: 700px; /* Reduz um pouco */
-     }
-     /* Ajusta a coluna pequena para ocupar mais espaço se necessário */
-      .form-group.col-small {
-          flex-basis: 150px;
-          width: 150px;
-      }
-  }
-  
-  
-  /* Telas Pequenas (Ex: Smartphones em paisagem ou tablets menores) */
-  @media (max-width: 768px) {
-    .produtos-view {
-      max-width: 100%; /* Ocupa toda a largura */
-      margin-top: 1rem;
-      margin-bottom: 2rem;
-      padding: 0 0.8rem; /* Ajusta padding lateral */
-    }
-    .page-header h1 {
-      font-size: 1.75rem;
-    }
-    .card.form-card {
-      padding: 1.5rem;
-    }
-    .card-title,
-    .list-title {
-      font-size: 1.3rem;
-    }
-  
-    /* --- FORÇA O FORMULÁRIO A EMPILHAR --- */
-    .form-row {
-        flex-direction: column; /* Empilha os grupos verticalmente */
-        gap: 1.25rem; /* Gap vertical entre os campos empilhados */
-        align-items: stretch; /* Estica os grupos */
-    }
-    /* Reseta as larguras/bases das colunas para que ocupem 100% */
-    .form-group.col-grow,
-    .form-group.col-small,
-    .form-group.col-categoria,       /* Se usou Opção A */
-    .form-group.col-quant-valor-venc,/* Se usou Opção A */
-    .form-group.col-1-of-4           /* Se usou Opção B */ {
-        flex-grow: 1;
-        flex-shrink: 1;
-        flex-basis: auto !important;
-        width: 100% !important;
-        min-width: auto;
-    }
-    /* ------------------------------------ */
-  
-    /* Ajustes na lista */
-    .product-item {
-      padding: 0.8rem 1rem;
-    }
-    .product-name {
-      font-size: 0.95rem;
-    }
-    .product-details, .extra-details {
-      font-size: 0.8rem;
-    }
-    .delete-button {
-      padding: 0.4rem;
-      width: 28px;
-      height: 28px;
-    }
-    .delete-button svg {
-        width: 14px;
-        height: 14px;
-    }
-    .list-leave-active {
-        width: calc(100% - 2rem); /* Ajuste para padding de 1rem */
-    }
-  }
-  
-  /* Telas Muito Pequenas (Ex: Smartphones em retrato) */
-  @media (max-width: 480px) {
-     .produtos-view {
-         padding: 0 0.5rem;
-     }
-     .page-header {
-         margin-bottom: 1.5rem;
-         padding-bottom: 0.5rem;
-     }
-     .page-header h1 {
-         font-size: 1.5rem;
-     }
-     /* Remove estilo de card no formulário */
-     .card.form-card {
-          padding: 1rem 0;
-          border: none;
-          box-shadow: none;
-          background: transparent;
-          border-radius: 0;
-     }
-      .form-cadastro {
-          gap: 1rem; /* Menor gap vertical entre campos */
-      }
-     .form-input,
-     .form-select {
-          padding: 0.8rem;
-          font-size: 0.95rem;
-     }
-     .submit-button {
-          padding: 0.8rem;
-          font-size: 0.95rem;
-     }
-     /* Lista em telas pequenas */
-     .card.product-list-card {
-         border-left: none;
-         border-right: none;
-         border-radius: 0;
-     }
-     .list-title {
-         padding: 1rem;
-         font-size: 1.2rem;
-     }
-     .product-item {
-          padding: 0.7rem 1rem;
-          gap: 0.5rem;
-     }
-  }
+    width: 15px;
+    height: 15px;
+}
 
-  
-  
+
+/* ======================================== */
+/* Animações da Lista (TransitionGroup)     */
+/* ======================================== */
+/* Estes estilos podem precisar de ajustes finos para tabelas */
+.list-enter-active,
+.list-leave-active {
+  transition: all 0.5s ease;
+}
+.list-enter-from,
+.list-leave-to {
+  opacity: 0;
+  transform: translateY(20px); /* Pode ser melhor que translateX para linhas */
+}
+/* Importante para transições de saída em listas/tabelas */
+.list-leave-active {
+   position: absolute;
+   /* Tentar calcular a largura pode ser complexo, talvez omitir? */
+   /* width: 100%; */
+   /* box-sizing: border-box; */
+}
+
+
+/* ======================================== */
+/* Responsividade                           */
+/* ======================================== */
+
+/* Telas Médias (Ex: Tablets) */
+@media (max-width: 992px) {
     .list-filter-container {
-        display: flex;
-        flex-wrap: wrap; /* Permite quebrar linha em telas menores se necessário */
-        gap: 25px; /* Espaço entre a lista e os filtros */
-        align-items: flex-start; /* Alinha os cards no topo */
-        margin-top: 30px; /* Espaço abaixo do formulário */
+        flex-direction: column; /* Empilha lista e filtros */
+        gap: 20px;
     }
-
-    .product-list-card {
-       flex: 3; /* Faz a lista ocupar mais espaço (aprox 75%) */
-       min-width: 300px; /* Garante uma largura mínima para a lista */
-    }
-
-    /* O componente ProdutoFiltros já tem a classe .filter-card */
-    /* Estiliza o componente de filtro dentro do container */
+    .product-list-card,
     .list-filter-container > .filter-card {
-        flex: 1; /* Faz o filtro ocupar menos espaço (aprox 25%) */
-        min-width: 250px; /* Largura mínima para os filtros */
-        max-width: 350px; /* Largura máxima opcional para os filtros */
+        flex: 1 1 100%; /* Ocupa 100% da largura */
+        width: 100%;
+        max-width: none; /* Remove max-width do filtro */
+        min-width: auto; /* Remove min-width */
+        position: static; /* Remove sticky se estava ativo */
+    }
+    /* Opcional: Mudar a ordem em telas pequenas */
+    .list-filter-container > .filter-card {
+        order: -1; /* Coloca os filtros ACIMA da lista */
+        margin-bottom: 0; /* Reset margin se adicionado */
+    }
+    .product-table {
+        min-width: 0; /* Remove largura mínima para permitir encolher mais antes do scroll */
+    }
+    /* Adiciona data-label para acessibilidade em telas menores (CSS apenas) */
+    .product-table td::before {
+        content: attr(data-label) " "; /* Mostra o label antes do dado */
+        font-weight: bold;
+        display: none; /* Esconde por padrão */
+        margin-right: 6px;
+        color: #4a5568;
     }
 
-    /* Responsividade: Empilhar em telas menores */
-    @media (max-width: 992px) { /* Ponto de quebra para tablets/telas menores */
-        .list-filter-container {
-            flex-direction: column; /* Empilha os itens verticalmente */
-            gap: 20px;
-        }
-        .product-list-card,
-        .list-filter-container > .filter-card {
-            flex: 1 1 100%; /* Remove a proporção flex, permite ocupar 100% */
-            width: 100%; /* Garante que ocupe toda a largura */
-            max-width: none; /* Remove a largura máxima para filtros */
-        }
-         /* Opcional: Mudar a ordem em telas pequenas */
-         .list-filter-container > .filter-card {
-              order: -1; /* Coloca os filtros ACIMA da lista */
-              margin-bottom: 20px; /* Adiciona espaço extra abaixo dos filtros */
-         }
+}
+
+/* Telas Pequenas (Ex: Smartphones em paisagem ou tablets menores) */
+@media (max-width: 768px) {
+    .produtos-view {
+        padding: 0 0.8rem;
+    }
+    .page-header h1 { font-size: 1.75rem; }
+    .card.form-card { padding: 1.5rem; } /* Restaura padding se removido antes */
+    .card-title, .list-title { font-size: 1.3rem; padding: 1.2rem 1.5rem; }
+
+    /* --- FORÇA O FORMULÁRIO A EMPILHAR (Manter como antes) --- */
+    .form-row { flex-direction: column; gap: 1.25rem; align-items: stretch; }
+    .form-group.col-grow, .form-group.col-small, .form-group.col-1-of-4 {
+        flex-grow: 1; flex-shrink: 1; flex-basis: auto !important;
+        width: 100% !important; min-width: auto;
+    }
+    /* --------------------------------------------------------- */
+
+    /* Tabela em telas pequenas: Pode precisar de mais ajustes */
+    .product-table th {
+        font-size: 0.8rem; /* Cabeçalho menor */
+    }
+    .product-table th,
+    .product-table td {
+        padding: 0.7rem 0.8rem; /* Menos padding */
+        white-space: normal; /* Permite quebra de linha em todas as células */
     }
 
-    @media (max-width: 768px) {
-        /* Ajustes adicionais para telas ainda menores, se necessário */
-         .form-card, .product-list-card, .filter-card {
-             padding: 15px; /* Reduz padding interno */
-         }
-         .card-title {
-             font-size: 1.2em;
-         }
+    /* Opcional: Layout "card" para cada linha em telas muito pequenas */
+    /* Descomente e ajuste se quiser esse comportamento */
+    /*
+    .product-table thead {
+        display: none;
     }
+    .product-table tr {
+        display: block;
+        margin-bottom: 1rem;
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+        overflow: hidden;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    }
+    .product-table td {
+        display: block;
+        text-align: right;
+        border-bottom: 1px dotted #e2e8f0;
+        padding-left: 50%;
+        position: relative;
+    }
+    .product-table td:last-child {
+        border-bottom: none;
+    }
+    .product-table td::before {
+        display: block;
+        position: absolute;
+        left: 1rem;
+        top: 50%;
+        transform: translateY(-50%);
+        text-align: left;
+        padding-right: 10px;
+        white-space: nowrap;
+    }
+    .product-table .actions-cell {
+        text-align: center;
+        padding-left: 1rem;
+    }
+    .product-table .actions-cell::before {
+       display: none;
+    }
+    */
+}
+
+/* Telas Muito Pequenas (Ex: Smartphones em retrato) */
+@media (max-width: 480px) {
+     .produtos-view { padding: 0 0.5rem; }
+     .page-header h1 { font-size: 1.5rem; }
+     .card.form-card { /* Ajustes para telas pequenas, pode manter ou ajustar */
+         padding: 1rem;
+         border-radius: 8px;
+     }
+     .form-card-header { padding: 1rem 1.5rem; }
+     .card-title, .list-title { font-size: 1.2rem; padding: 1rem 1.2rem; }
+     .form-cadastro { gap: 1rem; }
+     .form-input, .form-select { padding: 0.8rem; font-size: 0.95rem; }
+     .submit-button { padding: 0.8rem; font-size: 0.95rem; }
+
+     /* Ajustes finos na tabela */
+     .product-table th,
+     .product-table td {
+         padding: 0.6rem 0.7rem;
+         font-size: 0.9rem;
+     }
+     .product-table .delete-button {
+         width: 28px;
+         height: 28px;
+         padding: 0.3rem;
+     }
+     .product-table .delete-button svg {
+         width: 14px;
+         height: 14px;
+     }
+}
+
+
 
   
