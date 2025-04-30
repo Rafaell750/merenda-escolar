@@ -1,12 +1,6 @@
 /* /frontend/src/views/CSS/ProdutosEditView.css */
 
-/* Estilos adicionais ou ajustes se necessário */
-.actions-cell {
-    display: flex;
-    justify-content: center;
-    gap: 0.5rem; /* Espaço entre os botões */
-    align-items: center;
-}
+
 
 .icon-only {
     background: none;

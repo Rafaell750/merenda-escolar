@@ -23,8 +23,6 @@
           </select>
         </div>
   
-        <!-- Adicione mais filtros aqui... eles funcionarão da mesma forma -->
-  
         <!-- Botões de Ação -->
         <div class="form-actions filter-actions">
           <!-- Botão Aplicar removido -->

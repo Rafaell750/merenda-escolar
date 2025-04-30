@@ -71,6 +71,32 @@
     text-align: left;
 }
 
+/* ** NOVO: Botão de Toggler do Filtro ** */
+.toggle-filter-button.icon-only {
+    background-color: transparent;
+    border: none;
+    color: #4a5568; /* Cor do ícone */
+    padding: 0.3rem; /* Área de clique */
+    border-radius: 50%;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+    transition: color 0.2s ease, background-color 0.2s ease;
+}
+
+.toggle-filter-button.icon-only:hover {
+    color: #2d3748;
+    background-color: #edf2f7; /* Fundo leve no hover */
+}
+
+.toggle-filter-button.icon-only svg {
+    width: 1.1em; /* Tamanho do ícone */
+    height: 1.1em;
+    display: block;
+}
+
 .toggle-form-button.icon-only {
     background-color: transparent;
     border: none;
@@ -297,18 +323,19 @@
 .list-filter-container {
     display: flex;
     flex-wrap: wrap; /* Permite quebrar linha */
-    gap: 25px; /* Espaço entre a lista e os filtros */
+    gap: 8px; /* Espaço entre a lista e os filtros */
     align-items: flex-start; /* Alinha os cards no topo */
     margin-top: 30px;
 }
 
 .product-list-card {
-   flex: 3; /* Lista ocupa mais espaço */
-   min-width: 400px; /* Largura mínima para a lista/tabela */
-   padding: 0; /* Remover padding do card pai da lista */
-   display: flex; /* Para controlar o conteúdo interno */
-   flex-direction: column; /* Empilha título e tabela */
-}
+    flex: 3; /* Lista ocupa mais espaço */
+    min-width: 400px; /* Largura mínima para a lista/tabela */
+    padding: 0; /* Remover padding do card pai da lista */
+    display: flex; /* Para controlar o conteúdo interno */
+    flex-direction: column; /* Empilha título e tabela */
+    margin-bottom: 0; /* Garante que não haja margem extra embaixo */
+ }
 
 /* O componente ProdutoFiltros recebe a classe .filter-card no template */
 .list-filter-container > .filter-card {
@@ -321,20 +348,29 @@
     align-self: flex-start; /* Garante que fique alinhado ao topo */
     position: sticky; /* Opcional: faz os filtros "seguirem" a rolagem */
     top: 20px; /* Ajuste conforme necessário se usar sticky */
+    
 }
 
 /* ===================================================== */
 /* Estilos da TABELA de Produtos                         */
 /* ===================================================== */
 
+/* ** NOVO: Cabeçalho do Card da Lista ** */
+.list-card-header {
+    display: flex;
+    justify-content: space-between; /* Coloca título à esquerda, botão à direita */
+    align-items: center;
+    padding: 1rem 1.5rem; /* Ajuste o padding */
+    border-bottom: 1px solid #edf2f7;
+    flex-shrink: 0; /* Impede que o cabeçalho encolha */
+}
+
 .list-title {
     color: #2d3748;
-    font-size: 1.5rem;
+    font-size: 1.4rem;
     font-weight: 600;
-    padding: 1.5rem 2rem 1rem 2rem; /* Adiciona padding ao título */
     margin: 0;
-    border-bottom: 1px solid #edf2f7;
-    flex-shrink: 0; /* Impede que o título encolha */
+
 }
 
 .loading-list, .empty-list {
@@ -457,146 +493,119 @@
    /* box-sizing: border-box; */
 }
 
-
-/* ======================================== */
-/* Responsividade                           */
-/* ======================================== */
-
-/* Telas Médias (Ex: Tablets) */
-@media (max-width: 992px) {
-    .list-filter-container {
-        flex-direction: column; /* Empilha lista e filtros */
-        gap: 20px;
-    }
-    .product-list-card,
-    .list-filter-container > .filter-card {
-        flex: 1 1 100%; /* Ocupa 100% da largura */
-        width: 100%;
-        max-width: none; /* Remove max-width do filtro */
-        min-width: auto; /* Remove min-width */
-        position: static; /* Remove sticky se estava ativo */
-    }
-    /* Opcional: Mudar a ordem em telas pequenas */
-    .list-filter-container > .filter-card {
-        order: -1; /* Coloca os filtros ACIMA da lista */
-        margin-bottom: 0; /* Reset margin se adicionado */
-    }
-    .product-table {
-        min-width: 0; /* Remove largura mínima para permitir encolher mais antes do scroll */
-    }
-    /* Adiciona data-label para acessibilidade em telas menores (CSS apenas) */
-    .product-table td::before {
-        content: attr(data-label) " "; /* Mostra o label antes do dado */
-        font-weight: bold;
-        display: none; /* Esconde por padrão */
-        margin-right: 6px;
-        color: #4a5568;
-    }
-
+.action-menu-container {
+    display: inline-flex; /* Alterado de inline-block para inline-flex */
+    align-items: center;   /* Alinha o botão (seu filho) verticalmente */
+    justify-content: center;/* Centraliza o botão horizontalmente */
+    position: relative;
+    vertical-align: middle; /* Ajuda a alinhar o container com outros elementos inline/inline-block */
+    line-height: 1;       /* Evita que a line-height padrão adicione altura extra */
+    padding: 0;           /* Garante que não há padding no container */
+    margin: 0;            /* Garante que não há margin no container */
 }
 
-/* Telas Pequenas (Ex: Smartphones em paisagem ou tablets menores) */
-@media (max-width: 768px) {
-    .produtos-view {
-        padding: 0 0.8rem;
-    }
-    .page-header h1 { font-size: 1.75rem; }
-    .card.form-card { padding: 1.5rem; } /* Restaura padding se removido antes */
-    .card-title, .list-title { font-size: 1.3rem; padding: 1.2rem 1.5rem; }
-
-    /* --- FORÇA O FORMULÁRIO A EMPILHAR (Manter como antes) --- */
-    .form-row { flex-direction: column; gap: 1.25rem; align-items: stretch; }
-    .form-group.col-grow, .form-group.col-small, .form-group.col-1-of-4 {
-        flex-grow: 1; flex-shrink: 1; flex-basis: auto !important;
-        width: 100% !important; min-width: auto;
-    }
-    /* --------------------------------------------------------- */
-
-    /* Tabela em telas pequenas: Pode precisar de mais ajustes */
-    .product-table th {
-        font-size: 0.8rem; /* Cabeçalho menor */
-    }
-    .product-table th,
-    .product-table td {
-        padding: 0.7rem 0.8rem; /* Menos padding */
-        white-space: normal; /* Permite quebra de linha em todas as células */
-    }
-
-    /* Opcional: Layout "card" para cada linha em telas muito pequenas */
-    /* Descomente e ajuste se quiser esse comportamento */
-    /*
-    .product-table thead {
-        display: none;
-    }
-    .product-table tr {
-        display: block;
-        margin-bottom: 1rem;
-        border: 1px solid #e2e8f0;
-        border-radius: 8px;
-        overflow: hidden;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-    }
-    .product-table td {
-        display: block;
-        text-align: right;
-        border-bottom: 1px dotted #e2e8f0;
-        padding-left: 50%;
-        position: relative;
-    }
-    .product-table td:last-child {
-        border-bottom: none;
-    }
-    .product-table td::before {
-        display: block;
-        position: absolute;
-        left: 1rem;
-        top: 50%;
-        transform: translateY(-50%);
-        text-align: left;
-        padding-right: 10px;
-        white-space: nowrap;
-    }
-    .product-table .actions-cell {
-        text-align: center;
-        padding-left: 1rem;
-    }
-    .product-table .actions-cell::before {
-       display: none;
-    }
-    */
+.action-menu-trigger {
+    background: none;
+    border: none;
+    padding: 4px; /* O padding aqui aumenta o tamanho clicável, mas não deve afetar a altura do container se ele for inline-flex */
+    cursor: pointer;
+    border-radius: 4px;
+    line-height: 1;
+    color: #4a5568;
+    display: flex; /* Para alinhar o SVG interno se necessário */
+    align-items: center;
+    justify-content: center;
 }
 
-/* Telas Muito Pequenas (Ex: Smartphones em retrato) */
-@media (max-width: 480px) {
-     .produtos-view { padding: 0 0.5rem; }
-     .page-header h1 { font-size: 1.5rem; }
-     .card.form-card { /* Ajustes para telas pequenas, pode manter ou ajustar */
-         padding: 1rem;
-         border-radius: 8px;
-     }
-     .form-card-header { padding: 1rem 1.5rem; }
-     .card-title, .list-title { font-size: 1.2rem; padding: 1rem 1.2rem; }
-     .form-cadastro { gap: 1rem; }
-     .form-input, .form-select { padding: 0.8rem; font-size: 0.95rem; }
-     .submit-button { padding: 0.8rem; font-size: 0.95rem; }
+.action-menu-trigger:hover,
+.action-menu-trigger:focus {
+    background-color: #e2e8f0; /* Fundo leve no hover/focus - ajuste */
+}
 
-     /* Ajustes finos na tabela */
-     .product-table th,
-     .product-table td {
-         padding: 0.6rem 0.7rem;
-         font-size: 0.9rem;
-     }
-     .product-table .delete-button {
-         width: 28px;
-         height: 28px;
-         padding: 0.3rem;
-     }
-     .product-table .delete-button svg {
-         width: 14px;
-         height: 14px;
-     }
+.action-dropdown {
+    position: absolute;
+    right: 0;
+    top: 100%; /* Posiciona abaixo do botão */
+    margin-top: 4px; /* Pequeno espaço entre o botão e o menu */
+    background-color: white;
+    border: 1px solid #e2e8f0; /* Borda sutil */
+    border-radius: 6px;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    z-index: 10; /* Garante que fique acima de outros elementos da tabela */
+    min-width: 120px; /* Largura mínima do menu */
+    padding: 4px 0; /* Espaçamento interno vertical */
+    overflow: hidden; /* Garante que os cantos arredondados funcionem */
+}
+
+.action-dropdown-item {
+    display: flex; /* Usar flex para alinhar ícone e texto */
+    align-items: center;
+    gap: 8px; /* Espaço entre ícone e texto */
+    background: none;
+    border: none;
+    width: 100%;
+    padding: 8px 12px; /* Espaçamento interno dos itens */
+    text-align: left;
+    cursor: pointer;
+    font-size: 0.875rem; /* Tamanho da fonte dos itens */
+    color: #374151; /* Cor do texto - ajuste */
+    white-space: nowrap; /* Evita quebra de linha */
+}
+
+.action-dropdown-item:hover {
+    background-color: #a1bef7; /* Cor de fundo no hover - ajuste */
+}
+
+.action-dropdown-item.delete {
+    color: #dc2626; /* Cor vermelha para a ação de excluir */
+}
+.action-dropdown-item.delete:hover {
+    background-color: #fee2e2; /* Fundo vermelho claro no hover do excluir */
+}
+
+.action-icon {
+    flex-shrink: 0; /* Impede que o ícone encolha */
+    margin-top: -2px; /* Pequeno ajuste vertical se necessário */
 }
 
 
+/* Animação Fade (Opcional, mas melhora a UX) */
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.15s ease;
+}
 
-  
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+}
+
+/* ** NOVO: Transição para o Filtro ** */
+.filter-collapse-enter-active,
+.filter-collapse-leave-active {
+    /* Anima max-height, opacity e margin-top */
+    transition: max-height 0.4s ease-in-out, opacity 0.3s ease-in-out, margin-top 0.4s ease-in-out;
+    overflow: hidden; /* Essencial para max-height funcionar */
+}
+
+.filter-collapse-enter-from,
+.filter-collapse-leave-to {
+    max-height: 0;
+    opacity: 0;
+    margin-top: 0 !important; /* Força margin zero ao fechar/começar fechado */
+    /* Se o filtro tiver padding/border que precisa sumir, adicione aqui */
+    /* padding-top: 0; */
+    /* padding-bottom: 0; */
+    /* border-width: 0; */
+}
+
+.filter-collapse-enter-to,
+.filter-collapse-leave-from {
+    max-height: 500px; /* Ajuste para altura máxima esperada do filtro */
+    opacity: 1;
+    margin-top: 25px; /* Restaura o espaço (definido em .filter-card) */
+     /* Se o filtro tiver padding/border que precisa voltar, adicione aqui */
+    /* padding-top: ... ; */
+    /* padding-bottom: ... ; */
+    /* border-width: ...; */
+}

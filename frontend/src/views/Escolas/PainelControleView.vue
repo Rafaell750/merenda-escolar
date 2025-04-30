@@ -120,7 +120,6 @@ const escolasStore = useEscolasStore();
 const isFormExpanded = ref(false);
 const isEditing = ref(false);
 const editingEscolaId = ref(null);
-// formData agora sem cidade e uf
 const formData = ref({ nome: '', endereco: '', responsavel: '' });
 const formError = ref('');
 const formSuccessMessage = ref('');
@@ -157,7 +156,7 @@ const submitCadastro = async () => {
     formError.value = '';
     formSuccessMessage.value = '';
     try {
-        // Envia o formData atualizado (sem cidade/uf)
+        // Envia o formData atualizado
         const novaEscola = await escolasStore.addEscola(formData.value);
         formSuccessMessage.value = `Escola "${novaEscola.nome}" cadastrada com sucesso!`;
         resetForm();
@@ -198,7 +197,7 @@ const submitUpdate = async () => {
     if (!editingEscolaId.value) return;
 
     try {
-         // Envia o formData atualizado (sem cidade/uf)
+         // Envia o formData atualizado
         const escolaAtualizada = await escolasStore.updateEscola(editingEscolaId.value, formData.value);
         formSuccessMessage.value = `Escola "${escolaAtualizada.nome}" atualizada com sucesso!`;
         resetForm();
