@@ -32,7 +32,7 @@ router.post('/login', (req, res) => {
                 // Senha correta! Gerar JWT
                 console.log(`Login bem-sucedido para: ${user.username}`);
                 const userPayload = {
-                    userId: user.id,
+                    id: user.id,
                     username: user.username,
                     role: user.role
                 };

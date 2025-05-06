@@ -9,7 +9,7 @@ const path = require('path');
 const fs = require('fs'); // Necessário para verificar/criar pasta no setupDatabase
 const bcrypt = require('bcrypt'); // Necessário para hash no setupDatabase
 const jwt = require('jsonwebtoken'); // Pode ser necessário se gerar tokens aqui (embora geralmente nas rotas)
-
+const transferenciaRoutes = require('./routes/transferenciaRoutes');
 // Importa a conexão centralizada com o banco de dados
 const db = require('./database/dbConnection');
 
@@ -42,6 +42,9 @@ app.use('/api/produtos', authenticateToken, produtoRoutes);
 
 // Rotas de escolas
 app.use('/api/escolas', authenticateToken, escolaRoutes);
+
+// Rotas de Transferências - Protegidas por autenticação
+app.use('/api/transferencias', authenticateToken, transferenciaRoutes);
 
 // Rotas de Usuários (proteção interna nas rotas específicas que precisam)
 app.use('/api/users', userRoutes);
@@ -82,7 +85,8 @@ async function setupDatabase() {
         quantidade REAL,             
         valor REAL,                  
         data_vencimento TEXT,        
-        data_cadastro DATETIME DEFAULT CURRENT_TIMESTAMP
+        data_cadastro DATETIME DEFAULT CURRENT_TIMESTAMP,
+        data_modificacao DATETIME DEFAULT CURRENT_TIMESTAMP
     );`;
 
     const createUsuariosTableSql = `
@@ -99,8 +103,43 @@ async function setupDatabase() {
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         nome TEXT NOT NULL UNIQUE,
         endereco TEXT,
+        responsavel TEXT,
         data_cadastro DATETIME DEFAULT CURRENT_TIMESTAMP
     );`;
+
+    // --- NOVAS TABELAS ---
+    const createTransferenciasTableSql = `
+    CREATE TABLE IF NOT EXISTS transferencias (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        escola_id INTEGER NOT NULL,
+        data_transferencia DATETIME DEFAULT CURRENT_TIMESTAMP,
+        usuario_id INTEGER NOT NULL, -- Quem realizou a transferência
+        FOREIGN KEY (escola_id) REFERENCES escolas (id) ON DELETE CASCADE, -- Se excluir escola, remove histórico? Ou SET NULL?
+        FOREIGN KEY (usuario_id) REFERENCES usuarios (id) ON DELETE RESTRICT -- Não deixa excluir usuário com transferências
+    );`;
+
+    const createTransferenciaItensTableSql = `
+    CREATE TABLE IF NOT EXISTS transferencia_itens (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        transferencia_id INTEGER NOT NULL,
+        produto_id INTEGER NOT NULL,
+        quantidade_enviada REAL NOT NULL,
+        FOREIGN KEY (transferencia_id) REFERENCES transferencias (id) ON DELETE CASCADE, -- Se excluir transferência, exclui itens
+        FOREIGN KEY (produto_id) REFERENCES produtos (id) ON DELETE RESTRICT -- Não deixa excluir produto com histórico de transferência
+    );`;
+    // --- FIM NOVAS TABELAS ---
+
+    // --- NOVO: Trigger para atualizar data_modificacao em produtos ---
+    // (Opcional, mas útil se outras operações além do PUT não atualizarem)
+    const createUpdateTimestampTriggerSql = `
+    CREATE TRIGGER IF NOT EXISTS update_produto_modificacao
+    AFTER UPDATE ON produtos
+    FOR EACH ROW
+    WHEN OLD.quantidade <> NEW.quantidade OR OLD.nome <> NEW.nome -- Adicione outras colunas se necessário
+    BEGIN
+        UPDATE produtos SET data_modificacao = CURRENT_TIMESTAMP WHERE id = OLD.id;
+    END;`;
+    // --- FIM Trigger ---
 
     // Usar a instância 'db' importada de dbConnection.js
     db.serialize(() => {
@@ -152,6 +191,25 @@ async function setupDatabase() {
         if (err) console.error('Erro ao criar/verificar tabela "escolas":', err.message);
         else console.log('Tabela "escolas" verificada/criada com sucesso.');
         });
+
+                // --- EXECUTAR CRIAÇÃO DAS NOVAS TABELAS ---
+                db.run(createTransferenciasTableSql, (err) => {
+                    if (err) console.error('Erro ao criar/verificar tabela "transferencias":', err.message);
+                    else console.log('Tabela "transferencias" verificada/criada com sucesso.');
+                });
+        
+                db.run(createTransferenciaItensTableSql, (err) => {
+                    if (err) console.error('Erro ao criar/verificar tabela "transferencia_itens":', err.message);
+                    else console.log('Tabela "transferencia_itens" verificada/criada com sucesso.');
+                });
+                // --- FIM EXECUÇÃO NOVAS TABELAS ---
+        
+                // --- EXECUTAR CRIAÇÃO DO TRIGGER (Opcional) ---
+                db.run(createUpdateTimestampTriggerSql, (err) => {
+                     if (err) console.error('Erro ao criar/verificar trigger "update_produto_modificacao":', err.message);
+                     else console.log('Trigger "update_produto_modificacao" verificado/criado com sucesso.');
+                 });
+                 // --- FIM Trigger ---
     });
      console.log("Setup do banco de dados concluído."); // Log para saber que terminou
 }

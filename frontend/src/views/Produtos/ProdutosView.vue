@@ -109,19 +109,32 @@
 
           <!-- Área da Lista e Filtros -->
           <div class="list-filter-container">
-              <!-- **** CARD DA LISTA DE PRODUTOS - COM CABEÇALHO MODIFICADO **** -->
+              <!-- CARD DA LISTA DE PRODUTOS -->
               <div class="card product-list-card">
-                  <!-- ** NOVO CABEÇALHO PARA LISTA COM BOTÃO DE FILTRO ** -->
+                  <!-- ** CABEÇALHO PARA LISTA COM BOTÃO DE FILTRO ** -->
                   <div class="list-card-header">
                       <h2 class="card-title list-title">Produtos Cadastrados</h2>
-                      <button
-                          type="button"
-                          @click="toggleFilters"
-                          class="toggle-filter-button icon-only"
-                          :aria-expanded="isFilterExpanded"
-                          aria-label="Mostrar/Ocultar Filtros"
-                          title="Mostrar/Ocultar Filtros"
-                      >
+                      <div class="list-header-actions">
+                           <button
+                              type="button"
+                              @click="openEnviarEstoqueModal"
+                              class="action-button send-stock-button"
+                              title="Enviar Estoque para Escola"
+                              :disabled="produtos.length === 0 || isLoadingList"
+                            >
+                               <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-truck" viewBox="0 0 16 16">
+                                 <path d="M0 3.5A1.5 1.5 0 0 1 1.5 2h9A1.5 1.5 0 0 1 12 3.5V5h1.02a1.5 1.5 0 0 1 1.17.563l1.481 1.85a1.5 1.5 0 0 1 .329.938V10.5a1.5 1.5 0 0 1-1.5 1.5H14a2 2 0 1 1-4 0H5a2 2 0 1 1-3.998-.085A1.5 1.5 0 0 1 0 10.5zm1.294 7.456A2 2 0 0 1 4.732 11h5.536a2 2 0 0 1 .732-.732V3.5a.5.5 0 0 0-.5-.5h-9a.5.5 0 0 0-.5.5v7a.5.5 0 0 0 .294.456M12 10a2 2 0 0 1 1.732 1h.768a.5.5 0 0 0 .5-.5V8.35a.5.5 0 0 0-.11-.312l-1.48-1.85A.5.5 0 0 0 13.02 6H12zm-9 1a1 1 0 1 0 0 2 1 1 0 0 0 0-2m9 0a1 1 0 1 0 0 2 1 1 0 0 0 0-2"/>
+                               </svg>
+                               <span>Enviar Estoque</span>
+                           </button>
+                           <button
+                              type="button"
+                              @click="toggleFilters"
+                              class="toggle-filter-button icon-only"
+                              :aria-expanded="isFilterExpanded"
+                              aria-label="Mostrar/Ocultar Filtros"
+                              title="Mostrar/Ocultar Filtros"
+                            >
                           <!-- Ícone de Filtro -->
                           <svg v-if="!isFilterExpanded" xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" class="bi bi-funnel" viewBox="0 0 16 16">
                               <path d="M1.5 1.5A.5.5 0 0 1 2 1h12a.5.5 0 0 1 .5.5v2a.5.5 0 0 1-.128.334L10 8.692V13.5a.5.5 0 0 1-.74.439L7 12.439a.5.5 0 0 1-.26-.439V8.692L1.628 3.834A.5.5 0 0 1 1.5 3.5zM2 2v1.586l3.999 4.667a.5.5 0 0 1 .26.439v3.561l1.406.937a.5.5 0 0 1 .26.439V8.692L12 3.586V2z"/>
@@ -132,6 +145,7 @@
                           </svg>
                       </button>
                   </div>
+                </div>
                   <!-- **** FIM DO CABEÇALHO MODIFICADO **** -->
 
                   <!-- Conteúdo da Lista (Tabela, etc.) -->
@@ -216,6 +230,14 @@
 
           </div> <!-- Fim de .list-filter-container -->
       </div> <!-- Fim de .content-area -->
+        <!-- **** MODAL DE ENVIO DE ESTOQUE **** -->
+        <EnviarEstoqueModal
+        :show="showEnviarModal"
+        :produtos="produtos"
+        @close="showEnviarModal = false"
+        @confirmar-envio="handleConfirmarEnvio"
+      />
+      <!-- **** FIM DO MODAL **** -->
   </div> <!-- Fim de .produtos-view -->
 </template>
 
@@ -223,16 +245,22 @@
 import { ref, onMounted, computed, nextTick } from 'vue';
 import { useToast } from "vue-toastification";
 import ProdutoFiltros from './ProdutoFiltros.vue'; // Componente de Filtro
+import EnviarEstoqueModal from './EnviarEstoqueModal.vue'; // Importar o modal
+import { useEscolasStore } from '@/stores/escolas'; // Importar store de escolas
 
 const toast = useToast();
+const escolasStore = useEscolasStore(); // Instanciar o store
 const isFormExpanded = ref(false); // Controla o formulário de add/edit
 const editandoProdutoId = ref(null);
 const produtoEmEdicao = ref(null);
 const isEditing = computed(() => editandoProdutoId.value !== null);
 const openedActionMenuId = ref(null); // Controla qual menu de ação está aberto
 
-// **** NOVO ESTADO PARA CONTROLAR VISIBILIDADE DO FILTRO ****
+// NOVO ESTADO PARA CONTROLAR VISIBILIDADE DO FILTRO
 const isFilterExpanded = ref(false); // Começa fechado por padrão
+
+// ESTADO PARA O MODAL
+const showEnviarModal = ref(false); // Controla a visibilidade do modal de envio
 
 // Diretiva v-click-outside (simplificada)
 const vClickOutside = {
@@ -648,6 +676,95 @@ const executarExclusao = (produtoId) => {
   // Não precisa fechar aqui explicitamente se confirmarExclusao já faz
 };
 
+// **** LÓGICA DO MODAL DE ENVIO DE ESTOQUE ****
+
+// Abre o modal de envio
+const openEnviarEstoqueModal = () => {
+  // Poderia pré-carregar escolas aqui se necessário, mas o modal já faz isso
+  // escolasStore.fetchEscolas(); // Opcional
+  showEnviarModal.value = true;
+};
+
+// Lida com a confirmação do envio vinda do modal
+const handleConfirmarEnvio = async (payload) => {
+  // payload = { escola_id: number, itens: [{ produto_id: number, quantidade: number }, ...] }
+  console.log("Payload recebido para envio:", payload);
+
+  try {
+    const token = localStorage.getItem('authToken');
+    if (!token) {
+      toast.error("Sessão expirada. Faça login novamente.");
+      showEnviarModal.value = false; // Fecha o modal
+      // Idealmente redirecionar para login
+      return;
+    }
+
+    // **NOVO ENDPOINT NO BACKEND:** Presume-se um endpoint POST /api/transferencias
+    const response = await fetch('http://localhost:3000/api/transferencias', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(payload),
+    });
+
+    const responseData = await response.json();
+
+    if (!response.ok) {
+        // Tenta pegar a mensagem de erro do backend
+        throw new Error(responseData.error || `Falha ao registrar a transferência (Status: ${response.status})`);
+    }
+
+    // Sucesso!
+    toast.success(responseData.message || "Estoque enviado com sucesso!"); // Usa a mensagem do backend se existir
+
+    // Atualizar as quantidades na lista local para refletir o envio
+    payload.itens.forEach(itemEnviado => {
+        const index = produtos.value.findIndex(p => p.id === itemEnviado.produto_id);
+        if (index !== -1) {
+            const produtoOriginal = produtos.value[index];
+            const novaQuantidade = (produtoOriginal.quantidade ?? 0) - itemEnviado.quantidade;
+            // Atualiza o produto diretamente na lista
+            // É importante criar um novo objeto para garantir reatividade se necessário
+            produtos.value[index] = {
+                ...produtoOriginal,
+                quantidade: novaQuantidade < 0 ? 0 : novaQuantidade, // Garante não ficar negativo
+                // A API de transferência PODE retornar a nova data de modificação,
+                // se sim, atualize aqui também:
+                // data_modificacao: responseData.produtos_atualizados?.[itemEnviado.produto_id]?.data_modificacao || produtoOriginal.data_modificacao
+            };
+
+            // Atualiza diretamente no DOM para feedback visual imediato (opcional, Vue deve cuidar disso)
+             nextTick(() => {
+                 const qtySpan = document.getElementById(`produto-qty-${itemEnviado.produto_id}`);
+                 if (qtySpan) {
+                     qtySpan.textContent = novaQuantidade < 0 ? '0' : novaQuantidade.toString();
+                     // Adiciona uma classe de highlight temporária (opcional)
+                     qtySpan.classList.add('highlight-update');
+                     setTimeout(() => qtySpan.classList.remove('highlight-update'), 1500);
+                 }
+             });
+        }
+    });
+
+    showEnviarModal.value = false; // Fecha o modal
+
+  } catch (error) {
+      console.error("Erro ao enviar estoque:", error);
+      toast.error(`Erro ao enviar: ${error.message}`);
+      // Mantém o modal aberto em caso de erro? Ou passa o erro para o modal exibir?
+      // Por enquanto, apenas logamos e mostramos toast. O modal já tem seu próprio
+      // estado `isSubmitting` que deve ser resetado pelo componente pai (neste caso,
+      // como o erro ocorreu aqui, o modal continua com isSubmitting=true).
+      // Idealmente, o modal deveria ter uma prop ou método para resetar o estado de envio.
+      // Solução simples: fechar o modal mesmo em erro.
+      showEnviarModal.value = false; // Fecha em caso de erro também por simplicidade inicial
+  }
+  // O finally não é ideal aqui porque o estado `isSubmitting` está no modal.
+  // A comunicação para resetar o estado do modal em caso de erro precisaria ser mais robusta.
+};
+
 // --- Ciclo de Vida ---
 onMounted(() => {
 fetchProdutos(); // Busca os produtos ao montar o componente
@@ -660,3 +777,98 @@ fetchProdutos(); // Busca os produtos ao montar o componente
 <!-- Links CSS -->
 <style scoped src="../CSS/ProdutosView.css"></style>
 <style scoped src="../CSS/ProdutosEditView.css"></style>
+
+<!-- Adiciona estilos específicos para o botão de envio e highlight -->
+<style scoped>
+.list-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap; /* Permite quebrar linha em telas menores */
+    gap: 1rem; /* Espaço entre título e botões */
+}
+
+.list-title {
+    margin-bottom: 0; /* Remove margem inferior padrão do título */
+    flex-grow: 1; /* Faz o título ocupar espaço disponível */
+}
+
+.list-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem; /* Espaço entre os botões de ação */
+    flex-shrink: 0; /* Impede que os botões encolham demais */
+}
+
+.action-button { /* Estilo base para botões de ação no cabeçalho */
+    background-color: #f8f9fa;
+    border: 1px solid #dee2e6;
+    color: #495057;
+    padding: 0.4rem 0.8rem;
+    border-radius: 4px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.85rem;
+    font-weight: 500;
+    transition: all 0.2s ease;
+}
+.action-button:hover:not(:disabled) {
+    background-color: #e9ecef;
+    border-color: #adb5bd;
+    color: #212529;
+}
+.action-button:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+.action-button svg {
+    width: 1em;
+    height: 1em;
+}
+
+.send-stock-button { /* Estilo específico para o botão Enviar Estoque */
+    background-color: #17a2b8; /* Cor info */
+    border-color: #17a2b8;
+    color: white;
+}
+.send-stock-button:hover:not(:disabled) {
+    background-color: #138496;
+    border-color: #117a8b;
+    color: white;
+}
+
+.toggle-filter-button {
+    /* Ajuste se necessário para alinhar com o novo botão */
+}
+
+/* Highlight para quantidade atualizada (opcional) */
+@keyframes highlight {
+  from { background-color: #ffc107; } /* Amarelo */
+  to { background-color: transparent; }
+}
+.highlight-update {
+  animation: highlight 1.5s ease-out;
+  display: inline-block; /* Necessário para background funcionar bem */
+  padding: 0 2px; /* Pequeno padding para o highlight */
+  border-radius: 3px;
+}
+
+/* Ajuste responsivo para o cabeçalho da lista, se necessário */
+@media (max-width: 600px) {
+    .list-card-header {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    .list-header-actions {
+        width: 100%;
+        justify-content: flex-end; /* Alinha botões à direita */
+    }
+    .list-title {
+        width: 100%; /* Ocupa toda a largura */
+        margin-bottom: 0.5rem; /* Adiciona espaço abaixo do título */
+    }
+}
+
+</style>

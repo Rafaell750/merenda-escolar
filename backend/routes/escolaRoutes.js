@@ -14,7 +14,7 @@ router.post('/', async (req, res) => {
         return res.status(400).json({ message: 'O nome da escola é obrigatório.' });
     }
 
-    const sql = `INSERT INTO escolas (nome, endereco, responsavel) VALUES (?, ?, ?, ?, ?)`;
+    const sql = `INSERT INTO escolas (nome, endereco, responsavel) VALUES (?, ?, ?)`;
     // Salva null se os campos opcionais estiverem vazios/undefined
     const params = [
         nome.trim(),

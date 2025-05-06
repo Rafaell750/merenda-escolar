@@ -13,6 +13,13 @@
           <label for="endereco">Endereço</label>
           <input type="text" id="endereco" v-model="formData.endereco">
         </div>
+
+        <!-- NOVO CAMPO PARA RESPONSÁVEL -->
+        <div class="form-group">
+          <label for="responsavel">Responsável</label>
+          <input type="text" id="responsavel" v-model="formData.responsavel">
+        </div>
+        <!-- FIM NOVO CAMPO -->
   
         <div v-if="escolasStore.getError" class="error-message">
           {{ escolasStore.getError }}
@@ -38,6 +45,7 @@
   const formData = ref({
     nome: '',
     endereco: '',
+    responsavel: '',
   });
   
   const submitForm = async () => {
@@ -46,7 +54,7 @@
       await escolasStore.addEscola(formData.value);
       successMessage.value = `Escola "${formData.value.nome}" cadastrada com sucesso!`;
       // Limpar o formulário após o sucesso
-      formData.value = { nome: '', endereco: ''};
+      formData.value = { nome: '', endereco: '', responsavel: ''};
       // O menu lateral será atualizado automaticamente pela reatividade do Pinia
     } catch (error) {
       // O erro já está sendo tratado no store e exibido pelo getError
