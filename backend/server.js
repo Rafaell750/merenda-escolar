@@ -114,6 +114,7 @@ async function setupDatabase() {
         escola_id INTEGER NOT NULL,
         data_transferencia DATETIME DEFAULT CURRENT_TIMESTAMP,
         usuario_id INTEGER NOT NULL, -- Quem realizou a transferência
+        data_recebimento_confirmado DATETIME NULL,
         FOREIGN KEY (escola_id) REFERENCES escolas (id) ON DELETE CASCADE, -- Se excluir escola, remove histórico? Ou SET NULL?
         FOREIGN KEY (usuario_id) REFERENCES usuarios (id) ON DELETE RESTRICT -- Não deixa excluir usuário com transferências
     );`;

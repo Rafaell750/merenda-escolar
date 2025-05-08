@@ -1,0 +1,262 @@
+.enviar-estoque-modal {
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    padding: 0; /* Remover padding padrão do dialog */
+    max-width: 700px;
+    width: 90%;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+    /* Forçar centralização */
+    position: fixed; /* Garante que seja relativo à viewport */
+    top: 50%;
+    left: 51%;
+    transform: translate(-50%, -50%);
+  }
+  
+  /* Estilo para o backdrop quando o modal está aberto */
+  .enviar-estoque-modal::backdrop {
+    background-color: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(3px);
+  }
+  
+  .modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem 1.5rem;
+    background-color: #f8f9fa;
+    border-bottom: 1px solid #dee2e6;
+    border-top-left-radius: 8px;
+    border-top-right-radius: 8px;
+  }
+  
+  .modal-header h2 {
+    margin: 0;
+    font-size: 1.25rem;
+    color: #333;
+  }
+  
+  .close-button {
+    background: none;
+    border: none;
+    font-size: 1.8rem;
+    line-height: 1;
+    color: #6c757d;
+    cursor: pointer;
+    padding: 0 0.5rem;
+    transition: color 0.2s ease;
+  }
+  .close-button:hover {
+    color: #343a40;
+  }
+  
+  .modal-body {
+    padding: 1.5rem;
+    max-height: 60vh; /* Altura máxima para o corpo */
+    overflow-y: auto; /* Habilita scroll se necessário */
+  }
+  
+  .form-group {
+    margin-bottom: 1.5rem;
+  }
+  
+  .form-group label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-weight: 500;
+    color: #555;
+  }
+  
+  .form-select, .form-input {
+    width: 100%;
+    padding: 0.6rem 0.8rem;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    font-size: 0.95rem;
+    background-color: #fff; /* Fundo branco */
+  }
+  
+  .form-input:disabled {
+      background-color: #e9ecef;
+      cursor: not-allowed;
+      opacity: 0.7;
+  }
+  .form-input::placeholder {
+      color: #6c757d;
+      font-size: 0.85rem;
+  }
+  
+  .produtos-title {
+    margin-top: 2rem;
+    margin-bottom: 1rem;
+    font-size: 1.1rem;
+    color: #444;
+    border-bottom: 1px solid #eee;
+    padding-bottom: 0.5rem;
+  }
+  
+  .info-text {
+      font-size: 0.85rem;
+      color: #6c757d;
+      margin-bottom: 1rem;
+  }
+  
+  .produtos-list-container {
+      /* Adicione estilos se necessário, como borda ou padding */
+  }
+  
+  .produtos-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 0.5rem;
+  }
+  
+  .produtos-table th,
+  .produtos-table td {
+      padding: 0.6rem 0.5rem;
+      text-align: left;
+      border-bottom: 1px solid #eee;
+      vertical-align: middle; /* Alinha verticalmente no meio */
+  }
+  
+  .produtos-table th {
+      font-weight: 600;
+      font-size: 0.9rem;
+      background-color: #f8f9fa;
+  }
+  
+  .produtos-table tbody tr:last-child td {
+      border-bottom: none;
+  }
+  
+  .text-right {
+      text-align: right;
+  }
+  .text-center {
+      text-align: center;
+  }
+  
+  .quantity-input-cell {
+      width: 120px; /* Largura fixa para a célula de input */
+      text-align: center;
+      position: relative; /* Para posicionar a mensagem de erro */
+  }
+  
+  .quantity-input {
+      width: 80px; /* Largura do input */
+      text-align: right;
+      padding: 0.4rem 0.6rem;
+      /* margin: 0 auto; */ /* Centraliza se o text-align do td não funcionar */
+  }
+  
+  .quantity-error {
+      display: block; /* Faz ocupar a linha abaixo */
+      font-size: 0.75rem;
+      color: #dc3545;
+      margin-top: 3px;
+      position: absolute; /* Posiciona abaixo do input */
+      left: 50%;
+      transform: translateX(-50%);
+      width: 100%;
+      white-space: nowrap;
+  }
+  
+  .modal-footer {
+     text-align: right;
+    padding: 1rem 1.5rem;
+    border-top: 1px solid #dee2e6;
+    background-color: #f8f9fa;
+    border-bottom-left-radius: 8px;
+    border-bottom-right-radius: 8px;
+  }
+  
+  .modal-footer button {
+    padding: 0.6rem 0.8rem; /* Ajuste o padding se necessário com a largura fixa */
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    font-weight: 500;
+    transition: background-color 0.2s ease, opacity 0.2s ease;
+    margin-left: 0.75rem; /* Aumentei um pouco o espaço entre os botões */
+    
+    /* NOVAS PROPRIEDADES PARA TAMANHO IGUAL E CONTEÚDO CENTRALIZADO */
+    width: 160px; /* <<-- ESCOLHA UMA LARGURA ADEQUADA (ex: 150px, 160px) */
+    
+    
+    display: inline-flex; /* Para permitir o alinhamento do conteúdo interno */
+    align-items: center;   /* Alinha verticalmente o conteúdo (ícone/spinner e texto) */
+    justify-content: center; /* Alinha horizontalmente o conteúdo (ícone/spinner e texto) */
+    
+    text-align: center; /* Backup para o texto, caso inline-flex não seja suficiente */
+    line-height: 1.5; /* Pode ajudar no alinhamento vertical do texto */
+  }
+  
+  .modal-footer button:first-child {
+      /* Para o caso de adicionar mais botões à esquerda no futuro e não querer margin-left no primeiro */
+      /* margin-left: 0;  */
+  }
+  
+  .cancel-button {
+    background-color: #6c757d;
+    color: white;
+    border: none;
+  }
+  .cancel-button:hover {
+    background-color: #5a6268;
+  }
+  
+  .submit-button {
+    background-color: #007bff;
+    color: white;
+    border: none;
+
+    position: relative; /* Para o spinner */
+  }
+  .submit-button:hover:not(:disabled) {
+    background-color: #0056b3;
+  }
+  .submit-button:disabled {
+    background-color: #6c757d;
+    cursor: not-allowed;
+    opacity: 0.65;
+  }
+  
+  .spinner {
+    display: inline-block;
+    width: 1rem;
+    height: 1rem;
+    vertical-align: -0.125em;
+    border: .2em solid currentColor;
+    border-right-color: transparent;
+    border-radius: 50%;
+    animation: spinner-border .75s linear infinite;
+    margin-right: 0.5rem;
+  }
+  @keyframes spinner-border { to { transform: rotate(360deg); } }
+  
+  .error-message {
+      color: #721c24;
+      background-color: #f8d7da;
+      border: 1px solid #f5c6cb;
+      padding: 0.75rem 1.25rem;
+      border-radius: 4px;
+      margin-top: 1rem;
+      font-size: 0.9rem;
+  }
+  .error-message.small {
+      padding: 0.4rem 0.8rem;
+      font-size: 0.8rem;
+      margin-top: 0.5rem;
+  }
+  .submit-error {
+      margin-top: 1.5rem; /* Mais espaço antes do erro de submit */
+  }
+  .loading-message, .empty-message {
+      text-align: center;
+      padding: 1rem;
+      color: #6c757d;
+      font-style: italic;
+  }
+  .loading-message.small, .empty-message.small {
+      padding: 0.5rem;
+      font-size: 0.9rem;
+  }

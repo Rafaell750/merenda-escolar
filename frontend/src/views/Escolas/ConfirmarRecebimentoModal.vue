@@ -184,17 +184,45 @@
   
   <style scoped>
   .confirmar-recebimento-modal {
+    /* Aparência */
     border: 1px solid #ccc;
     border-radius: 8px;
-    padding: 0;
-    max-width: 750px;
-    width: 90%;
     box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+    padding: 0; /* Padding interno é nos filhos (header, body, footer) */
+
+    /* Dimensionamento e Limites */
+    /* Usamos clamp para uma largura responsiva: mínimo 300px, idealmente 90% da viewport, máximo 750px */
+    width: clamp(300px, 90vw, 750px);
+    max-height: calc(100vh - 40px); /* Deixa 20px de margem em cima e embaixo */
+
+    /* Centralização:
+       Uma <dialog> com .showModal() é posicionada como 'fixed' na camada superior.
+       'margin: auto' deve centralizá-la. Se foi sobrescrito, vamos tentar reforçar. */
+    margin: auto;
+
+    /* O overflow (scroll) do conteúdo é gerenciado pelo .modal-body.
+       A dialog em si não deve ter scroll, apenas o .modal-body.
+       overflow: visible é o padrão, mas para garantir que não esteja impedindo algo. */
+    overflow: visible;
   }
+
   .confirmar-recebimento-modal::backdrop {
     background-color: rgba(0,0,0,0.5);
     backdrop-filter: blur(3px);
   }
+
+  /* O form é o container principal do conteúdo da modal e é o FLEX CONTAINER */
+  .confirmar-recebimento-modal form {
+    display: flex;
+    flex-direction: column;
+    width: 100%; /* Ocupa toda a largura da dialog */
+    /* height: 100% faz o form ter a mesma altura da dialog.
+       Crucial para flex-grow no modal-body funcionar quando a dialog atinge max-height. */
+    height: 100%;
+    overflow: hidden; /* Para que os border-radius da dialog sejam respeitados pelo form */
+    border-radius: inherit; /* Herda o border-radius da dialog pai */
+  }
+
   .modal-header {
     display: flex;
     justify-content: space-between;
@@ -202,33 +230,47 @@
     padding: 1rem 1.5rem;
     background-color: #f8f9fa;
     border-bottom: 1px solid #dee2e6;
-    border-top-left-radius: 8px;
-    border-top-right-radius: 8px;
+    flex-shrink: 0; /* Header não encolhe */
   }
+
   .modal-header h2 {
     margin: 0;
     font-size: 1.25rem;
     color: #333;
   }
+
   .close-button {
-    background: none; border: none; font-size: 1.8rem; line-height: 1;
-    color: #6c757d; cursor: pointer; padding: 0 0.5rem;
+    background: none;
+    border: none;
+    font-size: 1.8rem;
+    line-height: 1;
+    color: #6c757d;
+    cursor: pointer;
+    padding: 0 0.5rem;
   }
+  .close-button:hover {
+    color: #333;
+  }
+
   .modal-body {
     padding: 1.5rem;
-    max-height: 65vh;
-    overflow-y: auto;
+    overflow-y: auto; /* Permite scroll SÓ no body */
+    flex-grow: 1; /* Faz o body ocupar o espaço vertical disponível */
   }
+
+  /* ... (copie o restante dos seus estilos para .modal-body > p, transferencias, itens, footer, botões, spinner, mensagens de erro/loading/empty, etc. daqui para baixo) ... */
   .modal-body > p:first-of-type { /* Parágrafo com nome da escola */
       margin-bottom: 1.2rem;
       font-size: 1rem;
       color: #495057;
   }
+
   .transferencias-pendentes-lista {
       display: flex;
       flex-direction: column;
       gap: 1rem;
   }
+
   .info-text {
       font-size: 0.85rem;
       color: #6c757d;
@@ -237,65 +279,147 @@
       padding: 0.5rem 0.8rem;
       border-radius: 4px;
   }
+
   .transferencia-item {
       border: 1px solid #e0e0e0;
       border-radius: 6px;
       padding: 0.8rem 1rem;
       background-color: #fdfdfd;
   }
+
   .transferencia-info {
       display: flex;
       align-items: center;
       gap: 0.75rem;
       margin-bottom: 0.5rem;
   }
+
   .checkbox-transferencia {
       width: 18px;
       height: 18px;
-      accent-color: #007bff; /* Cor do checkbox quando marcado */
+      accent-color: #007bff;
+      flex-shrink: 0;
   }
+
   .transferencia-info label {
       font-size: 0.95rem;
       color: #333;
       cursor: pointer;
+      line-height: 1.4;
   }
+
   .transferencia-info label strong {
       font-weight: 600;
   }
+
   .itens-preview-lista {
       list-style: none;
-      padding-left: 2.2rem; /* Alinha com o texto do label */
+      padding-left: calc(18px + 0.75rem); /* Alinha com o texto do label (largura checkbox + gap) */
       margin: 0.3rem 0 0 0;
       font-size: 0.8rem;
       color: #555;
   }
+
   .itens-preview-lista li {
       padding: 0.1rem 0;
   }
+
   .mais-itens, .sem-itens {
       font-style: italic;
       color: #777;
+      padding-left: calc(18px + 0.75rem); /* Mesmo alinhamento se estiver fora da lista */
   }
+  .sem-itens {
+      margin-top: 0.5rem;
+  }
+
+
   .modal-footer {
-    display: flex; justify-content: flex-end; padding: 1rem 1.5rem;
-    border-top: 1px solid #dee2e6; background-color: #f8f9fa;
-    border-bottom-left-radius: 8px; border-bottom-right-radius: 8px;
+
+    justify-content: flex-end; /* alinha os botões à direita */
+    align-items: center;
+    padding: 1rem 1.5rem;
+    border-top: 1px solid #dee2e6;
+    background-color: #f8f9fa;
+    gap: 0.75rem;
+    flex-shrink: 0;
   }
+
   .modal-footer button {
-    padding: 0.6rem 1.2rem; border-radius: 4px; cursor: pointer;
-    font-size: 0.9rem; font-weight: 500; margin-left: 0.5rem;
+    padding: 0.5rem 1rem; /* tamanho mais compacto */
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    font-weight: 500;
+    line-height: 1.2;
+    border: 1px solid transparent;
+    transition: all 0.2s ease;
+    width: auto; /* largura automática conforme o texto */
+    min-width: unset; /* remove a largura mínima fixa */
+    height: auto; /* altura automática */
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
   }
-  .cancel-button { background-color: #6c757d; color: white; border: none; }
-  .submit-button { background-color: #28a745; color: white; border: none; min-width: 120px; }
-  .submit-button:disabled { background-color: #6c757d; opacity: 0.65; cursor: not-allowed; }
+
+  .cancel-button {
+    background-color: #6c757d;
+    color: white;
+    border-color: #6c757d;
+  }
+  .cancel-button:hover {
+    background-color: #5a6268;
+    border-color: #545b62;
+  }
+
+  .submit-button {
+    background-color: #28a745;
+    color: white;
+    border-color: #28a745;
+
+  }
+  .submit-button:hover:not(:disabled) {
+    background-color: #218838;
+    border-color: #1e7e34;
+  }
+
+  .submit-button:disabled {
+    background-color: #a5d6a7;
+    border-color: #a5d6a7;
+    color: #6c757d;
+    cursor: not-allowed;
+  }
+
   .spinner {
-    display: inline-block; width: 1rem; height: 1rem; vertical-align: -0.125em;
-    border: .2em solid currentColor; border-right-color: transparent;
-    border-radius: 50%; animation: spinner-border .75s linear infinite; margin-right: 0.5rem;
+    display: inline-block;
+    width: 1rem;
+    height: 1rem;
+    vertical-align: -0.125em;
+    border: .2em solid currentColor;
+    border-right-color: transparent;
+    border-radius: 50%;
+    animation: spinner-border .75s linear infinite;
+    margin-right: 0.6rem;
   }
-  @keyframes spinner-border { to { transform: rotate(360deg); } }
+
+  @keyframes spinner-border {
+    to { transform: rotate(360deg); }
+  }
+
   .loading-message, .empty-message, .error-message {
-    text-align: center; padding: 1rem; color: #6c757d; font-style: italic;
+    text-align: center;
+    padding: 1.5rem 1rem;
+    color: #6c757d;
+    font-style: italic;
+    font-size: 0.95rem;
   }
-  .error-message { color: #721c24; background-color: #f8d7da; border: 1px solid #f5c6cb; border-radius: 4px; }
-  </style>
+
+  .error-message {
+    color: #721c24;
+    background-color: #f8d7da;
+    border: 1px solid #f5c6cb;
+    border-radius: 4px;
+    font-style: normal;
+  }
+</style>
