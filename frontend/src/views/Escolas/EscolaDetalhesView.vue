@@ -3,7 +3,7 @@
   <div class="escola-detalhes-container">
       <header class="detalhes-header">
           <h1>{{ escolaNome || 'Carregando...' }}</h1>
-          <!-- ALTERAÇÃO: Novo botão -->
+          <!-- botão -->
           <button
                 type="button"
                 @click="abrirModalConfirmacao"
@@ -17,7 +17,7 @@
                     <path d="m8.354 10.354 7-7a.5.5 0 0 0-.708-.708L8 9.293 5.354 6.646a.5.5 0 1 0-.708.708l3 3a.5.5 0 0 0 .708 0"/>
                 </svg>
                 Confirmar Recebimento
-                <!-- ALTERAÇÃO: Indicador visual de pendência (opcional) -->
+                <!-- Indicador visual de pendência  -->
                 <span v-if="temTransferenciasPendentes && !loadingStatusPendentes" class="pending-indicator" aria-label="Pendências existem">!</span>
             </button>
         </header>
@@ -33,7 +33,7 @@
       </div>
 
       <section class="estoque-recebido-section" v-if="!loading">
-          <h2>Estoque Recebido Confirmado</h2> <!-- Título ajustado -->
+          <h2>Estoque Recebido</h2> <!-- Título ajustado -->
           <div v-if="loadingTransferencias" class="loading-message small">Carregando histórico...</div>
           <div v-if="errorTransferencias" class="error-message small">{{ errorTransferencias }}</div>
 
@@ -45,21 +45,22 @@
               <table class="tabela-consolidada">
                   <thead>
                       <tr>
-                          <th>Data Recebimento</th>
-                          <th>Registrado por</th>
+                          <th>Último Recebimento</th>
+                          <th>Último Registro por</th>
                           <th>Produto</th>
                           <th>Unidade</th>
-                          <th class="text-right">Quantidade Recebida</th>
+                          <th class="text-right">Qtd Recebida</th>
+                          <th>Detalhes</th>
                       </tr>
                   </thead>
                   <tbody>
-                      <tr v-for="(item, index) in itensConsolidados" :key="item.original_transferencia_id + '-' + index">
-                          <td>{{ item.data_formatada }}</td> <!-- Este será a data de confirmação do recebimento -->
-                          <td>{{ item.nome_usuario }}</td>
-                          <td>{{ item.nome_produto }}</td>
-                          <td>{{ item.unidade_medida }}</td>
-                          <td class="text-right">{{ item.quantidade_enviada }}</td>
-                      </tr>
+                      <!-- Usando o novo componente -->
+                      <ItemEstoqueConsolidado
+                          v-for="item in itensConsolidados"
+                          :key="item._id_vfor"
+                          :item="item"
+                          :colunas-na-tabela-principal="6"
+                      />
                   </tbody>
               </table>
           </div>
@@ -80,45 +81,83 @@
 import { ref, onMounted, computed, watch } from 'vue';
 import { useRoute } from 'vue-router';
 import axios from 'axios';
-import ConfirmarRecebimentoModal from './ConfirmarRecebimentoModal.vue'; // ALTERAÇÃO: Importar modal
-import { useToast } from "vue-toastification"; // ALTERAÇÃO: Para feedback
+import ConfirmarRecebimentoModal from './ConfirmarRecebimentoModal.vue'; 
+import { useToast } from "vue-toastification"; // Para feedback
+import ItemEstoqueConsolidado from './Historico/HistoricoItemEstoque.vue';
+import './EscolaDetalhesView.css';
 
 const route = useRoute();
-const toast = useToast(); // ALTERAÇÃO
+const toast = useToast(); 
 const escolaId = computed(() => route.params.id);
 const escolaNome = ref('');
 const detalhesEscola = ref(null);
 const loading = ref(false);
 const error = ref(null);
 
-const transferenciasConfirmadas = ref([]); // ALTERAÇÃO: Renomeado para clareza
+const transferenciasConfirmadas = ref([]); 
 const loadingTransferencias = ref(false);
 const errorTransferencias = ref(null);
 
-const showConfirmarModal = ref(false); // ALTERAÇÃO: Estado para o novo modal
+const showConfirmarModal = ref(false); 
 
-// --- ALTERAÇÃO: Estado para transferências pendentes ---
+// --- Estado para transferências pendentes ---
 const temTransferenciasPendentes = ref(false);
 const loadingStatusPendentes = ref(false);
-// --- FIM ALTERAÇÃO ---
+
 
 const API_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api';
 
 const itensConsolidados = computed(() => {
-  const todosItens = [];
-  transferenciasConfirmadas.value.forEach(transferencia => { // ALTERAÇÃO: Usa transferenciasConfirmadas
-      if (transferencia.itens && transferencia.itens.length > 0) {
-          transferencia.itens.forEach(item => {
-              todosItens.push({
-                  ...item,
-                  data_formatada: transferencia.data_recebimento_confirmado_formatada || transferencia.data_formatada, // Usará a nova data de confirmação
-                  nome_usuario: transferencia.nome_usuario,
-                  original_transferencia_id: transferencia.transferencia_id
-              });
-          });
-      }
-  });
-  return todosItens;
+    const itensCompletos = [];
+    transferenciasConfirmadas.value.forEach(transferencia => {
+        if (transferencia.itens && transferencia.itens.length > 0) {
+            transferencia.itens.forEach(item => {
+                const dataParaOrdenacao = transferencia.data_recebimento_confirmado || transferencia.data_envio || new Date(0).toISOString();
+                itensCompletos.push({
+                    ...item,
+                    data_confirmacao: dataParaOrdenacao,
+                    data_formatada: transferencia.data_recebimento_confirmado_formatada || transferencia.data_formatada,
+                    nome_usuario: transferencia.nome_usuario,
+                    original_transferencia_id: transferencia.transferencia_id,
+                    item_id_original: item.id || item.item_id
+                });
+            });
+        }
+    });
+
+    itensCompletos.sort((a, b) => new Date(b.data_confirmacao) - new Date(a.data_confirmacao));
+
+    const agregador = new Map();
+    itensCompletos.forEach(item => {
+        const chaveAgregacao = `${item.nome_produto}|${item.unidade_medida}`;
+        if (!agregador.has(chaveAgregacao)) {
+            agregador.set(chaveAgregacao, {
+                _id_vfor: chaveAgregacao, // Mantido para a key do v-for do componente
+                nome_produto: item.nome_produto,
+                unidade_medida: item.unidade_medida,
+                quantidade_total: 0,
+                ultima_data_recebimento_formatada: item.data_formatada,
+                ultimo_nome_usuario: item.nome_usuario,
+                historico_detalhado: [],
+            });
+        }
+        const itemAgregado = agregador.get(chaveAgregacao);
+        const quantidade = parseFloat(item.quantidade_enviada);
+        if (!isNaN(quantidade)) {
+            itemAgregado.quantidade_total += quantidade;
+        }
+        itemAgregado.historico_detalhado.push({
+            data_formatada: item.data_formatada,
+            nome_usuario: item.nome_usuario,
+            quantidade_enviada: item.quantidade_enviada,
+            original_transferencia_id: item.original_transferencia_id,
+            item_id_original: item.item_id_original
+        });
+    });
+
+    const resultadoArray = Array.from(agregador.values());
+    resultadoArray.sort((a, b) => a.nome_produto.localeCompare(b.nome_produto));
+    return resultadoArray;
 });
 
 function formatarData(dataString) {
@@ -149,12 +188,12 @@ try {
     escolaNome.value = response.data.nome;
 } catch (err) {
     console.error('Erro ao buscar detalhes da escola:', err);
-    error.value = err.response?.data?.error || 'Falha ao carregar detalhes da escola.';
+    error.value = err.response?.data?.error || 'Falha ao carregar detalhes da escola. Faça login novamente.';
     if (err.response?.status === 404) { escolaNome.value = "Escola não encontrada"; }
 } finally { loading.value = false; }
 }
 
-// ALTERAÇÃO: Renomeado para buscar transferências CONFIRMADAS
+// Renomeado para buscar transferências CONFIRMADAS
 async function fetchTransferenciasConfirmadasDaEscola() {
 loadingTransferencias.value = true;
 errorTransferencias.value = null;
@@ -176,7 +215,7 @@ try {
 }
 }
 
-// --- ALTERAÇÃO: Função para verificar status de transferências pendentes ---
+// --- Função para verificar status de transferências pendentes ---
 async function checkTransferenciasPendentes() {
     if (!escolaId.value) return;
     loadingStatusPendentes.value = true;
@@ -184,13 +223,11 @@ async function checkTransferenciasPendentes() {
     const token = localStorage.getItem('authToken');
 
     if (!token) {
-        // Não precisa mostrar erro aqui, apenas não ativa a animação
         loadingStatusPendentes.value = false;
         return;
     }
 
     try {
-        // Usaremos a mesma API que o modal usa, mas só precisamos saber se o array retornado tem tamanho > 0
         const response = await axios.get(`${API_URL}/transferencias/pendentes/por-escola/${escolaId.value}`, {
             headers: { Authorization: `Bearer ${token}` }
         });
@@ -206,9 +243,8 @@ async function checkTransferenciasPendentes() {
         loadingStatusPendentes.value = false;
     }
 }
-// --- FIM ALTERAÇÃO ---
 
-// ALTERAÇÃO: Funções para o novo modal
+// Funções para o novo modal
 function abrirModalConfirmacao() {
   showConfirmarModal.value = true;
 }
@@ -217,15 +253,15 @@ async function handleRecebimentoConfirmado() {
   toast.success("Recebimento(s) confirmado(s) com sucesso!");
   // Recarrega a lista de transferências confirmadas para refletir a mudança
   await fetchTransferenciasConfirmadasDaEscola();
-  await checkTransferenciasPendentes(); // ALTERAÇÃO: Re-verifica pendências após confirmação
+  await checkTransferenciasPendentes(); // Re-verifica pendências após confirmação
 }
-// FIM ALTERAÇÃO
+
 
 async function carregarDadosCompletos() {
   await fetchDetalhesEscola();
   if (detalhesEscola.value && !error.value) {
-      await fetchTransferenciasConfirmadasDaEscola(); // ALTERAÇÃO
-      checkTransferenciasPendentes() // ALTERAÇÃO: Verifica pendências
+      await fetchTransferenciasConfirmadasDaEscola(); 
+      checkTransferenciasPendentes()
   }
 }
 
@@ -239,220 +275,3 @@ if (newId && newId !== oldId) {
 }
 }, { immediate: false });
 </script>
-
-<style scoped>
-.escola-detalhes-container {
-  padding: 1.5rem 2rem;
-  background-color: #fff;
-  border-radius: 8px;
-  box-shadow: 0 2px 10px rgba(0,0,0,0.08);
-  max-width: 1000px; /* Aumentado para tabelas mais largas */
-  margin: 2rem auto;
-}
-
-.detalhes-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 1.5rem;
-  padding-bottom: 1rem;
-  border-bottom: 1px solid #eee;
-}
-
-.detalhes-header h1 {
-  color: #2c3e50;
-  margin: 0;
-  font-size: 1.8rem;
-}
-
-.btn-voltar {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.6rem 1rem;
-  background-color: #6c757d;
-  color: white;
-  text-decoration: none;
-  border-radius: 4px;
-  font-size: 0.9rem;
-  transition: background-color 0.2s;
-}
-.btn-voltar:hover {
-  background-color: #5a6268;
-}
-.btn-voltar svg {
-  margin-bottom: 1px;
-}
-
-.info-escola {
-  margin-bottom: 2rem;
-  padding: 1rem;
-  background-color: #f8f9fa;
-  border-radius: 6px;
-}
-.info-escola h2 {
-  font-size: 1.3rem;
-  color: #343a40;
-  margin-top: 0;
-  margin-bottom: 0.8rem;
-}
-.info-escola p {
-  color: #495057;
-  margin-bottom: 0.4rem;
-  font-size: 0.95rem;
-}
-.info-escola p strong {
-  color: #212529;
-}
-
-.estoque-recebido-section h2 { /* Mudado de .historico-transferencias */
-  font-size: 1.5rem;
-  color: #2c3e50;
-  margin-bottom: 1rem;
-  padding-bottom: 0.5rem;
-  border-bottom: 1px solid #e0e0e0;
-}
-
-/* ALTERAÇÃO: Estilos para a tabela consolidada */
-.tabela-consolidada-container {
-  margin-top: 1rem;
-  overflow-x: auto; /* Permite rolagem horizontal se a tabela for muito larga */
-}
-
-.tabela-consolidada {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 0.9rem;
-  min-width: 700px; /* Largura mínima para evitar quebra excessiva de colunas */
-}
-
-.tabela-consolidada th,
-.tabela-consolidada td {
-  border: 1px solid #dee2e6;
-  padding: 0.75rem;
-  text-align: left;
-  vertical-align: middle;
-  white-space: nowrap; /* Evita quebra de linha no conteúdo da célula por padrão */
-}
-.tabela-consolidada td:nth-child(3) { /* Coluna Produto */
-  white-space: normal; /* Permite quebra de linha no nome do produto se for longo */
-}
-
-
-.tabela-consolidada th {
-  background-color: #e9ecef;
-  font-weight: 600;
-  color: #495057;
-  position: sticky; /* Para cabeçalho fixo se a tabela rolar verticalmente (requer altura no container) */
-  top: 0;
-  z-index: 1;
-}
-
-.tabela-consolidada tbody tr:nth-child(even) {
-  background-color: #f8f9fa;
-}
-.tabela-consolidada tbody tr:hover {
-  background-color: #f1f3f5;
-}
-
-.tabela-consolidada .text-right {
-  text-align: right;
-}
-/* FIM ALTERAÇÃO */
-
-.loading-message, .empty-message {
-  text-align: center;
-  padding: 1rem;
-  color: #6c757d;
-  font-style: italic;
-}
-.loading-message.small, .empty-message.small {
-  padding: 0.5rem;
-  font-size: 0.9rem;
-}
-
-.error-message {
-  color: #721c24;
-  background-color: #f8d7da;
-  border: 1px solid #f5c6cb;
-  padding: 0.8rem 1rem;
-  border-radius: 4px;
-  margin-top: 1rem;
-  font-size: 0.9rem;
-}
-.error-message.small {
-  font-size: 0.85rem;
-  padding: 0.5rem 0.8rem;
-}
-
-/* ALTERAÇÃO: Estilo para o novo botão */
-.btn-confirmar-recebimento {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.5rem;
-    padding: 0.6rem 1rem;
-    background-color: #198754; /* Verde sucesso Bootstrap */
-    color: white;
-    border: none;
-    text-decoration: none;
-    border-radius: 4px;
-    font-size: 0.9rem;
-    font-weight: 500;
-    cursor: pointer;
-    transition: background-color 0.2s;
-    position: relative; /* Para o indicador de pendência */
-}
-.btn-confirmar-recebimento:hover:not(:disabled) {
-    background-color: #157347;
-}
-.btn-confirmar-recebimento:disabled {
-    background-color: #6c757d;
-    opacity: 0.65;
-    cursor: not-allowed;
-}
-.btn-confirmar-recebimento svg {
-    margin-bottom: 1px;
-}
-
-/* ALTERAÇÃO: Indicador de pendência (opcional) */
-.pending-indicator {
-    position: absolute;
-    top: -5px;
-    right: -5px;
-    background-color: red;
-    color: white;
-    border-radius: 50%;
-    width: 18px;
-    height: 18px;
-    font-size: 12px;
-    line-height: 18px;
-    text-align: center;
-    font-weight: bold;
-    box-shadow: 0 0 5px rgba(255, 0, 0, 0.7);
-}
-
-
-/* --- ALTERAÇÃO: Animação de Balanço/Tremor --- */
-@keyframes shake-horizontal {
-  0%, 100% { transform: translateX(0); }
-  10%, 30%, 50%, 70%, 90% { transform: translateX(-3px); }
-  20%, 40%, 60%, 80% { transform: translateX(3px); }
-}
-
-@keyframes pulse-glow {
-  0% { box-shadow: 0 0 3px 0px rgba(25, 135, 84, 0.5); }
-  50% { box-shadow: 0 0 8px 4px rgba(25, 135, 84, 0.7); }
-  100% { box-shadow: 0 0 3px 0px rgba(25, 135, 84, 0.5); }
-}
-
-.btn-confirmar-recebimento.has-pending-animation {
-    animation: shake-horizontal 0.8s cubic-bezier(.36,.07,.19,.97) both,
-               pulse-glow 1.5s ease-in-out infinite alternate; /* Combina duas animações */
-    /* Ajuste a duração e o timing-function conforme preferir */
-    /* Se quiser apenas uma: */
-    /* animation: shake-horizontal 0.8s cubic-bezier(.36,.07,.19,.97) infinite both; */
-    /* animation: pulse-glow 1.5s ease-in-out infinite alternate; */
-}
-/* --- FIM ALTERAÇÃO --- */
-
-</style>

@@ -1,5 +1,5 @@
 /* /frontend/src/views/CSS/ProdutosView.css */
-  
+
 /* ======================================== */
 /* Estilos Gerais da View e Cabeçalho       */
 /* ======================================== */
@@ -162,7 +162,7 @@
 .form-row {
     display: flex;
     flex-wrap: wrap;
-    gap: var(--form-row-gap);
+    gap: var(--form-row-gap); /* Este gap agora será o espaço APÓS a linha vertical */
      align-items: flex-start;
 }
 
@@ -172,6 +172,18 @@
     box-sizing: border-box;
     flex-grow: 1; /* Faz todos crescerem por padrão */
 }
+
+/* >>>>> INÍCIO DA ADIÇÃO PARA LINHAS VERTICAIS NO FORMULÁRIO <<<<< */
+.form-row > .form-group:not(:last-child) {
+    /* Adiciona uma linha vertical à direita de cada .form-group, exceto o último */
+    border-right: 1px solid #e2e8f0; /* Cor e espessura da linha */
+    /* Adiciona um padding à direita ANTES da linha, igual ao gap original.
+       Isso assegura que o conteúdo não cole na linha.
+       O `gap` em `.form-row` cuidará do espaço DEPOIS da linha. */
+    padding-right: var(--form-row-gap);
+}
+/* >>>>> FIM DA ADIÇÃO PARA LINHAS VERTICAIS NO FORMULÁRIO <<<<< */
+
 
 /* --- Classes de Largura das Colunas (Formulário) --- */
 .form-group.col-grow {
@@ -348,7 +360,7 @@
     align-self: flex-start; /* Garante que fique alinhado ao topo */
     position: sticky; /* Opcional: faz os filtros "seguirem" a rolagem */
     top: 20px; /* Ajuste conforme necessário se usar sticky */
-    
+
 }
 
 /* ===================================================== */
@@ -395,7 +407,7 @@
 .product-table {
     width: 100%;
     min-width: 650px; /* Largura mínima antes do scroll aparecer */
-    border-collapse: collapse;
+    border-collapse: collapse; /* Importante para as bordas das células */
     font-size: 0.95rem;
     color: #2d3748;
 }
@@ -408,10 +420,19 @@
 .product-table td {
     padding: 0.9rem 1rem; /* Espaçamento interno das células */
     text-align: left;
-    border-bottom: 1px solid #e2e8f0; /* Linha separadora */
+    border-bottom: 1px solid #e2e8f0; /* Linha separadora HORIZONTAL */
     vertical-align: middle; /* Alinha conteúdo verticalmente */
     white-space: nowrap; /* Impede quebra de linha por padrão */
+    /* >>>>> ADIÇÃO: Linha vertical à direita de cada célula <<<<< */
+    border-right: 1px solid #e2e8f0; /* Linha separadora VERTICAL */
 }
+
+/* >>>>> ADIÇÃO: Remove a borda direita da ÚLTIMA célula de cada linha (th e td) <<<<< */
+.product-table th:last-child,
+.product-table td:last-child {
+    border-right: none;
+}
+
 /* Permite quebra de linha no nome se ficar muito longo */
 .product-table th:first-child,
 .product-table td:first-child {

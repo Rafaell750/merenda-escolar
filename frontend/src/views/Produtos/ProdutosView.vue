@@ -1,7 +1,7 @@
 <template>
   <div class="produtos-view">
       <header class="page-header">
-          <h1>Gestão de Produtos</h1>
+          <h1>Gestão de Produtos - SME</h1>
       </header>
 
       <div class="content-area">
@@ -113,7 +113,7 @@
               <div class="card product-list-card">
                   <!-- ** CABEÇALHO PARA LISTA COM BOTÃO DE FILTRO ** -->
                   <div class="list-card-header">
-                      <h2 class="card-title list-title">Produtos Cadastrados</h2>
+                      <h2 class="card-title list-title">Produtos em Estoque - SME</h2>
                       <div class="list-header-actions">
                            <button
                               type="button"
@@ -142,7 +142,7 @@
                           <!-- Ícone de Filtro Ativo -->
                           <svg v-else xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" class="bi bi-funnel-fill" viewBox="0 0 16 16">
                              <path d="M1.5 1.5A.5.5 0 0 1 2 1h12a.5.5 0 0 1 .5.5v2a.5.5 0 0 1-.128.334L10 8.692V13.5a.5.5 0 0 1-.74.439L7 12.439a.5.5 0 0 1-.26-.439V8.692L1.628 3.834A.5.5 0 0 1 1.5 3.5z"/>
-                          </svg>
+                          </svg> 
                       </button>
                   </div>
                 </div>

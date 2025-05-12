@@ -113,10 +113,6 @@ router.put('/:id', (req, res) => {
     if (!nome || typeof nome !== 'string' || nome.trim() === '') {
         return res.status(400).json({ message: 'O nome da escola é obrigatório e não pode ser vazio.' });
     }
-    if (uf && (typeof uf !== 'string' || uf.length > 2)) {
-        return res.status(400).json({ message: 'UF inválido (deve ter no máximo 2 caracteres).' });
-    }
-
 
     const sql = `UPDATE escolas SET
                     nome = ?,
