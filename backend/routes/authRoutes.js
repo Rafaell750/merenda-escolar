@@ -14,7 +14,7 @@ router.post('/login', (req, res) => {
         return res.status(400).json({ error: 'Usuário e senha são obrigatórios.' });
     }
 
-    const sql = "SELECT * FROM usuarios WHERE username = ?";
+    const sql = "SELECT id, username, password_hash, role, school_id FROM usuarios WHERE username = ?";
     db.get(sql, [username], async (err, user) => {
         if (err) {
             console.error("Erro no DB ao buscar usuário:", err.message);
@@ -36,10 +36,14 @@ router.post('/login', (req, res) => {
                     username: user.username,
                     role: user.role
                 };
+                 // Adicionar school_id ao payload APENAS se o role for 'escola'
+                 if (user.role === 'escola') {
+                    userPayload.school_id = user.school_id;
+                }
                 const accessToken = jwt.sign(
                     userPayload,
                     process.env.JWT_SECRET,
-                    { expiresIn: '1h' } // Token expira em 1 hora (ajuste conforme necessário)
+                    { expiresIn: '2h' } // Token expira em 1 hora (ajuste conforme necessário)
                 );
                 res.json({
                     accessToken: accessToken,

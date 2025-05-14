@@ -1,25 +1,44 @@
 // backend/routes/userRoutes.js
-const express = require('express');
 const bcrypt = require('bcrypt');
-const db = require('../database/dbConnection'); // Supondo export de 'db'
+const db = require('../database/dbConnection');
 const { authenticateToken, authorizeAdmin } = require('../middleware/authMiddleware');
 
 const router = express.Router();
 
 // Rota para registrar um novo usuário (APENAS ADMIN)
-// Note a ordem: primeiro autentica, depois verifica se é admin
 router.post('/register', authenticateToken, authorizeAdmin, async (req, res) => {
-    const { username, password, role = 'user' } = req.body; // Default role é 'user'
+    // Adicionar school_id ao destructuring
+    const { username, password, role = 'user', school_id = null } = req.body;
 
     // Validação básica
     if (!username || !password) {
         return res.status(400).json({ error: 'Usuário e senha são obrigatórios.' });
     }
-    if (password.length < 6) { // Exemplo de regra de senha
+    if (password.length < 6) {
        return res.status(400).json({ error: 'A senha deve ter pelo menos 6 caracteres.' });
     }
-    if (!['admin', 'user'].includes(role)) {
-        return res.status(400).json({ error: 'Role inválida. Use "admin" ou "user".' });
+    // Permitir o novo role 'escola'
+    if (!['admin', 'user', 'escola'].includes(role)) {
+        return res.status(400).json({ error: 'Role inválida. Use "admin", "user" ou "escola".' });
+    }
+
+    // Validação específica para o role 'escola'
+    let finalSchoolId = null;
+    if (role === 'escola') {
+        if (!school_id) {
+            return res.status(400).json({ error: 'Para o role "escola", é obrigatório fornecer o ID da escola (school_id).' });
+        }
+        // Tentar converter para número e validar
+        const parsedSchoolId = parseInt(school_id, 10);
+        if (isNaN(parsedSchoolId) || parsedSchoolId <= 0) {
+             return res.status(400).json({ error: 'O ID da escola fornecido é inválido.' });
+        }
+        finalSchoolId = parsedSchoolId;
+        // Opcional: Verificar se a escola realmente existe no banco antes de inserir
+        // db.get("SELECT id FROM escolas WHERE id = ?", [finalSchoolId], (err, school) => { ... });
+    } else {
+        // Se o role não for 'escola', garantir que school_id seja NULL no banco
+        finalSchoolId = null;
     }
 
     // Verificar se usuário já existe
@@ -30,7 +49,7 @@ router.post('/register', authenticateToken, authorizeAdmin, async (req, res) => 
             return res.status(500).json({ error: 'Erro interno ao verificar usuário.' });
         }
         if (existingUser) {
-            return res.status(409).json({ error: 'Nome de usuário já está em uso.' }); // Conflict
+            return res.status(409).json({ error: 'Nome de usuário já está em uso.' });
         }
 
         // Usuário não existe, hashear senha e inserir
@@ -38,23 +57,32 @@ router.post('/register', authenticateToken, authorizeAdmin, async (req, res) => 
             const saltRounds = 10;
             const hashedPassword = await bcrypt.hash(password, saltRounds);
 
+            // Atualizar SQL para incluir school_id
             const insertSql = `
-                INSERT INTO usuarios (username, password_hash, role)
-                VALUES (?, ?, ?)
+                INSERT INTO usuarios (username, password_hash, role, school_id)
+                VALUES (?, ?, ?, ?)
             `;
-            // Usar function() para ter acesso ao 'this' (lastID)
-            db.run(insertSql, [username, hashedPassword, role], function(insertErr) {
+            // Passar finalSchoolId como quarto parâmetro
+            db.run(insertSql, [username, hashedPassword, role, finalSchoolId], function(insertErr) {
                 if (insertErr) {
                     console.error('Erro ao inserir novo usuário:', insertErr.message);
+                    // Verificar erro de chave estrangeira (escola inválida)
+                     if (insertErr.message.includes('FOREIGN KEY constraint failed')) {
+                         return res.status(400).json({ error: `Erro: A escola com ID ${finalSchoolId} não existe.` });
+                     }
                     return res.status(500).json({ error: 'Erro interno ao cadastrar usuário.' });
                 }
-                console.log(`Usuário ${username} (role: ${role}) cadastrado com sucesso pelo admin ${req.user.username}. ID: ${this.lastID}`);
+                console.log(`Usuário ${username} (role: ${role}${role === 'escola' ? ', school_id: ' + finalSchoolId : ''}) cadastrado com sucesso pelo admin ${req.user.username}. ID: ${this.lastID}`);
+
                 // Retornar dados básicos do usuário criado (sem a senha!)
-                res.status(201).json({
-                    id: this.lastID,
-                    username: username,
-                    role: role
-                });
+                 const createdUser = {
+                     id: this.lastID,
+                     username: username,
+                     role: role,
+                     // Incluir school_id se for usuário escola
+                     ...(role === 'escola' && { school_id: finalSchoolId })
+                 };
+                res.status(201).json(createdUser);
             });
         } catch (hashError) {
             console.error("Erro ao gerar hash da senha:", hashError);
@@ -64,16 +92,32 @@ router.post('/register', authenticateToken, authorizeAdmin, async (req, res) => 
 });
 
 
-// Adicione outras rotas de usuário aqui se necessário (ex: listar usuários para admin)
-// Exemplo: GET /api/users (protegido para admin)
+// GET /api/users (protegido para admin) - Listar usuários
 router.get('/', authenticateToken, authorizeAdmin, (req, res) => {
-    const sql = "SELECT id, username, role, data_cadastro FROM usuarios ORDER BY username";
+    // Fazer JOIN com a tabela escolas para pegar o nome da escola
+    const sql = `
+        SELECT
+            u.id,
+            u.username,
+            u.role,
+            u.data_cadastro,
+            u.school_id,
+            e.nome as school_name -- Pegar o nome da escola
+        FROM usuarios u
+        LEFT JOIN escolas e ON u.school_id = e.id -- LEFT JOIN para incluir usuários sem escola
+        ORDER BY u.username
+    `;
     db.all(sql, [], (err, rows) => {
         if (err) {
             console.error("Erro ao buscar usuários:", err.message);
             return res.status(500).json({ error: 'Erro interno ao buscar usuários.'});
         }
-        res.json(rows);
+        // Opcional: Mapear para garantir que school_name seja null se não houver escola
+        const usersWithSchoolName = rows.map(user => ({
+            ...user,
+            school_name: user.school_name || null // Garante null em vez de undefined
+        }));
+        res.json(usersWithSchoolName);
     });
 });
 

@@ -137,7 +137,7 @@
       closeModal();
     } catch (err) {
       console.error("Erro ao confirmar recebimento:", err);
-      error.value = err.response?.data?.error || "Falha ao confirmar recebimento.";
+      error.value = err.response?.data?.error || "Falha ao confirmar recebimento. Faça login novamente";
     } finally {
       isSubmitting.value = false;
     }

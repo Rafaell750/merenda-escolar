@@ -73,6 +73,10 @@ const getUsers = () => {
     return apiClient.get('/users'); // Rota protegida para admin
 }
 
+const getSchools = () => {
+  return apiClient.get('/escolas'); // Rota que criamos no backend
+}
+
 
 export default {
   login,
@@ -81,6 +85,7 @@ export default {
   addProduto,
   deleteProduto,
   getUsers,
+  getSchools,
   // Exporte o cliente axios se precisar usá-lo diretamente em algum lugar
   // apiClient
 };

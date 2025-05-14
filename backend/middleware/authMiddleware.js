@@ -35,7 +35,68 @@ function authorizeAdmin(req, res, next) {
     next(); // Usuário é admin, pode prosseguir
 }
 
+// --- NOVO MIDDLEWARE ---
+// Middleware para autorizar acesso a recursos de uma escola específica
+// Espera que o ID da escola esteja em req.params.schoolId (ou outra fonte)
+function authorizeSchoolAccess(req, res, next) {
+    if (!req.user) {
+        return res.sendStatus(401); // Não autenticado
+    }
+
+// Tentar obter o ID da escola de params, query ou body
+let targetSchoolId;
+if (req.params.id) {
+    targetSchoolId = parseInt(req.params.id, 10);
+} else if (req.params.schoolId) { // Outro nome comum para o parâmetro
+    targetSchoolId = parseInt(req.params.schoolId, 10);
+} else if (req.body && req.body.escola_id) { // Para ações como confirmar recebimento que podem enviar ID no corpo
+    targetSchoolId = parseInt(req.body.escola_id, 10);
+} else if (req.query && req.query.escola_id) { // Para filtros em GET
+    targetSchoolId = parseInt(req.query.escola_id, 10);
+}
+
+
+if (isNaN(targetSchoolId)) {
+    console.log('Middleware School: ID da escola inválido ou não fornecido no parâmetro da rota, query ou body.');
+    return res.status(400).json({ error: 'ID da escola inválido ou faltando.' });
+}
+
+    // Admin tem acesso a tudo
+    if (req.user.role === 'admin') {
+        console.log(`Middleware School: Admin ${req.user.username} acessando recursos da escola ${targetSchoolId}. Acesso permitido.`);
+        return next();
+    }
+
+    // Usuário do tipo 'escola' só pode acessar sua própria escola
+    if (req.user.role === 'escola') {
+        if (req.user.school_id && req.user.school_id === targetSchoolId) {
+            console.log(`Middleware School: Usuário ${req.user.username} (Escola ID: ${req.user.school_id}) acessando seus próprios recursos (Escola ${targetSchoolId}). Acesso permitido.`);
+            return next(); // Acesso permitido
+        } else {
+            console.log(`Middleware School: Acesso negado para ${req.user.username} (Escola ID: ${req.user.school_id}) tentando acessar recursos da escola ${targetSchoolId}.`);
+            return res.status(403).json({ error: 'Acesso não autorizado para esta escola.' }); // Forbidden
+        }
+    }
+
+        // Usuário do tipo 'user' pode visualizar (GET) dados de qualquer escola, mas não modificar
+        if (req.user.role === 'user') {
+            if (req.method === 'GET') {
+                console.log(`Middleware School: Usuário ${req.user.username} (Role: user) realizando GET na escola ${targetSchoolId}. Acesso permitido para visualização.`);
+                return next(); // Permitir GET para visualização
+            } else {
+                // Bloquear POST, PUT, DELETE, etc. para 'user'
+                console.log(`Middleware School: Acesso negado para ${req.user.username} (Role: user) tentando ${req.method} na escola ${targetSchoolId}.`);
+                return res.status(403).json({ error: 'Usuários com perfil "User" podem apenas visualizar dados da escola, não realizar esta ação.' });
+            }
+        }
+
+    // Outros roles (como 'user' padrão) não têm acesso a rotas específicas de escola
+    console.log(`Middleware School: Acesso negado para ${req.user.username} (Role: ${req.user.role}) tentando acessar recursos da escola ${targetSchoolId}.`);
+    return res.status(403).json({ error: 'Você não tem permissão para acessar recursos de escolas.' });
+}
+
 module.exports = {
     authenticateToken,
-    authorizeAdmin
+    authorizeAdmin,
+    authorizeSchoolAccess
 };

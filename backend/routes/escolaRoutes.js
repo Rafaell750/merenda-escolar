@@ -1,21 +1,21 @@
 // backend/routes/escolaRoutes.js
 const express = require('express');
-const db = require('../database/dbConnection'); // Ajuste o caminho se necessário
-// const { authorizeAdmin } = require('../middleware/authMiddleware'); // Descomente se apenas admin puder manipular
+const db = require('../database/dbConnection');
+const { authorizeAdmin, authorizeSchoolAccess } = require('../middleware/authMiddleware'); // Importar middlewares de autorização
 
 const router = express.Router();
 
 // --- ROTA POST /api/escolas - Cadastrar Nova Escola ---
-router.post('/', async (req, res) => {
+// Apenas Admin pode cadastrar novas escolas.
+// authenticateToken já é aplicado globalmente (via server.js).
+router.post('/', authorizeAdmin, async (req, res) => { // Adicionado authorizeAdmin
     const { nome, endereco, responsavel } = req.body;
 
-    // Validação básica
     if (!nome || typeof nome !== 'string' || nome.trim() === '') {
         return res.status(400).json({ message: 'O nome da escola é obrigatório.' });
     }
 
     const sql = `INSERT INTO escolas (nome, endereco, responsavel) VALUES (?, ?, ?)`;
-    // Salva null se os campos opcionais estiverem vazios/undefined
     const params = [
         nome.trim(),
         endereco || null,
@@ -30,20 +30,20 @@ router.post('/', async (req, res) => {
             console.error('Erro ao inserir escola:', err.message);
             return res.status(500).json({ message: 'Erro interno ao cadastrar a escola.' });
         }
-        // Retorna a escola recém-criada com dados consistentes
         res.status(201).json({
             id: this.lastID,
             nome: nome.trim(),
             endereco: endereco || null,
-            responsavel: responsavel || null
+            responsavel: responsavel || null,
+            // data_cadastro é gerado pelo DB, mas pode ser útil buscar e retornar se necessário.
         });
     });
 });
 
 // --- ROTA GET /api/escolas - Listar Todas as Escolas ---
-// *** MODIFICADO: Retorna mais campos para edição ***
+// Todos os usuários autenticados (admin, user, escola) podem listar as escolas.
+// authenticateToken já é aplicado globalmente. Nenhuma autorização adicional específica aqui.
 router.get('/', (req, res) => {
-    // Seleciona todas as colunas necessárias para a lista e edição
     const sql = "SELECT id, nome, endereco, responsavel FROM escolas ORDER BY nome";
 
     db.all(sql, [], (err, rows) => {
@@ -51,19 +51,24 @@ router.get('/', (req, res) => {
             console.error('Erro ao buscar escolas:', err.message);
             return res.status(500).json({ message: 'Erro interno ao buscar escolas.' });
         }
-        // Retorna o array completo de escolas
-        res.status(200).json(rows || []); // Retorna array vazio se não houver escolas
+        res.status(200).json(rows || []);
     });
 });
 
 // --- ROTA GET /api/escolas/:id - Obter detalhes de uma escola ---
-// (Mantido - pode ser útil para outras funcionalidades)
-router.get('/:id', (req, res) => {
+// Admin pode ver qualquer escola.
+// User (genérico) pode ver qualquer escola (para visualização).
+// Escola pode ver sua própria escola.
+// O middleware authorizeSchoolAccess lida com essa lógica para GET.
+// authenticateToken já é aplicado globalmente.
+router.get('/:id', authorizeSchoolAccess, (req, res) => { // Adicionado authorizeSchoolAccess
     const id = parseInt(req.params.id, 10);
      if (isNaN(id)) {
         return res.status(400).json({ message: "ID da escola inválido." });
     }
-    const sql = "SELECT * FROM escolas WHERE id = ?";
+    // req.user já foi validado por authenticateToken e authorizeSchoolAccess
+    // authorizeSchoolAccess garante que o acesso é permitido para o req.user.role e req.method
+    const sql = "SELECT * FROM escolas WHERE id = ?"; // Pode selecionar colunas específicas se desejar
 
     db.get(sql, [id], (err, row) => {
         if (err) {
@@ -71,53 +76,38 @@ router.get('/:id', (req, res) => {
             return res.status(500).json({ message: 'Erro interno ao buscar escola.' });
         }
         if (!row) {
+            // authorizeSchoolAccess já teria retornado 403/401 se o usuário não tivesse permissão
+            // para uma escola existente. Se chega aqui e não encontra, é um 404 genuíno.
             return res.status(404).json({ message: 'Escola não encontrada.' });
         }
         res.status(200).json(row);
     });
 });
 
-// --- ROTA DELETE /api/escolas/:id - Excluir uma Escola ---
-router.delete('/:id', (req, res) => {
-    const id = parseInt(req.params.id, 10);
-
-     if (isNaN(id)) {
-        return res.status(400).json({ message: "ID da escola inválido." });
-    }
-
-    const sql = 'DELETE FROM escolas WHERE id = ?';
-
-    db.run(sql, [id], function (err) {
-        if (err) {
-            console.error(`Erro ao excluir escola com ID ${id}:`, err.message);
-            return res.status(500).json({ message: 'Erro interno ao excluir a escola.' });
-        }
-        if (this.changes === 0) {
-            return res.status(404).json({ message: 'Escola não encontrada para exclusão.' });
-        }
-        console.log(`Escola com ID ${id} excluída com sucesso.`);
-        res.status(200).json({ message: 'Escola excluída com sucesso.' });
-    });
-});
-
 // --- ROTA PUT /api/escolas/:id - Atualizar uma Escola ---
-// *** IMPLEMENTADO/REFINADO ***
-router.put('/:id', (req, res) => {
+// Admin pode atualizar qualquer escola.
+// Escola pode atualizar sua própria escola.
+// User (genérico) não pode atualizar.
+// O middleware authorizeSchoolAccess lida com essa lógica para PUT.
+// authenticateToken já é aplicado globalmente.
+router.put('/:id', authorizeSchoolAccess, (req, res) => { // Adicionado authorizeSchoolAccess
     const id = parseInt(req.params.id, 10);
     const { nome, endereco, responsavel } = req.body;
 
-    // Validação
     if (isNaN(id)) {
         return res.status(400).json({ message: "ID da escola inválido." });
     }
     if (!nome || typeof nome !== 'string' || nome.trim() === '') {
         return res.status(400).json({ message: 'O nome da escola é obrigatório e não pode ser vazio.' });
     }
+    // authorizeSchoolAccess já garantiu que o usuário tem permissão para modificar esta escola
+    // ou é um admin.
 
     const sql = `UPDATE escolas SET
                     nome = ?,
                     endereco = ?,
-                    responsavel = ?
+                    responsavel = ?,
+                    data_modificacao = CURRENT_TIMESTAMP -- Exemplo, se você tiver essa coluna
                  WHERE id = ?`;
     const params = [
         nome.trim(),
@@ -135,10 +125,12 @@ router.put('/:id', (req, res) => {
             return res.status(500).json({ message: 'Erro interno ao atualizar a escola.' });
         }
         if (this.changes === 0) {
+            // Se authorizeSchoolAccess funcionou, isso significa que a escola não foi encontrada
             return res.status(404).json({ message: 'Escola não encontrada para atualização.' });
         }
-         // Sucesso - Retorna o objeto atualizado
-         console.log(`Escola com ID ${id} atualizada com sucesso.`);
+         console.log(`Escola com ID ${id} atualizada com sucesso pelo usuário ${req.user.username}.`);
+         // Para retornar o objeto atualizado, você precisaria de outra query SELECT
+         // ou confiar nos dados do request. Por simplicidade, retornamos o que foi enviado (com ID).
          res.status(200).json({
              id: id,
              nome: nome.trim(),
@@ -148,5 +140,33 @@ router.put('/:id', (req, res) => {
     });
 });
 
+// --- ROTA DELETE /api/escolas/:id - Excluir uma Escola ---
+// Apenas Admin pode excluir escolas.
+// authenticateToken já é aplicado globalmente.
+router.delete('/:id', authorizeAdmin, (req, res) => { // Adicionado authorizeAdmin
+    const id = parseInt(req.params.id, 10);
+
+     if (isNaN(id)) {
+        return res.status(400).json({ message: "ID da escola inválido." });
+    }
+    // authorizeAdmin já garantiu que req.user.role === 'admin'
+
+    const sql = 'DELETE FROM escolas WHERE id = ?';
+
+    db.run(sql, [id], function (err) {
+        if (err) {
+            console.error(`Erro ao excluir escola com ID ${id}:`, err.message);
+            // Considere verificar se o erro é por FOREIGN KEY constraint
+            // (ex: usuários ou transferências vinculados a esta escola)
+            // e retornar uma mensagem mais específica (409 Conflict).
+            return res.status(500).json({ message: 'Erro interno ao excluir a escola.' });
+        }
+        if (this.changes === 0) {
+            return res.status(404).json({ message: 'Escola não encontrada para exclusão.' });
+        }
+        console.log(`Escola com ID ${id} excluída com sucesso pelo admin ${req.user.username}.`);
+        res.status(200).json({ message: 'Escola excluída com sucesso.' }); // Ou status 204 No Content
+    });
+});
 
 module.exports = router;

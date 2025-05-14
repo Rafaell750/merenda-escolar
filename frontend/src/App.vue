@@ -1,20 +1,14 @@
 <template>
-  <!-- Adiciona classe dinâmica ao layout raiz (pode ser útil para estilização global) -->
   <div class="app-layout" :class="{ 'sidebar-visible': !isLoginPage, 'sidebar-collapsed': isSidebarCollapsed && !isLoginPage }">
 
-    <!-- RENDERIZAÇÃO CONDICIONAL DA SIDEBAR -->
-    <!-- Adiciona classe dinâmica e transição -->
     <div class="sidebar" :class="{ 'collapsed': isSidebarCollapsed }" v-if="!isLoginPage">
       <div class="sidebar-header">
          <div class="logo" :class="{ 'collapsed': isSidebarCollapsed }">
-           <!-- Ícone pequeno para quando estiver recolhido -->
            <svg v-if="isSidebarCollapsed" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" class="bi bi-box-seam-fill small-logo-icon" viewBox="0 0 16 16">
              <path fill-rule="evenodd" d="M15.528 2.973a.75.75 0 0 1 .472.696v8.662a.75.75 0 0 1-.472.696l-7.25 2.9a.75.75 0 0 1-.557 0l-7.25-2.9A.75.75 0 0 1 0 12.331V3.669a.75.75 0 0 1 .471-.696L7.75.073a.75.75 0 0 1 .5-.001zM10.4 M1.811 4.237v8.166l6.717 2.687 6.718-2.687V4.237L8.53 1.511z"/>
            </svg>
-           <!-- Título normal -->
            <h2 v-show="!isSidebarCollapsed">Merenda Escolar</h2>
          </div>
-         <!-- Botão de Toggle -->
          <button @click="toggleSidebar" class="toggle-sidebar-btn" title="Recolher/Expandir Menu">
            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" class="bi bi-layout-sidebar-inset" viewBox="0 0 16 16">
              <path d="M14 2a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1zM2 1a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V3a2 2 0 0 0-2-2z"/>
@@ -24,45 +18,62 @@
       </div>
 
       <nav class="menu">
-        <!-- Links do Menu (Painel, Produtos, Movimentacoes) -->
-        <router-link to="/" class="menu-item" :class="{ 'active': $route.path === '/' }" title="Painel">
+        <!-- 1. Links Visíveis APENAS PARA ADMIN E USER PADRÃO -->
+        <router-link
+            v-if="isUserAdminOrStandard"
+            to="/"
+            class="menu-item"
+            :class="{ 'active': $route.name === 'PainelControle' || ($route.path === '/' && $route.name !== 'Login') }"
+            title="Painel"
+        >
           <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" class="bi bi-speedometer2 menu-icon" viewBox="0 0 16 16">
-             <!-- path do ícone -->
              <path d="M8 4a.5.5 0 0 1 .5.5V6a.5.5 0 0 1-1 0V4.5A.5.5 0 0 1 8 4M3.732 5.732a.5.5 0 0 1 .707 0l.915.914a.5.5 0 1 1-.708.708l-.914-.915a.5.5 0 0 1 0-.707M2 10a.5.5 0 0 1 .5-.5h1.586a.5.5 0 0 1 0 1H2.5A.5.5 0 0 1 2 10m9.5 0a.5.5 0 0 1 .5-.5h1.5a.5.5 0 0 1 0 1H12a.5.5 0 0 1-.5-.5m.754-4.246a.39.39 0 0 0-.527-.02L7.547 7.31A.91.91 0 1 0 8.85 8.54l3.434-4.297a.39.39 0 0 0-.029-.518z"/>
             <path fill-rule="evenodd" d="M0 10a8 8 0 1 1 15.547 2.661c-.442 1.253-1.845 1.602-2.932 1.25C11.309 13.488 9.475 13 8 13c-1.474 0-3.31.488-4.615.911-1.087.352-2.49.003-2.932-1.25A8 8 0 0 1 0 10m8-7a7 7 0 0 0-6.603 9.329c.203.575.923.876 1.68.63C4.397 12.533 6.358 12 8 12s3.604.532 4.923.96c.757.245 1.477-.056 1.68-.631A7 7 0 0 0 8 3"/>
           </svg>
           <span class="menu-item-text">Painel</span>
         </router-link>
 
-        <router-link to="/produtos" class="menu-item" :class="{ 'active': $route.path === '/produtos' }" title="Produtos">
+        <router-link
+            v-if="isUserAdminOrStandard"
+            to="/produtos"
+            class="menu-item"
+            :class="{ 'active': $route.name === 'Produtos' }"
+            title="Produtos"
+        >
           <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" class="bi bi-box-seam menu-icon" viewBox="0 0 16 16">
-             <!-- path do ícone -->
              <path d="M8.186 1.113a.5.5 0 0 0-.372 0L1.846 3.5l2.404.961L10.404 2l-2.218-.887zm3.564 1.426L5.596 5 8 5.961 14.154 3.5l-2.404-.961zm3.25 1.7-6.5 2.6v7.922l6.5-2.6V4.24zM7.5 14.762V6.838L1 4.239v7.923zM7.443.184a1.5 1.5 0 0 1 1.114 0l7.129 2.852A.5.5 0 0 1 16 3.5v8.662a1 1 0 0 1-.629.928l-7.185 2.874a.5.5 0 0 1-.372 0L.63 13.09a1 1 0 0 1-.63-.928V3.5a.5.5 0 0 1 .314-.464z"/>
            </svg>
           <span class="menu-item-text">Produtos</span>
         </router-link>
 
-        <!-- Adicionar link para /movimentacoes se existir -->
-        <router-link v-if="movimentacoesRouteExists" to="/movimentacoes" class="menu-item" :class="{ 'active': $route.path === '/movimentacoes' }" title="Movimentações">
+        <router-link
+            v-if="isUserAdminOrStandard && movimentacoesRouteExists"
+            to="/movimentacoes"
+            class="menu-item"
+            :class="{ 'active': $route.name === 'Movimentacoes' }" 
+            title="Movimentações"
+        >
            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" class="bi bi-arrow-down-up menu-icon" viewBox="0 0 16 16">
-               <!-- path do ícone -->
                <path fill-rule="evenodd" d="M11.5 15a.5.5 0 0 0 .5-.5V2.707l3.146 3.147a.5.5 0 0 0 .708-.708l-4-4a.5.5 0 0 0-.708 0l-4 4a.5.5 0 1 0 .708.708L11 2.707V14.5a.5.5 0 0 0 .5.5m-7-14a.5.5 0 0 1 .5.5v11.793l3.146-3.147a.5.5 0 0 1 .708.708l-4 4a.5.5 0 0 1-.708 0l-4-4a.5.5 0 0 1 .708-.708L4 13.293V1.5a.5.5 0 0 1 .5-.5"/>
            </svg>
           <span class="menu-item-text">Movimentações</span>
         </router-link>
 
-         <!-- Separador e Título para Escolas -->
-        <hr v-if="!escolasStore.loading && escolasStore.listaEscolas.length > 0" class="sidebar-divider">
-        <div v-if="!isSidebarCollapsed && !escolasStore.loading && escolasStore.listaEscolas.length > 0" class="menu-section-title">
+        <!-- 2. SEÇÃO ESCOLAS -->
+        <!-- Título "Escolas Cadastradas" SÓ PARA ADMIN -->
+        <hr v-if="isAdminUser && !escolasStore.loading && escolasStore.listaEscolas.length > 0" class="sidebar-divider">
+        <div v-if="isAdminUser && !isSidebarCollapsed && !escolasStore.loading && escolasStore.listaEscolas.length > 0" class="menu-section-title">
             Escolas Cadastradas
         </div>
 
-        <!-- Links Dinâmicos para Escolas -->
-        <div v-if="escolasStore.isLoading" class="menu-item loading-item">
+        <!-- Carregando Escolas (visível para Admin que vai listar, ou Escola se for necessário) -->
+        <div v-if="escolasStore.isLoading && isAdminUser" class="menu-item loading-item"> <!-- Ajustado para isAdminUser -->
             <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
             <span class="menu-item-text" style="margin-left: 5px;">Carregando Escolas...</span>
         </div>
-        <div v-else>
+
+        <!-- Lista de Escolas: Visível para ADMIN e USER PADRÃO -->
+        <div v-if="(isAdminUser || isStandardUser) && !escolasStore.isLoading"> <!-- AJUSTADO -->
             <router-link
                 v-for="escola in escolasStore.listaEscolas"
                 :key="escola.id"
@@ -78,9 +89,28 @@
             </router-link>
         </div>
 
-        <!-- Adicionar link para Cadastro de Usuário se for Admin -->
-         <router-link v-if="isAdmin" to="/admin/register-user" class="menu-item" :class="{ 'active': $route.name === 'RegisterUser' }" title="Cadastrar Usuário">
-              <!-- Ícone de Usuário -->
+        <!-- Link direto para "Minha Escola": SÓ PARA USUÁRIO ESCOLA -->
+        <router-link
+            v-if="isEscolaUser && userSchoolId"
+            :to="{ name: 'EscolaDetalhes', params: { id: userSchoolId } }"
+            class="menu-item"
+            :class="{ 'active': $route.name === 'EscolaDetalhes' && $route.params.id == userSchoolId }"
+            title="Minha Escola"
+        >
+             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" class="bi bi-bank menu-icon" viewBox="0 0 16 16">
+               <path d="m8 0 6.61 3h.89a.5.5 0 0 1 .5.5v2a.5.5 0 0 1-.5.5H15v7a.5.5 0 0 1 .485.38l.5 2a.498.498 0 0 1-.485-.62H.5a.498.498 0 0 1-.485-.62l.5-2A.5.5 0 0 1 1 13V6H.5a.5.5 0 0 1-.5-.5v-2A.5.5 0 0 1 .5 3h.89zM3.777 3h8.447L8 1zM2 6v7h1V6zm2 0v7h1V6zm2 0v7h1V6zm2 0v7h1V6zm2 0v7h1V6zm2 0v7h1V6zM1 4h14V3H1z"/>
+             </svg>
+            <span class="menu-item-text">Minha Escola</span>
+        </router-link>
+
+        <!-- Link para Cadastro de Usuário: SÓ PARA ADMIN -->
+         <router-link
+            v-if="isAdminUser"
+            to="/admin/register-user"
+            class="menu-item"
+            :class="{ 'active': $route.name === 'RegisterUser' }"
+            title="Cadastrar Usuário"
+          >
               <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" class="bi bi-person-plus menu-icon" viewBox="0 0 16 16">
                 <path d="M6 8a3 3 0 1 0 0-6 3 3 0 0 0 0 6m2-3a2 2 0 1 1-4 0 2 2 0 0 1 4 0"/>
                 <path d="M8 8a3 3 0 1 0 0-6 3 3 0 0 0 0 6m1-1a.5.5 0 0 1 .5.5v1h1a.5.5 0 0 1 0 1h-1v1a.5.5 0 0 1-1 0v-1h-1a.5.5 0 0 1 0-1h1v-1a.5.5 0 0 1 .5-.5"/>
@@ -90,8 +120,7 @@
          </router-link>
       </nav>
 
-       <!-- Rodapé do Sidebar -->
-       <div class="sidebar-footer">
+      <div class="sidebar-footer">
            <button v-if="!isLoginPage" @click="logout" class="logout-button" title="Sair">
                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" class="bi bi-box-arrow-left menu-icon" viewBox="0 0 16 16">
                  <path fill-rule="evenodd" d="M6 12.5a.5.5 0 0 0 .5.5h8a.5.5 0 0 0 .5-.5v-9a.5.5 0 0 0-.5-.5h-8a.5.5 0 0 0-.5.5v2a.5.5 0 0 1-1 0v-2A1.5 1.5 0 0 1 6.5 2h8A1.5 1.5 0 0 1 16 3.5v9a1.5 1.5 0 0 1-1.5 1.5h-8A1.5 1.5 0 0 1 5 12.5v-2a.5.5 0 0 1 1 0z"/>
@@ -102,10 +131,9 @@
        </div>
     </div>
 
-    <!-- AJUSTE NA CLASSE DA ÁREA DE CONTEÚDO -->
     <div class="main-content-area" :class="{ 'sidebar-visible': !isLoginPage, 'sidebar-collapsed': isSidebarCollapsed && !isLoginPage, 'login-page': isLoginPage }">
       <router-view v-slot="{ Component }">
-        <transition name="fade"> <!-- Removi mode="out-in" para testar, pode voltar se preferir -->
+        <transition name="fade">
           <component :is="Component" />
         </transition>
       </router-view>
@@ -114,62 +142,101 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue';
-import { useRoute, useRouter } from 'vue-router'; // Importa useRoute e useRouter
-import { useEscolasStore } from '@/stores/escolas';
+import { ref, computed, onMounted, watch } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
+import { useEscolasStore } from '@/stores/escolas'; // Certifique-se que o caminho está correto
 
-const route = useRoute(); // Hook para acessar a rota atual
-const router = useRouter(); // Hook para navegação programática (logout)
+const route = useRoute();
+const router = useRouter();
 const escolasStore = useEscolasStore();
 
 const isSidebarCollapsed = ref(false);
+const currentUser = ref(null); // Para armazenar os dados do usuário logado
 
-// COMPUTED: Verifica se a rota atual é a de Login
+// --- FUNÇÕES COMPUTED PARA PERMISSÕES ---
 const isLoginPage = computed(() => route.name === 'Login');
 
-// COMPUTED: Verifica se o usuário atual é admin (baseado no localStorage)
-const isAdmin = computed(() => {
-     const userStr = localStorage.getItem('authUser');
-     if (!userStr) return false;
-     try {
-         const user = JSON.parse(userStr);
-         return user?.role === 'admin';
-     } catch (e) {
-         return false;
-     }
- });
+const userRole = computed(() => currentUser.value?.role);
+const userSchoolId = computed(() => currentUser.value?.school_id);
 
- // COMPUTED: Verifica se a rota /movimentacoes existe (para renderizar o link)
- const movimentacoesRouteExists = computed(() => {
-     // Verifica se existe uma rota definida com o path /movimentacoes
+const isAdminUser = computed(() => userRole.value === 'admin');
+const isEscolaUser = computed(() => userRole.value === 'escola');
+const isStandardUser = computed(() => userRole.value === 'user');
+const isUserAdminOrStandard = computed(() => isAdminUser.value || isStandardUser.value);
+
+const movimentacoesRouteExists = computed(() => {
      return router.getRoutes().some(r => r.path === '/movimentacoes');
- });
+});
 
 const toggleSidebar = () => {
   isSidebarCollapsed.value = !isSidebarCollapsed.value;
 };
 
-// Função de Logout
 const logout = () => {
-    console.log("Executando logout...");
     localStorage.removeItem('authToken');
     localStorage.removeItem('authUser');
-    escolasStore.escolas = []; // <<< Limpa a lista de escolas no logout
-    // Força recarga completa para garantir limpeza de estado e ir para login
-    window.location.href = '/login';
-    // Ou usar router.push, mas a recarga é mais garantida:
-    // router.push({ name: 'Login' }).then(() => { router.go(0); }); // Tenta navegar e recarregar
+    currentUser.value = null;
+    escolasStore.escolas = []; // Limpa a lista de escolas na store também
+    // Idealmente, a store de escolas também seria resetada ou as escolas não seriam buscadas após o logout
+    window.location.href = '/login'; // Força recarga para limpar estado completamente
 };
 
-// <<< Buscar escolas quando o componente for montado >>>
+function loadUserFromStorage() {
+    const userStr = localStorage.getItem('authUser');
+    if (userStr) {
+        try {
+            currentUser.value = JSON.parse(userStr);
+        } catch (e) {
+            console.error('Erro ao carregar usuário do localStorage:', e);
+            currentUser.value = null;
+            localStorage.removeItem('authUser'); // Limpa se inválido
+            localStorage.removeItem('authToken'); // Pode remover o token também
+        }
+    } else {
+        currentUser.value = null;
+    }
+}
+
 onMounted(() => {
-    // Só busca se não estiver na página de login
+    loadUserFromStorage();
     if (!isLoginPage.value) {
-        escolasStore.fetchEscolas();
+        // Admin precisa da lista completa de escolas para o menu
+        // Usuário escola não precisa da lista completa no menu, apenas do link "Minha Escola"
+        // que já usa `userSchoolId` de `currentUser`.
+        // A chamada `fetchEscolas` aqui pode ser otimizada para ser chamada apenas se for admin.
+        // No entanto, se a `EscolaDetalhesView` também usa `fetchEscolas` para carregar dados,
+        // ou se a store é usada para exibir o nome da "Minha Escola", então pode ser necessário.
+        // Por simplicidade e para garantir que `escolasStore.isLoading` funcione, vamos manter,
+        // mas otimizar se `fetchEscolas` for muito pesada para usuários 'escola'.
+        if (isAdminUser.value || isStandardUser.value) { // Apenas admin busca a lista completa para o menu
+          escolasStore.fetchEscolas();
+        } else if (isEscolaUser.value && !userSchoolId.value) {
+            // Caso um usuário 'escola' não tenha school_id, algo está errado.
+            // Poderia até forçar logout ou mostrar um erro.
+            console.warn("Usuário 'escola' logado sem 'school_id' associado.");
+        }
     }
 });
 
+// Observar mudanças no localStorage (ex: login/logout em outra aba)
+// Esta é uma forma simplificada. Para reatividade completa entre abas,
+// um event listener para 'storage' seria mais robusto, ou usar Pinia para o estado de auth.
+watch(() => route.fullPath, () => {
+    // Recarregar o usuário quando a rota muda pode ser útil se o estado de login
+    // puder mudar sem uma recarga completa da página.
+    loadUserFromStorage();
+    // Se o usuário mudou (ex: de guest para logado), e ele for admin, buscar escolas.
+    if (!isLoginPage.value && (isAdminUser.value || isStandardUser.value) && escolasStore.escolas.length === 0) {
+        // Verifica se já não tem escolas para evitar múltiplas chamadas desnecessárias
+        // se a lista só é relevante para admin no menu.
+        // escolasStore.fetchEscolas(); // Comentado para evitar chamadas excessivas.
+                                    // O onMounted já deve cuidar disso.
+                                    // Descomente se precisar de atualização dinâmica da lista de escolas no menu.
+     }
+});
+
 </script>
+
 
 <style>
 /* --- Variáveis CSS Globais --- */

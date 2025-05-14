@@ -94,8 +94,10 @@ async function setupDatabase() {
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         username TEXT NOT NULL UNIQUE,
         password_hash TEXT NOT NULL,
-        role TEXT NOT NULL DEFAULT 'user' CHECK(role IN ('admin', 'user')),
-        data_cadastro DATETIME DEFAULT CURRENT_TIMESTAMP
+        role TEXT NOT NULL DEFAULT 'user' CHECK(role IN ('admin', 'user', 'escola')),
+        school_id INTEGER NULL,
+        data_cadastro DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (school_id) REFERENCES escolas(id) ON DELETE SET NULL ON UPDATE CASCADE
     );`;
 
     const createEscolasTableSql = `

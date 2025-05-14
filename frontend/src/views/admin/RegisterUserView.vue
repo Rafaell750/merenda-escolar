@@ -29,8 +29,25 @@
                       <select id="role" class="form-select" v-model="newUser.role">
                           <option value="user">Usuário Padrão</option>
                           <option value="admin">Administrador</option>
+                          <option value="escola">Escola</option>
                       </select>
                   </div>
+
+                    <!-- Seletor de Escola (Condicional) -->
+                    <div class="form-group" v-if="newUser.role === 'escola'">
+                        <label for="school" class="form-label">Escola Associada:</label>
+                            <select id="school" class="form-select" v-model="newUser.school_id" required>
+                                <option disabled value="">Selecione uma escola</option>
+                                <option v-for="school in availableSchools" :key="school.id" :value="school.id">
+                                {{ school.nome }}
+                                </option>
+                            </select>
+                        <div v-if="isLoadingSchools" class="loading-inline">Carregando escolas...</div>
+                        <div v-if="!isLoadingSchools && availableSchools.length === 0" class="error-inline">
+                            Nenhuma escola encontrada. Cadastre escolas primeiro.
+                        </div>
+                    </div>
+
                   <!-- 7. Mensagem de feedback com classes base e dinâmica -->
                   <div v-if="feedbackMessage"
                        class="feedback-message"
@@ -79,16 +96,16 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue';
+import { ref, reactive, onMounted, watch } from 'vue';
 import apiService from '@/services/apiService';
-// CSS importado (correto)
 import '@/styles/auth-styles.css';
 import '@/styles/register-view.css'; // Específico para o layout da lista
 
 const newUser = reactive({
   username: '',
   password: '',
-  role: 'user'
+  role: 'user',
+  school_id: ''
 });
 const isLoading = ref(false); // Loading do formulário de cadastro
 const feedbackMessage = ref('');
@@ -98,6 +115,10 @@ const isError = ref(false);
 const users = ref([]);
 const isAdmin = ref(false);
 const isLoadingUsers = ref(false); // Loading específico da lista de usuários
+
+// Estado para escolas (para o dropdown)
+const availableSchools = ref([]);
+const isLoadingSchools = ref(false);
 
 const fetchUsers = async () => {
     isLoadingUsers.value = true; // Inicia loading da lista
@@ -114,6 +135,23 @@ const fetchUsers = async () => {
     }
 }
 
+// Função para buscar escolas
+const fetchSchools = async () => {
+    isLoadingSchools.value = true;
+    try {
+        const response = await apiService.getSchools();
+        availableSchools.value = response.data;
+    } catch (error) {
+         console.error("Erro ao buscar escolas:", error);
+         // Poderia definir uma mensagem de erro específica para escolas
+         feedbackMessage.value = 'Erro ao carregar lista de escolas.';
+         isError.value = true;
+         availableSchools.value = []; // Limpar em caso de erro
+    } finally {
+         isLoadingSchools.value = false;
+    }
+};
+
 onMounted(() => {
     const userStr = localStorage.getItem('authUser');
     if (userStr) {
@@ -122,8 +160,16 @@ onMounted(() => {
             if (currentUser.role === 'admin') {
                 isAdmin.value = true;
                 fetchUsers();
+                fetchSchools();
             }
         } catch (e) { console.error("Erro ao parsear usuário do localStorage", e); }
+    }
+});
+
+// Observar mudança no role para limpar school_id se não for 'escola'
+watch(() => newUser.role, (newRole) => {
+    if (newRole !== 'escola') {
+        newUser.school_id = ''; // Limpa a seleção da escola
     }
 });
 
@@ -145,19 +191,36 @@ const handleRegister = async () => {
      return;
    }
 
+  // Validação específica para 'escola'
+  if (newUser.role === 'escola' && !newUser.school_id) {
+      feedbackMessage.value = 'Selecione uma escola para o usuário do tipo "Escola".';
+      isError.value = true;
+      isLoading.value = false;
+      return;
+  }
+
   try {
-    const response = await apiService.registerUser(newUser);
-    feedbackMessage.value = `Usuário "${response.data.username}" cadastrado com sucesso!`;
+    // Preparar payload: remover school_id se não for role 'escola'
+    const payload = { ...newUser };
+    if (payload.role !== 'escola') {
+      delete payload.school_id;
+    }
+
+    const response = await apiService.registerUser(payload);
+    feedbackMessage.value = `Usuário "${response.data.username}" (Role: ${response.data.role}) cadastrado com sucesso!`;
+    isError.value = false; // Garantir que é mensagem de sucesso
+    // Limpar formulário
     newUser.username = '';
     newUser.password = '';
     newUser.role = 'user';
-    if(isAdmin.value) fetchUsers(); // Atualiza a lista após cadastro
+    newUser.school_id = '';
+    if (isAdmin.value) fetchUsers(); // Atualiza a lista de usuários
   } catch (error) {
     console.error("Erro no cadastro:", error);
     isError.value = true;
     feedbackMessage.value = error.response?.data?.error || 'Erro ao cadastrar usuário.';
   } finally {
-    isLoading.value = false; // Finaliza loading do formulário
+    isLoading.value = false;
   }
 };
 </script>
