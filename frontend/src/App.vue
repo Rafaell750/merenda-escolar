@@ -1,14 +1,80 @@
+<!--
+  /frontend/src/App.vue
+
+  Visão Geral:
+  Este é o componente raiz da aplicação Vue.js. Ele define o layout principal,
+  incluindo a barra lateral de navegação (sidebar) e a área de conteúdo onde
+  as diferentes visualizações (rotas) são renderizadas. A sidebar é condicionalmente
+  exibida e seu conteúdo varia de acordo com o tipo de usuário logado (admin, escola, user padrão).
+
+  Funcionalidades Principais:
+  1.  LAYOUT RESPONSIVO:
+      - Implementa um layout com uma sidebar à esquerda e uma área de conteúdo principal à direita.
+      - A sidebar pode ser recolhida/expandida.
+      - A sidebar é ocultada na página de login.
+  2.  BARRA LATERAL (SIDEBAR):
+      - Cabeçalho com o logo da aplicação e um botão para recolher/expandir.
+      - Menu de navegação principal com links (`<router-link>`).
+      - Os links do menu são exibidos condicionalmente com base no papel (role) do usuário logado:
+          - 'admin': Acesso a Painel, Produtos, Movimentações (se rota existir), lista de todas as Escolas Cadastradas, Cadastro de Usuário.
+          - 'user' (padrão): Acesso a Painel, Produtos, Movimentações (se rota existir), lista de todas as Escolas Cadastradas.
+          - 'escola': Acesso ao link "Minha Escola" (detalhes da sua própria escola).
+      - O item de menu ativo é destacado visualmente.
+      - Exibe um indicador de carregamento enquanto as escolas são buscadas (para admin/user).
+      - Rodapé com um botão de "Sair" (logout).
+  3.  GERENCIAMENTO DE ESTADO DO USUÁRIO:
+      - Carrega informações do usuário logado (incluindo seu papel e ID da escola, se aplicável)
+        do `localStorage` ao ser montado e em mudanças de rota.
+      - As permissões de visualização de links são baseadas nesses dados.
+  4.  ROTEAMENTO:
+      - Utiliza `<router-view>` para renderizar o componente correspondente à rota atual.
+      - Aplica uma transição de "fade" na troca de rotas.
+  5.  AÇÕES:
+      - `toggleSidebar()`: Alterna o estado recolhido/expandido da sidebar.
+      - `logout()`: Remove informações de autenticação do `localStorage`, limpa dados de usuário
+        e redireciona para a página de login forçando uma recarga.
+  6.  INTEGRAÇÃO COM STORE (PINIA):
+      - Utiliza `useEscolasStore` para buscar e exibir a lista de escolas na sidebar (para admin/user).
+      - Limpa a lista de escolas na store ao fazer logout.
+  7.  ESTILIZAÇÃO:
+      - Utiliza CSS global e scoped (dentro da tag `<style>`) para definir a aparência do layout.
+      - Define variáveis CSS para fácil customização.
+
+  Observações de Implementação:
+  - A lógica de permissões é implementada diretamente no template usando `v-if` e propriedades computadas.
+  - O estado de autenticação e os dados do usuário são gerenciados localmente (via `localStorage` e `ref`),
+    mas poderiam ser centralizados em uma store Pinia de autenticação para maior robustez.
+  - A checagem `movimentacoesRouteExists` permite adicionar/remover a rota "Movimentações" sem
+    quebrar o menu.
+-->
 <template>
+  <!-- 1. LAYOUT PRINCIPAL DA APLICAÇÃO -->
+  <!--
+    Classes dinâmicas controlam a aparência baseada na visibilidade e estado da sidebar,
+    e se a página atual é a de login.
+    - `sidebar-visible`: Adicionada se não for a página de login, para aplicar margem ao conteúdo.
+    - `sidebar-collapsed`: Adicionada se a sidebar estiver recolhida (e não for login).
+  -->
   <div class="app-layout" :class="{ 'sidebar-visible': !isLoginPage, 'sidebar-collapsed': isSidebarCollapsed && !isLoginPage }">
 
+    <!-- 2. BARRA LATERAL (SIDEBAR) -->
+    <!--
+      - `v-if="!isLoginPage"`: A sidebar só é renderizada se não estivermos na página de login.
+      - `:class="{ 'collapsed': isSidebarCollapsed }"`: Aplica classe para o estado recolhido.
+    -->
     <div class="sidebar" :class="{ 'collapsed': isSidebarCollapsed }" v-if="!isLoginPage">
+      <!-- 2.1. CABEÇALHO DA SIDEBAR -->
       <div class="sidebar-header">
+         <!-- Logo da aplicação -->
          <div class="logo" :class="{ 'collapsed': isSidebarCollapsed }">
+           <!-- Ícone pequeno quando recolhido -->
            <svg v-if="isSidebarCollapsed" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" class="bi bi-box-seam-fill small-logo-icon" viewBox="0 0 16 16">
              <path fill-rule="evenodd" d="M15.528 2.973a.75.75 0 0 1 .472.696v8.662a.75.75 0 0 1-.472.696l-7.25 2.9a.75.75 0 0 1-.557 0l-7.25-2.9A.75.75 0 0 1 0 12.331V3.669a.75.75 0 0 1 .471-.696L7.75.073a.75.75 0 0 1 .5-.001zM10.4 M1.811 4.237v8.166l6.717 2.687 6.718-2.687V4.237L8.53 1.511z"/>
            </svg>
+           <!-- Título visível quando expandido -->
            <h2 v-show="!isSidebarCollapsed">Merenda Escolar</h2>
          </div>
+         <!-- Botão para recolher/expandir a sidebar -->
          <button @click="toggleSidebar" class="toggle-sidebar-btn" title="Recolher/Expandir Menu">
            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" class="bi bi-layout-sidebar-inset" viewBox="0 0 16 16">
              <path d="M14 2a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1zM2 1a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V3a2 2 0 0 0-2-2z"/>
@@ -17,8 +83,10 @@
          </button>
       </div>
 
+      <!-- 2.2. NAVEGAÇÃO PRINCIPAL (MENU) -->
       <nav class="menu">
-        <!-- 1. Links Visíveis APENAS PARA ADMIN E USER PADRÃO -->
+        <!-- 2.2.1. LINKS PARA ADMIN E USER PADRÃO -->
+        <!-- Link para o Painel -->
         <router-link
             v-if="isUserAdminOrStandard"
             to="/"
@@ -33,6 +101,7 @@
           <span class="menu-item-text">Painel</span>
         </router-link>
 
+        <!-- Link para Produtos -->
         <router-link
             v-if="isUserAdminOrStandard"
             to="/produtos"
@@ -46,11 +115,12 @@
           <span class="menu-item-text">Produtos</span>
         </router-link>
 
+        <!-- Link para Movimentações (se a rota existir) -->
         <router-link
             v-if="isUserAdminOrStandard && movimentacoesRouteExists"
             to="/movimentacoes"
             class="menu-item"
-            :class="{ 'active': $route.name === 'Movimentacoes' }" 
+            :class="{ 'active': $route.name === 'Movimentacoes' }"
             title="Movimentações"
         >
            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" class="bi bi-arrow-down-up menu-icon" viewBox="0 0 16 16">
@@ -59,21 +129,21 @@
           <span class="menu-item-text">Movimentações</span>
         </router-link>
 
-        <!-- 2. SEÇÃO ESCOLAS -->
-        <!-- Título "Escolas Cadastradas" SÓ PARA ADMIN -->
+        <!-- 2.2.2. SEÇÃO DE ESCOLAS -->
+        <!-- Divisor e título da seção visível apenas para ADMIN e se houver escolas -->
         <hr v-if="isAdminUser && !escolasStore.loading && escolasStore.listaEscolas.length > 0" class="sidebar-divider">
         <div v-if="isAdminUser && !isSidebarCollapsed && !escolasStore.loading && escolasStore.listaEscolas.length > 0" class="menu-section-title">
             Escolas Cadastradas
         </div>
 
-        <!-- Carregando Escolas (visível para Admin que vai listar, ou Escola se for necessário) -->
-        <div v-if="escolasStore.isLoading && isAdminUser" class="menu-item loading-item"> <!-- Ajustado para isAdminUser -->
+        <!-- Indicador de carregamento de escolas (para Admin) -->
+        <div v-if="escolasStore.isLoading && isAdminUser" class="menu-item loading-item">
             <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
             <span class="menu-item-text" style="margin-left: 5px;">Carregando Escolas...</span>
         </div>
 
-        <!-- Lista de Escolas: Visível para ADMIN e USER PADRÃO -->
-        <div v-if="(isAdminUser || isStandardUser) && !escolasStore.isLoading"> <!-- AJUSTADO -->
+        <!-- Lista de links para cada escola (para Admin e User Padrão) -->
+        <div v-if="(isAdminUser || isStandardUser) && !escolasStore.isLoading">
             <router-link
                 v-for="escola in escolasStore.listaEscolas"
                 :key="escola.id"
@@ -89,7 +159,7 @@
             </router-link>
         </div>
 
-        <!-- Link direto para "Minha Escola": SÓ PARA USUÁRIO ESCOLA -->
+        <!-- 2.2.3. LINK "MINHA ESCOLA" PARA USUÁRIO DO TIPO ESCOLA -->
         <router-link
             v-if="isEscolaUser && userSchoolId"
             :to="{ name: 'EscolaDetalhes', params: { id: userSchoolId } }"
@@ -98,12 +168,12 @@
             title="Minha Escola"
         >
              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" class="bi bi-bank menu-icon" viewBox="0 0 16 16">
-               <path d="m8 0 6.61 3h.89a.5.5 0 0 1 .5.5v2a.5.5 0 0 1-.5.5H15v7a.5.5 0 0 1 .485.38l.5 2a.498.498 0 0 1-.485-.62H.5a.498.498 0 0 1-.485-.62l.5-2A.5.5 0 0 1 1 13V6H.5a.5.5 0 0 1-.5-.5v-2A.5.5 0 0 1 .5 3h.89zM3.777 3h8.447L8 1zM2 6v7h1V6zm2 0v7h1V6zm2 0v7h1V6zm2 0v7h1V6zm2 0v7h1V6zm2 0v7h1V6zM1 4h14V3H1z"/>
+               <path d="m8 0 6.61 3h.89a.5.5 0 0 1 .5.5v2a.5.5 0 0 1-.5.5H15v7a.5.5 0 0 1 .485.38l.5 2a.498.498 0 0 1-.485.62H.5a.498.498 0 0 1-.485-.62l.5-2A.5.5 0 0 1 1 13V6H.5a.5.5 0 0 1-.5-.5v-2A.5.5 0 0 1 .5 3h.89zM3.777 3h8.447L8 1zM2 6v7h1V6zm2 0v7h1V6zm2 0v7h1V6zm2 0v7h1V6zm2 0v7h1V6zm2 0v7h1V6zM1 4h14V3H1z"/>
              </svg>
             <span class="menu-item-text">Minha Escola</span>
         </router-link>
 
-        <!-- Link para Cadastro de Usuário: SÓ PARA ADMIN -->
+        <!-- 2.2.4. LINK PARA CADASTRO DE USUÁRIO (APENAS ADMIN) -->
          <router-link
             v-if="isAdminUser"
             to="/admin/register-user"
@@ -120,7 +190,9 @@
          </router-link>
       </nav>
 
+      <!-- 2.3. RODAPÉ DA SIDEBAR -->
       <div class="sidebar-footer">
+           <!-- Botão de Logout -->
            <button v-if="!isLoginPage" @click="logout" class="logout-button" title="Sair">
                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" class="bi bi-box-arrow-left menu-icon" viewBox="0 0 16 16">
                  <path fill-rule="evenodd" d="M6 12.5a.5.5 0 0 0 .5.5h8a.5.5 0 0 0 .5-.5v-9a.5.5 0 0 0-.5-.5h-8a.5.5 0 0 0-.5.5v2a.5.5 0 0 1-1 0v-2A1.5 1.5 0 0 1 6.5 2h8A1.5 1.5 0 0 1 16 3.5v9a1.5 1.5 0 0 1-1.5 1.5h-8A1.5 1.5 0 0 1 5 12.5v-2a.5.5 0 0 1 1 0z"/>
@@ -131,7 +203,17 @@
        </div>
     </div>
 
+    <!-- 3. ÁREA DE CONTEÚDO PRINCIPAL -->
+    <!--
+      - Onde as visualizações (componentes de rota) são renderizadas.
+      - Classes dinâmicas ajustam a margem esquerda com base na sidebar.
+      - `login-page` remove a margem se for a página de login.
+    -->
     <div class="main-content-area" :class="{ 'sidebar-visible': !isLoginPage, 'sidebar-collapsed': isSidebarCollapsed && !isLoginPage, 'login-page': isLoginPage }">
+      <!--
+        `<router-view>`: Ponto de montagem para os componentes de rota.
+        `v-slot="{ Component }"`: Permite o uso de transições em componentes de rota.
+      -->
       <router-view v-slot="{ Component }">
         <transition name="fade">
           <component :is="Component" />
@@ -142,45 +224,73 @@
 </template>
 
 <script setup>
+// --- BLOCO 1: IMPORTAÇÕES E INICIALIZAÇÕES ---
 import { ref, computed, onMounted, watch } from 'vue';
-import { useRoute, useRouter } from 'vue-router';
-import { useEscolasStore } from '@/stores/escolas'; // Certifique-se que o caminho está correto
+import { useRoute, useRouter } from 'vue-router'; // Para interagir com o sistema de rotas.
+import { useEscolasStore } from '@/stores/escolas'; // Store Pinia para dados das escolas.
 
-const route = useRoute();
-const router = useRouter();
-const escolasStore = useEscolasStore();
+const route = useRoute(); // Informações sobre a rota atual.
+const router = useRouter(); // Instância do roteador Vue.
+const escolasStore = useEscolasStore(); // Instância da store de escolas.
 
-const isSidebarCollapsed = ref(false);
-const currentUser = ref(null); // Para armazenar os dados do usuário logado
+// --- BLOCO 2: ESTADO LOCAL DO COMPONENTE (REFS) ---
+const isSidebarCollapsed = ref(false); // Controla se a sidebar está recolhida ou expandida.
+const currentUser = ref(null);         // Armazena os dados do usuário logado (obtidos do localStorage).
 
-// --- FUNÇÕES COMPUTED PARA PERMISSÕES ---
+// --- BLOCO 3: PROPRIEDADES COMPUTADAS PARA CONTROLE DE UI E PERMISSÕES ---
+
+// `isLoginPage`: Verifica se a rota atual é a página de login.
 const isLoginPage = computed(() => route.name === 'Login');
 
+// `userRole`: Retorna o papel (role) do usuário logado.
 const userRole = computed(() => currentUser.value?.role);
+// `userSchoolId`: Retorna o ID da escola associada ao usuário logado (se aplicável).
 const userSchoolId = computed(() => currentUser.value?.school_id);
 
+// Propriedades computadas booleanas para verificar o papel do usuário.
 const isAdminUser = computed(() => userRole.value === 'admin');
 const isEscolaUser = computed(() => userRole.value === 'escola');
-const isStandardUser = computed(() => userRole.value === 'user');
+const isStandardUser = computed(() => userRole.value === 'user'); // Usuário padrão (SME)
 const isUserAdminOrStandard = computed(() => isAdminUser.value || isStandardUser.value);
 
+// `movimentacoesRouteExists`: Verifica se a rota '/movimentacoes' está definida no roteador.
+// Permite ocultar o link do menu se a rota não existir.
 const movimentacoesRouteExists = computed(() => {
      return router.getRoutes().some(r => r.path === '/movimentacoes');
 });
 
+// --- BLOCO 4: MÉTODOS ---
+
+/**
+ * @function toggleSidebar
+ * @description Alterna o estado de recolhimento da sidebar.
+ */
 const toggleSidebar = () => {
   isSidebarCollapsed.value = !isSidebarCollapsed.value;
 };
 
+/**
+ * @function logout
+ * @description Realiza o logout do usuário.
+ * Remove 'authToken' e 'authUser' do localStorage.
+ * Limpa `currentUser.value` e a lista de escolas na store.
+ * Redireciona para '/login' com recarga da página para limpar completamente o estado.
+ */
 const logout = () => {
     localStorage.removeItem('authToken');
     localStorage.removeItem('authUser');
     currentUser.value = null;
-    escolasStore.escolas = []; // Limpa a lista de escolas na store também
-    // Idealmente, a store de escolas também seria resetada ou as escolas não seriam buscadas após o logout
-    window.location.href = '/login'; // Força recarga para limpar estado completamente
+    escolasStore.escolas = []; // Limpa a lista de escolas na store Pinia.
+    // Força a recarga para garantir que todo o estado da aplicação seja limpo.
+    window.location.href = '/login';
 };
 
+/**
+ * @function loadUserFromStorage
+ * @description Carrega os dados do usuário do `localStorage` para `currentUser.value`.
+ * Se os dados não existirem ou forem inválidos, `currentUser.value` é definido como `null`
+ * e os itens inválidos são removidos do `localStorage`.
+ */
 function loadUserFromStorage() {
     const userStr = localStorage.getItem('authUser');
     if (userStr) {
@@ -189,50 +299,52 @@ function loadUserFromStorage() {
         } catch (e) {
             console.error('Erro ao carregar usuário do localStorage:', e);
             currentUser.value = null;
-            localStorage.removeItem('authUser'); // Limpa se inválido
-            localStorage.removeItem('authToken'); // Pode remover o token também
+            localStorage.removeItem('authUser'); // Limpa dado inválido
+            localStorage.removeItem('authToken'); // Considera remover token também por segurança
         }
     } else {
         currentUser.value = null;
     }
 }
 
+// --- BLOCO 5: HOOKS DE CICLO DE VIDA E WATCHERS ---
+
+/**
+ * @hook onMounted
+ * @description Executado quando o componente é montado.
+ * Carrega os dados do usuário do localStorage.
+ * Se não for a página de login e o usuário for admin ou padrão, busca a lista de escolas.
+ * Adiciona um aviso se um usuário 'escola' não tiver `school_id`.
+ */
 onMounted(() => {
     loadUserFromStorage();
     if (!isLoginPage.value) {
-        // Admin precisa da lista completa de escolas para o menu
-        // Usuário escola não precisa da lista completa no menu, apenas do link "Minha Escola"
-        // que já usa `userSchoolId` de `currentUser`.
-        // A chamada `fetchEscolas` aqui pode ser otimizada para ser chamada apenas se for admin.
-        // No entanto, se a `EscolaDetalhesView` também usa `fetchEscolas` para carregar dados,
-        // ou se a store é usada para exibir o nome da "Minha Escola", então pode ser necessário.
-        // Por simplicidade e para garantir que `escolasStore.isLoading` funcione, vamos manter,
-        // mas otimizar se `fetchEscolas` for muito pesada para usuários 'escola'.
-        if (isAdminUser.value || isStandardUser.value) { // Apenas admin busca a lista completa para o menu
+        // Usuários admin e padrão (SME) precisam da lista completa de escolas para o menu.
+        // Usuários do tipo 'escola' têm um link direto "Minha Escola" baseado no `userSchoolId`.
+        if (isAdminUser.value || isStandardUser.value) {
           escolasStore.fetchEscolas();
         } else if (isEscolaUser.value && !userSchoolId.value) {
-            // Caso um usuário 'escola' não tenha school_id, algo está errado.
-            // Poderia até forçar logout ou mostrar um erro.
+            // Situação anômala: usuário do tipo 'escola' sem um ID de escola associado.
             console.warn("Usuário 'escola' logado sem 'school_id' associado.");
         }
     }
 });
 
-// Observar mudanças no localStorage (ex: login/logout em outra aba)
-// Esta é uma forma simplificada. Para reatividade completa entre abas,
-// um event listener para 'storage' seria mais robusto, ou usar Pinia para o estado de auth.
+/**
+ * @watcher route.fullPath
+ * @description Observa mudanças na rota completa.
+ * Ao mudar de rota, recarrega os dados do usuário do localStorage.
+ * (Opcional: Poderia buscar escolas se o usuário logar e for admin/padrão, mas `onMounted` já cobre isso).
+ * Essa recarga de usuário é útil se o estado de login puder mudar sem uma recarga completa (ex: Single Sign-On).
+ */
 watch(() => route.fullPath, () => {
-    // Recarregar o usuário quando a rota muda pode ser útil se o estado de login
-    // puder mudar sem uma recarga completa da página.
     loadUserFromStorage();
-    // Se o usuário mudou (ex: de guest para logado), e ele for admin, buscar escolas.
-    if (!isLoginPage.value && (isAdminUser.value || isStandardUser.value) && escolasStore.escolas.length === 0) {
-        // Verifica se já não tem escolas para evitar múltiplas chamadas desnecessárias
-        // se a lista só é relevante para admin no menu.
-        // escolasStore.fetchEscolas(); // Comentado para evitar chamadas excessivas.
-                                    // O onMounted já deve cuidar disso.
-                                    // Descomente se precisar de atualização dinâmica da lista de escolas no menu.
-     }
+    // A lógica de buscar escolas com base no novo usuário/rota já é coberta pelo `onMounted`
+    // ou por lógicas dentro das próprias views. Evita chamadas duplicadas.
+    // Exemplo de lógica que poderia ser reativada se necessário:
+    // if (!isLoginPage.value && (isAdminUser.value || isStandardUser.value) && escolasStore.listaEscolas.length === 0) {
+    //     escolasStore.fetchEscolas();
+    // }
 });
 
 </script>
@@ -240,143 +352,243 @@ watch(() => route.fullPath, () => {
 
 <style>
 /* --- Variáveis CSS Globais --- */
+/* Definem cores, tamanhos e durações de transição para a sidebar e layout. */
 :root {
-  --sidebar-width-expanded: 260px;
-  --sidebar-width-collapsed: 80px;
-  --sidebar-bg-color: #1f2937;
-  --sidebar-text-color: #d1d5db;
-  --sidebar-hover-bg: #374151;
-  --sidebar-active-bg: #4b5563;
-  --sidebar-active-border: #34d399;
-  --content-bg-color: #f9fafb;
-  --header-text-color: #111827;
-  --sidebar-transition-duration: 0.3s;
+  --sidebar-width-expanded: 260px;    /* Largura da sidebar expandida */
+  --sidebar-width-collapsed: 80px;   /* Largura da sidebar recolhida */
+  --sidebar-bg-color: #1f2937;       /* Cor de fundo da sidebar */
+  --sidebar-text-color: #d1d5db;    /* Cor do texto na sidebar */
+  --sidebar-hover-bg: #374151;       /* Cor de fundo ao passar o mouse em itens da sidebar */
+  --sidebar-active-bg: #4b5563;      /* Cor de fundo do item ativo na sidebar */
+  --sidebar-active-border: #34d399;  /* Cor da borda esquerda do item ativo */
+  --content-bg-color: #f9fafb;       /* Cor de fundo da área de conteúdo principal */
+  --header-text-color: #111827;      /* Cor do texto para cabeçalhos (não usado diretamente aqui) */
+  --sidebar-transition-duration: 0.3s; /* Duração da transição da sidebar */
 }
 
 /* Reset e estilos globais básicos */
 * { margin: 0; padding: 0; box-sizing: border-box; }
-body { font-family: 'Inter', sans-serif; background-color: var(--content-bg-color); overflow-x: hidden; color: #374151; }
+body {
+  font-family: 'Inter', sans-serif; /* Fonte padrão */
+  background-color: var(--content-bg-color); /* Cor de fundo do corpo */
+  overflow-x: hidden; /* Evita scroll horizontal */
+  color: #374151; /* Cor de texto padrão para o conteúdo */
+}
 
-/* Layout Principal */
-.app-layout { display: flex; min-height: 100vh; width: 100vw; overflow: hidden; }
+/* Layout Principal da Aplicação */
+.app-layout {
+  display: flex; /* Layout flexível para sidebar e conteúdo */
+  min-height: 100vh; /* Altura mínima de toda a viewport */
+  width: 100vw; /* Largura de toda a viewport */
+  overflow: hidden; /* Esconde overflow para evitar barras de rolagem indesejadas no nível do app */
+}
 
 /* --- Estilos da Sidebar --- */
 .sidebar {
   width: var(--sidebar-width-expanded);
   background: var(--sidebar-bg-color);
   color: var(--sidebar-text-color);
-  min-height: 100vh;
-  box-shadow: 3px 0 15px rgba(0, 0, 0, 0.1);
-  position: fixed;
+  min-height: 100vh; /* Ocupa toda a altura */
+  box-shadow: 3px 0 15px rgba(0, 0, 0, 0.1); /* Sombra sutil */
+  position: fixed; /* Fixa na tela */
   left: 0; top: 0; bottom: 0;
-  z-index: 1000;
+  z-index: 1000; /* Garante que fique acima de outros conteúdos */
   display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  transition: width var(--sidebar-transition-duration) ease-in-out;
+  flex-direction: column; /* Organiza itens verticalmente */
+  overflow: hidden; /* Esconde conteúdo que transborda (texto do menu quando recolhido) */
+  transition: width var(--sidebar-transition-duration) ease-in-out; /* Animação da largura */
 }
-.sidebar.collapsed { width: var(--sidebar-width-collapsed); }
+.sidebar.collapsed { width: var(--sidebar-width-collapsed); } /* Estilo para sidebar recolhida */
 
-/* Cabeçalho da Sidebar */
-.sidebar-header { display: flex; align-items: center; justify-content: space-between; padding: 1rem 1.25rem; border-bottom: 1px solid rgba(255, 255, 255, 0.08); min-height: 65px; flex-shrink: 0; }
-.logo { display: flex; align-items: center; gap: 0.75rem; overflow: hidden; transition: opacity var(--sidebar-transition-duration) ease; }
-.logo.collapsed { justify-content: center; }
-.logo h2 { margin: 0; font-size: 1.25rem; font-weight: 600; color: #ffffff; white-space: nowrap; opacity: 1; transition: opacity 0.2s ease, width 0.2s ease; }
-.sidebar.collapsed .logo h2 { opacity: 0; width: 0; }
-.small-logo-icon { color: #e5e7eb; }
+/* Cabeçalho da Sidebar (Logo e botão de toggle) */
+.sidebar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between; /* Espaça logo e botão */
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08); /* Linha divisória sutil */
+  min-height: 65px; /* Altura mínima */
+  flex-shrink: 0; /* Impede que encolha */
+}
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem; /* Espaço entre ícone e texto do logo */
+  overflow: hidden; /* Para animar o texto do logo */
+  transition: opacity var(--sidebar-transition-duration) ease;
+}
+.logo.collapsed { justify-content: center; } /* Centraliza o ícone quando recolhido */
+.logo h2 {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #ffffff;
+  white-space: nowrap; /* Impede quebra de linha */
+  opacity: 1;
+  transition: opacity 0.2s ease, width 0.2s ease; /* Animação para ocultar o texto */
+}
+.sidebar.collapsed .logo h2 { opacity: 0; width: 0; } /* Oculta o texto do logo ao recolher */
+.small-logo-icon { color: #e5e7eb; } /* Cor do ícone do logo */
 
-/* Botão de Toggle */
-.toggle-sidebar-btn { background: transparent; border: none; color: #9ca3af; cursor: pointer; padding: 0.5rem; border-radius: 6px; display: flex; align-items: center; justify-content: center; transition: background-color 0.2s ease, color 0.2s ease; }
-.toggle-sidebar-btn:hover { background-color: rgba(255, 255, 255, 0.1); color: #ffffff; }
+/* Botão de Toggle da Sidebar */
+.toggle-sidebar-btn {
+  background: transparent;
+  border: none;
+  color: #9ca3af; /* Cor do ícone do botão */
+  cursor: pointer;
+  padding: 0.5rem;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+.toggle-sidebar-btn:hover {
+  background-color: rgba(255, 255, 255, 0.1); /* Feedback visual no hover */
+  color: #ffffff;
+}
+/* Rotação do ícone do botão de toggle */
 .sidebar.collapsed .toggle-sidebar-btn svg { transform: rotate(180deg); transition: transform 0.3s ease; }
 .sidebar:not(.collapsed) .toggle-sidebar-btn svg { transform: rotate(0deg); transition: transform 0.3s ease; }
 
-/* Menu e Itens */
-.menu { padding: 1rem 0; flex-grow: 1; overflow-y: auto; overflow-x: hidden; scrollbar-width: thin; scrollbar-color: #4b5563 var(--sidebar-bg-color); }
-.menu::-webkit-scrollbar { width: 6px; }
+/* Menu e Itens de Navegação */
+.menu {
+  padding: 1rem 0; /* Espaçamento vertical do menu */
+  flex-grow: 1; /* Faz o menu ocupar o espaço vertical disponível */
+  overflow-y: auto; /* Habilita scroll vertical se necessário */
+  overflow-x: hidden; /* Esconde scroll horizontal */
+  scrollbar-width: thin; /* Para Firefox */
+  scrollbar-color: #4b5563 var(--sidebar-bg-color); /* Cor da barra de rolagem (Firefox) */
+}
+.menu::-webkit-scrollbar { width: 6px; } /* Para Chrome/Safari/Edge */
 .menu::-webkit-scrollbar-track { background: var(--sidebar-bg-color); }
 .menu::-webkit-scrollbar-thumb { background-color: #4b5563; border-radius: 3px; }
-.menu-item { display: flex; align-items: center; padding: 0.8rem 1.5rem; color: var(--sidebar-text-color); text-decoration: none; margin: 0.2rem 0.5rem; border-radius: 6px; border-left: 4px solid transparent; white-space: nowrap; overflow: hidden; transition: background-color 0.2s ease, color 0.2s ease, padding var(--sidebar-transition-duration) ease-in-out; }
-.sidebar.collapsed .menu-item { padding: 0.8rem 0; justify-content: center; margin: 0.2rem 0.5rem; }
-.menu-item:hover { background: var(--sidebar-hover-bg); color: #ffffff; }
-.menu-item.active { background: var(--sidebar-active-bg); border-left: 4px solid var(--sidebar-active-border); color: #ffffff; font-weight: 500; }
-.sidebar.collapsed .menu-item.active { border-left-width: 0; position: relative; }
-.sidebar.collapsed .menu-item.active::before { content: ''; position: absolute; left: 5px; top: 50%; transform: translateY(-50%); width: 4px; height: 4px; background-color: var(--sidebar-active-border); border-radius: 50%; }
-.menu-icon { flex-shrink: 0; width: 20px; height: 20px; margin-right: 0.9rem; transition: margin-right var(--sidebar-transition-duration) ease-in-out; }
-.sidebar.collapsed .menu-icon { margin-right: 0; }
-.menu-item-text { opacity: 1; transition: opacity 0.2s ease; margin-left: 0px; }
-.sidebar.collapsed .menu-item-text { opacity: 0; width: 0; }
 
-/* Rodapé e Botão de Logout */
-.sidebar-footer { padding: 1rem; border-top: 1px solid rgba(255, 255, 255, 0.08); flex-shrink: 0; margin-top: auto; /* Empurra para baixo */ }
+.menu-item {
+  display: flex;
+  align-items: center;
+  padding: 0.8rem 1.5rem; /* Espaçamento interno do item */
+  color: var(--sidebar-text-color);
+  text-decoration: none; /* Remove sublinhado do link */
+  margin: 0.2rem 0.5rem; /* Margem entre itens */
+  border-radius: 6px;
+  border-left: 4px solid transparent; /* Borda para indicar item ativo */
+  white-space: nowrap; /* Impede quebra de linha do texto do item */
+  overflow: hidden; /* Para animar o texto */
+  transition: background-color 0.2s ease, color 0.2s ease, padding var(--sidebar-transition-duration) ease-in-out;
+}
+.sidebar.collapsed .menu-item {
+  padding: 0.8rem 0; /* Ajusta padding quando recolhido */
+  justify-content: center; /* Centraliza ícone */
+  margin: 0.2rem 0.5rem;
+}
+.menu-item:hover {
+  background: var(--sidebar-hover-bg);
+  color: #ffffff;
+}
+.menu-item.active {
+  background: var(--sidebar-active-bg);
+  border-left: 4px solid var(--sidebar-active-border);
+  color: #ffffff;
+  font-weight: 500;
+}
+.sidebar.collapsed .menu-item.active {
+  border-left-width: 0; /* Remove borda esquerda quando recolhido */
+  position: relative; /* Para o pseudo-elemento ::before */
+}
+/* Indicador de item ativo quando recolhido (pequeno círculo) */
+.sidebar.collapsed .menu-item.active::before {
+  content: '';
+  position: absolute;
+  left: 5px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 4px;
+  height: 4px;
+  background-color: var(--sidebar-active-border);
+  border-radius: 50%;
+}
+.menu-icon {
+  flex-shrink: 0; /* Impede que o ícone encolha */
+  width: 20px;
+  height: 20px;
+  margin-right: 0.9rem; /* Espaço entre ícone e texto */
+  transition: margin-right var(--sidebar-transition-duration) ease-in-out;
+}
+.sidebar.collapsed .menu-icon { margin-right: 0; } /* Remove margem do ícone quando recolhido */
+.menu-item-text {
+  opacity: 1;
+  transition: opacity 0.2s ease;
+  margin-left: 0px; /* Ajuste se necessário para alinhar com ícone */
+}
+.sidebar.collapsed .menu-item-text { opacity: 0; width: 0; } /* Oculta o texto ao recolher */
+
+/* Rodapé da Sidebar e Botão de Logout */
+.sidebar-footer {
+  padding: 1rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.08); /* Linha divisória */
+  flex-shrink: 0; /* Impede que encolha */
+  margin-top: auto; /* Empurra o rodapé para baixo */
+}
 .logout-button {
     background: none;
     border: 1px solid #4b5563; /* Borda sutil */
     color: var(--sidebar-text-color);
-    padding: 0.5rem 0; /* Padding vertical, sem horizontal para centralizar */
+    padding: 0.5rem 0;
     border-radius: 6px;
     cursor: pointer;
     display: flex;
     align-items: center;
-    justify-content: center; /* Centraliza conteúdo */
-    width: 100%; /* Ocupa toda a largura */
+    justify-content: center;
+    width: 100%;
     text-align: center;
     transition: all 0.2s ease;
     font-size: 0.9rem;
 }
-/* Ajusta padding e justificação quando colapsado */
-.sidebar.collapsed .logout-button {
-    padding: 0.5rem 0;
-    justify-content: center;
-}
+.sidebar.collapsed .logout-button { padding: 0.5rem 0; justify-content: center; }
 .logout-button:hover { background-color: var(--sidebar-hover-bg); border-color: var(--sidebar-hover-bg); color: #ffffff; }
-.logout-button .menu-icon { margin-right: 0.9rem; /* Mantém margem quando expandido */ }
+.logout-button .menu-icon { margin-right: 0.9rem; }
 .sidebar.collapsed .logout-button .menu-icon { margin-right: 0; }
-.sidebar.collapsed .logout-button .menu-item-text { display: none; /* Esconde texto quando colapsado */ }
+.sidebar.collapsed .logout-button .menu-item-text { display: none; } /* Esconde texto do logout ao recolher */
 
 
 /* --- Estilos da Área de Conteúdo Principal --- */
 .main-content-area {
-  flex: 1;
+  flex: 1; /* Ocupa o espaço restante */
   background-color: var(--content-bg-color);
   display: flex;
   flex-direction: column;
-  padding: 2rem;
-  overflow-y: auto;
+  padding: 2rem; /* Espaçamento interno */
+  overflow-y: auto; /* Scroll vertical se o conteúdo for maior */
   min-height: 100vh;
-  /* Transição da margem */
-  transition: margin-left var(--sidebar-transition-duration) ease-in-out;
-  /* Margem padrão quando a sidebar está visível e expandida */
-  margin-left: var(--sidebar-width-expanded);
+  transition: margin-left var(--sidebar-transition-duration) ease-in-out; /* Animação da margem */
+  margin-left: var(--sidebar-width-expanded); /* Margem para acomodar a sidebar expandida */
 }
-
-/* Ajuste da margem quando a sidebar está visível e colapsada */
+/* Ajuste da margem quando a sidebar está visível E recolhida */
 .main-content-area.sidebar-visible.sidebar-collapsed {
   margin-left: var(--sidebar-width-collapsed);
 }
-
-/* AJUSTE PARA TELA DE LOGIN (Sem sidebar) */
+/* Ajuste para a página de login (sem sidebar, sem margem) */
 .main-content-area.login-page {
-  margin-left: 0; /* Remove a margem esquerda */
-  /* Opcional: remover transição para evitar animação ao entrar/sair do login */
-  /* transition: none; */
+  margin-left: 0;
+  /* transition: none; */ /* Opcional: remover transição ao entrar/sair da tela de login */
 }
 
-/* Animação de Fade para troca de rotas */
+/* Animação de Fade para transição de rotas */
 .fade-enter-active,
 .fade-leave-active { transition: opacity 0.2s ease; }
 .fade-enter-from,
 .fade-leave-to { opacity: 0; }
 
-/* Estilo para o divisor (opcional) */
+/* Estilo para o divisor na sidebar (opcional) */
 .sidebar-divider {
     border: 0;
     height: 1px;
     background-color: rgba(255, 255, 255, 0.1);
-    margin: 1rem 1rem; /* Ajuste as margens */
+    margin: 1rem 1rem;
 }
 
-/* Estilo para o título da seção (opcional) */
+/* Estilo para o título da seção na sidebar (opcional) */
 .menu-section-title {
     padding: 0.5rem 1.5rem;
     font-size: 0.75rem;
@@ -388,35 +600,31 @@ body { font-family: 'Inter', sans-serif; background-color: var(--content-bg-colo
     white-space: nowrap;
     overflow: hidden;
 }
-.sidebar.collapsed .menu-section-title {
-    display: none; /* Ou mostrar só um ícone/letra */
-}
+.sidebar.collapsed .menu-section-title { display: none; } /* Esconde título da seção quando recolhido */
 
-/* Estilo para item de carregamento (opcional) */
+/* Estilo para item de carregamento na sidebar (opcional) */
 .loading-item {
     display: flex;
     align-items: center;
     padding: 0.8rem 1.5rem;
     color: var(--sidebar-text-color);
     opacity: 0.7;
-    cursor: default;
+    cursor: default; /* Indica que não é clicável */
 }
 .sidebar.collapsed .loading-item {
     justify-content: center;
-     padding: 0.8rem 0;
+    padding: 0.8rem 0;
 }
-.sidebar.collapsed .loading-item .menu-item-text {
-    display: none;
-}
+.sidebar.collapsed .loading-item .menu-item-text { display: none; }
 
-/* Bootstrap spinner (adicione se não estiver usando Bootstrap globalmente) */
+/* Estilos para o spinner (usado no carregamento de escolas) */
 .spinner-border {
     display: inline-block;
-    width: 1rem;
+    width: 1rem; /* Tamanho do spinner */
     height: 1rem;
     vertical-align: text-bottom;
-    border: .2em solid currentColor;
-    border-right-color: transparent;
+    border: .2em solid currentColor; /* Espessura da borda */
+    border-right-color: transparent; /* Cria o efeito de rotação */
     border-radius: 50%;
     -webkit-animation: spinner-border .75s linear infinite;
     animation: spinner-border .75s linear infinite;
@@ -426,35 +634,37 @@ body { font-family: 'Inter', sans-serif; background-color: var(--content-bg-colo
 }
 
 
-/* --- Responsividade --- */
-/* Forçar recolhimento em telas menores, MAS AINDA ESCONDER NO LOGIN */
+/* --- Media Queries para Responsividade --- */
+/* Em telas menores (ex: tablets), força a sidebar a estar recolhida se visível (não na tela de login) */
 @media (max-width: 992px) {
-    /* Esconde texto e centraliza ícones quando não está colapsado (mas deveria estar) */
-     .sidebar:not(.collapsed) .logo h2,
-     .sidebar:not(.collapsed) .menu-item-text { opacity: 0; width: 0; }
-     .sidebar:not(.collapsed) .menu-icon { margin-right: 0; }
-     .sidebar:not(.collapsed) .menu-item { justify-content: center; padding: 0.8rem 0; }
-     /* Esconder botão de toggle para não expandir manualmente */
-     .sidebar:not(.collapsed) .toggle-sidebar-btn { display: none; }
+    /* Oculta o texto e centraliza ícones como se estivesse recolhida, mesmo que o estado `isSidebarCollapsed` seja false */
+    .sidebar:not(.collapsed) .logo h2,
+    .sidebar:not(.collapsed) .menu-item-text { opacity: 0; width: 0; }
+    .sidebar:not(.collapsed) .menu-icon { margin-right: 0; }
+    .sidebar:not(.collapsed) .menu-item { justify-content: center; padding: 0.8rem 0; }
+    /* Oculta o botão de toggle para impedir expansão manual */
+    .sidebar:not(.collapsed) .toggle-sidebar-btn { display: none; }
 
-     /* Ajusta a margem do conteúdo para a largura colapsada se a sidebar estiver visível */
+    /* Ajusta a margem do conteúdo para a largura da sidebar recolhida, se ela estiver visível */
     .main-content-area.sidebar-visible {
         margin-left: var(--sidebar-width-collapsed);
     }
-     /* Garante margem 0 na tela de login */
-     .main-content-area.login-page {
+    /* Garante que na tela de login a margem seja zero */
+    .main-content-area.login-page {
         margin-left: 0;
-     }
+    }
 }
 
 @media (max-width: 768px) {
+     /* Ajusta o padding do conteúdo principal em telas menores */
      .main-content-area { padding: 1.5rem; }
-     /* Se decidir empilhar em vez de forçar colapso em telas muito pequenas: */
+     /* Exemplo de como poderia ser se a sidebar empilhasse em vez de recolher */
      /* .app-layout { flex-direction: column; } */
      /* .sidebar { position: relative; width: 100%; min-height: auto; } */
-     /* .main-content-area { margin-left: 0 !important; } */ /* Remover margem sempre */
+     /* .main-content-area { margin-left: 0 !important; } */
 }
 @media (max-width: 480px) {
+    /* Mais ajustes de padding para telas bem pequenas */
     .main-content-area { padding: 1rem; }
 }
 </style>

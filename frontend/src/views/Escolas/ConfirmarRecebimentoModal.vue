@@ -1,4 +1,4 @@
-<!-- /frontend/src/components/ConfirmarRecebimentoModal.vue -->
+<!-- /frontend/src/views/Escolas/ConfirmarRecebimentoModal.vue --> 
 <template>
     <dialog ref="dialogRef" class="confirmar-recebimento-modal" @close="onDialogClose">
       <form method="dialog" @submit.prevent="handleFormSubmit">

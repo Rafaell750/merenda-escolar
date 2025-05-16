@@ -1,97 +1,149 @@
 // backend/routes/produtoRoutes.js
+
+/**
+ * Visão Geral:
+ * Este módulo define as rotas da API para o recurso "produtos".
+ * Ele lida com operações CRUD (Create, Read, Update, Delete) para os produtos
+ * do estoque central (SME). Todas as rotas neste módulo são protegidas e requerem
+ * autenticação, garantida pelo middleware `authenticateToken` aplicado
+ * em `server.js` para o prefixo `/api/produtos`.
+ *
+ * Interação com o Banco de Dados:
+ * - Todas as rotas interagem com a tabela `produtos` no banco de dados SQLite.
+ *
+ * Interação com o Frontend:
+ * - `ProdutosView.vue` (frontend/src/views/Produtos/ProdutosView.vue):
+ *   - Para listar todos os produtos (`GET /`).
+ *   - Para cadastrar um novo produto (`POST /`).
+ *   - Para atualizar um produto existente (`PUT /:id`).
+ *   - Para excluir um produto (`DELETE /:id`).
+ * - `apiService.js` (frontend/src/services/apiService.js):
+ *   - O `apiService` do frontend encapsula as chamadas a estes endpoints,
+ *     adicionando automaticamente o token de autenticação.
+ *
+ * Estrutura das Rotas:
+ * - `POST /`: Cadastra um novo produto no estoque da SME.
+ * - `GET /`: Lista todos os produtos do estoque da SME, ordenados pela data de modificação decrescente.
+ * - `PUT /:id`: Atualiza os dados de um produto existente.
+ * - `DELETE /:id`: Exclui um produto do estoque da SME.
+ *
+ * Validações e Respostas:
+ * - As rotas de `POST` e `PUT` incluem validações para campos obrigatórios e tipos de dados.
+ * - As respostas seguem os códigos de status HTTP padrão (200 OK, 201 Created, 204 No Content,
+ *   400 Bad Request, 404 Not Found, 409 Conflict, 500 Internal Server Error).
+ * - Em operações de criação e atualização bem-sucedidas, a rota tenta retornar o objeto
+ *   completo do produto (recém-criado ou atualizado) do banco de dados.
+ * - O campo `data_modificacao` é atualizado automaticamente em operações de `POST` e `PUT`.
+ *   (Nota: O trigger no `server.js` também pode cuidar disso para `UPDATE` se outras colunas forem
+ *   alteradas e não explicitamente a `data_modificacao` aqui).
+ */
+
 const express = require('express');
-const db = require('../database/dbConnection');
-const { authenticateToken } = require('../middleware/authMiddleware'); // Certifique-se que o caminho está correto
-const router = express.Router();
+const db = require('../database/dbConnection'); // Importa a conexão com o banco de dados
+// `authenticateToken` é aplicado globalmente no server.js para o prefixo /api/produtos,
+// mas pode ser reafirmado aqui para clareza ou se houver necessidade de lógica específica
+// antes dele em alguma rota futura dentro deste arquivo (atualmente não é o caso).
+const { authenticateToken } = require('../middleware/authMiddleware');
+const router = express.Router(); // Cria uma nova instância do roteador do Express
 
-// POST /api/produtos - Cadastrar (Seu código existente)
-router.post('/', authenticateToken, (req, res) => { // Adicionado authenticateToken aqui também
-    const { nome, descricao, unidade_medida, categoria, quantidade, valor, data_vencimento } = req.body; // Use unidade_medida vindo do frontend
+// --- ROTA POST /api/produtos - Cadastrar Novo Produto ---
+// Protegida por `authenticateToken` aplicado globalmente em server.js.
+router.post('/', (req, res) => { // `authenticateToken` já foi aplicado em server.js para /api/produtos
+    // Extrai os dados do produto do corpo da requisição.
+    const { nome, descricao, unidade_medida, categoria, quantidade, valor, data_vencimento } = req.body;
 
-    // Validação (Adapte conforme sua necessidade)
+    // 1. Validação dos dados de entrada.
     if (!nome || !unidade_medida || !categoria) {
         return res.status(400).json({ error: 'Nome, Unidade de Medida e Categoria são obrigatórios.' });
     }
+    // Valida se quantidade, se fornecida, é um número não negativo.
     if (quantidade !== undefined && quantidade !== null && (isNaN(parseFloat(quantidade)) || parseFloat(quantidade) < 0)) {
         return res.status(400).json({ error: 'Quantidade inválida. Deve ser um número não negativo.' });
     }
+    // Valida se valor, se fornecido, é um número não negativo.
     if (valor !== undefined && valor !== null && (isNaN(parseFloat(valor)) || parseFloat(valor) < 0)) {
         return res.status(400).json({ error: 'Valor inválido. Deve ser um número não negativo.' });
     }
-    // Você pode adicionar validação para data_vencimento (formato YYYY-MM-DD) se desejar
+    // Validação de formato de data_vencimento (YYYY-MM-DD) pode ser adicionada aqui se necessário.
 
-    // ***** NOVO: Pega a data/hora atual no formato ISO *****
-    const dataModificacaoAtual = new Date().toISOString();
+    // 2. Define a data de modificação atual para o novo produto.
+    const dataModificacaoAtual = new Date().toISOString(); // Formato ISO8601 (YYYY-MM-DDTHH:mm:ss.sssZ)
 
+    // 3. Prepara a query SQL para inserção.
     const insertSql = `
-        INSERT INTO produtos (nome, descricao, unidade_medida, categoria, quantidade, valor, data_vencimento, data_modificacao)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO produtos (nome, descricao, unidade_medida, categoria, quantidade, valor, data_vencimento, data_modificacao, data_cadastro)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP) 
+        -- data_cadastro é definido como CURRENT_TIMESTAMP pelo default da tabela, mas pode ser explícito.
     `;
 
-    // Use os nomes corretos dos campos (unidade_medida)
+    // 4. Executa a query de inserção.
     db.run(insertSql, [
         nome,
         descricao,
-        unidade_medida, // Garanta que o frontend envie unidade_medida
+        unidade_medida,
         categoria,
-        // Trate valores nulos/vazios que vêm do frontend como NULL no banco
-        (quantidade === '' || quantidade === undefined) ? null : parseFloat(quantidade),
-        (valor === '' || valor === undefined) ? null : parseFloat(valor),
-        (data_vencimento === '' || data_vencimento === undefined) ? null : data_vencimento,
+        // Converte quantidade e valor para float, tratando strings vazias ou undefined como NULL.
+        (quantidade === '' || quantidade === undefined || quantidade === null) ? null : parseFloat(quantidade),
+        (valor === '' || valor === undefined || valor === null) ? null : parseFloat(valor),
+        (data_vencimento === '' || data_vencimento === undefined || data_vencimento === null) ? null : data_vencimento,
         dataModificacaoAtual
-    ], function (err) {
+    ], function (err) { // Usa `function` para ter acesso a `this.lastID`.
         if (err) {
-            console.error(`Erro ao cadastrar produto ${nome}:`, err.message);
+            console.error(`[POST /api/produtos] Erro ao cadastrar produto "${nome}":`, err.message);
+             // Trata erros específicos do banco.
              if (err.message.includes('NOT NULL constraint failed')) {
-                 return res.status(400).json({ error: 'Erro de dados: Verifique os campos obrigatórios.' });
+                 return res.status(400).json({ error: 'Erro nos dados fornecidos: Verifique se todos os campos obrigatórios foram preenchidos corretamente.' });
              }
-             if (err.message.includes('UNIQUE constraint failed')) { // Exemplo: se nome for UNIQUE
+             if (err.message.includes('UNIQUE constraint failed')) { // Ex: se 'nome' fosse UNIQUE
                   return res.status(409).json({ error: 'Erro: Já existe um produto com este nome.' }); // 409 Conflict
              }
-            return res.status(500).json({ error: 'Erro interno ao cadastrar produto.' });
+            return res.status(500).json({ error: 'Erro interno do servidor ao cadastrar o produto.' });
         }
-        // Busca o produto recém-inserido para retornar o objeto completo
-        db.get("SELECT * FROM produtos WHERE id = ?", [this.lastID], (selectErr, row) => {
+
+        // 5. Produto inserido com sucesso. Busca o produto recém-inserido para retorná-lo completo.
+        const newProductId = this.lastID;
+        db.get("SELECT * FROM produtos WHERE id = ?", [newProductId], (selectErr, row) => {
             if (selectErr || !row) {
-                console.error("Erro ao buscar produto recém-cadastrado ou não encontrado:", selectErr?.message);
+                console.error(`[POST /api/produtos] Produto ID ${newProductId} cadastrado, mas houve erro ao buscar os dados completos:`, selectErr?.message);
                  // Mesmo com erro aqui, o produto foi inserido. Retorna um sucesso parcial.
                  return res.status(201).json({
-                    message: "Produto cadastrado, mas houve erro ao retornar os dados completos.",
-                    id: this.lastID,
-                    // Retorna os dados enviados caso não consiga buscar
-                    nome: nome,
+                    message: "Produto cadastrado com sucesso, mas houve um erro ao recuperar todos os seus dados atualizados.",
+                    id: newProductId,
+                    nome: nome, // Retorna os dados que foram enviados
                     categoria: categoria,
-                    unidade_medida: unidade_medida
-                    // ... outros campos se necessário
+                    unidade_medida: unidade_medida,
+                    data_modificacao: dataModificacaoAtual // Importante retornar este
                  });
             }
-            console.log(`Produto ${row.nome} (ID: ${row.id}) cadastrado por ${req.user?.username || 'usuário'}`);
-            res.status(201).json(row); // Retorna o objeto completo
+            console.log(`[POST /api/produtos] Produto "${row.nome}" (ID: ${row.id}) cadastrado por ${req.user?.username || 'usuário desconhecido (token sem username?)'}.`);
+            res.status(201).json(row); // 201 Created, retorna o objeto completo do produto.
         });
     });
 });
 
-// GET /api/produtos - Listar (Seu código existente)
-router.get('/', authenticateToken, (req, res) => { // Protegido também
-    const sql = "SELECT * FROM produtos ORDER BY data_modificacao DESC"; // Ou ordene por nome, etc.
+// --- ROTA GET /api/produtos - Listar Todos os Produtos ---
+// Protegida por `authenticateToken` aplicado globalmente.
+router.get('/', (req, res) => { // `authenticateToken` já foi aplicado
+    // Ordena os produtos pela data de modificação mais recente primeiro.
+    const sql = "SELECT * FROM produtos ORDER BY data_modificacao DESC";
     db.all(sql, [], (err, rows) => {
         if (err) {
-            console.error("Erro ao listar produtos:", err.message);
-            return res.status(500).json({ error: 'Erro interno ao buscar produtos.' });
+            console.error("[GET /api/produtos] Erro ao listar produtos:", err.message);
+            return res.status(500).json({ error: 'Erro interno do servidor ao buscar produtos.' });
         }
-        res.status(200).json(rows);
+        res.status(200).json(rows); // Retorna a lista de produtos.
     });
 });
 
-// --- **** NOVA ROTA PUT PARA ATUALIZAR **** ---
-router.put('/:id', authenticateToken, (req, res) => {
-    const { id } = req.params;
-    // Pegue os dados do corpo da requisição
+// --- ROTA PUT /api/produtos/:id - Atualizar um Produto Existente ---
+// Protegida por `authenticateToken` aplicado globalmente.
+router.put('/:id', (req, res) => { // `authenticateToken` já foi aplicado
+    const { id } = req.params; // ID do produto a ser atualizado.
     const { nome, descricao, unidade_medida, categoria, quantidade, valor, data_vencimento } = req.body;
 
-    // Validação (similar ao POST, adapte conforme necessário)
+    // 1. Validação dos dados de entrada (similar à rota POST).
     if (!nome || !unidade_medida || !categoria) {
-        return res.status(400).json({ error: 'Nome, Unidade de Medida e Categoria são obrigatórios.' });
+        return res.status(400).json({ error: 'Nome, Unidade de Medida e Categoria são obrigatórios para atualização.' });
     }
     if (quantidade !== undefined && quantidade !== null && (isNaN(parseFloat(quantidade)) || parseFloat(quantidade) < 0)) {
         return res.status(400).json({ error: 'Quantidade inválida. Deve ser um número não negativo.' });
@@ -100,9 +152,10 @@ router.put('/:id', authenticateToken, (req, res) => {
         return res.status(400).json({ error: 'Valor inválido. Deve ser um número não negativo.' });
     }
 
-    // ***** NOVO: Pega a data/hora atual para atualização *****
+    // 2. Define a data de modificação atual.
     const dataModificacaoAtual = new Date().toISOString();
 
+    // 3. Prepara a query SQL para atualização.
     const updateSql = `
         UPDATE produtos
         SET nome = ?,
@@ -112,81 +165,85 @@ router.put('/:id', authenticateToken, (req, res) => {
             quantidade = ?,
             valor = ?,
             data_vencimento = ?,
-            data_modificacao = ?
+            data_modificacao = ?  -- Atualiza explicitamente a data de modificação
         WHERE id = ?
     `;
 
+    // 4. Executa a query de atualização.
     db.run(updateSql, [
         nome,
         descricao,
-        unidade_medida, // Use o nome correto do campo
+        unidade_medida,
         categoria,
-        // Trate valores nulos/vazios que vêm do frontend como NULL no banco
-        (quantidade === '' || quantidade === undefined) ? null : parseFloat(quantidade),
-        (valor === '' || valor === undefined) ? null : parseFloat(valor),
-        (data_vencimento === '' || data_vencimento === undefined) ? null : data_vencimento,
+        (quantidade === '' || quantidade === undefined || quantidade === null) ? null : parseFloat(quantidade),
+        (valor === '' || valor === undefined || valor === null) ? null : parseFloat(valor),
+        (data_vencimento === '' || data_vencimento === undefined || data_vencimento === null) ? null : data_vencimento,
         dataModificacaoAtual,
-        id // ID do produto a ser atualizado
-    ], function (err) {
+        id
+    ], function (err) { // Usa `function` para ter acesso a `this.changes`.
         if (err) {
-            console.error(`Erro ao atualizar produto ${id}:`, err.message);
-            // Adicione verificação para UNIQUE constraint se aplicável
-             if (err.message.includes('UNIQUE constraint failed')) {
+            console.error(`[PUT /api/produtos/:id] Erro ao atualizar produto ID ${id}:`, err.message);
+             if (err.message.includes('UNIQUE constraint failed')) { // Ex: se 'nome' for UNIQUE
                   return res.status(409).json({ error: 'Erro: Já existe outro produto com este nome.' });
              }
-            return res.status(500).json({ error: 'Erro interno ao atualizar produto.' });
+            return res.status(500).json({ error: 'Erro interno do servidor ao atualizar o produto.' });
         }
-        // Verifica se alguma linha foi realmente alterada
+
+        // 5. Verifica se alguma linha foi realmente alterada.
         if (this.changes === 0) {
-            // Isso pode acontecer se o ID não existir ou se os dados enviados forem idênticos aos existentes
-            // Vamos verificar se o produto existe para dar uma mensagem melhor
+            // Nenhuma linha alterada. Verifica se o produto existe para diferenciar de "dados idênticos".
              db.get("SELECT id FROM produtos WHERE id = ?", [id], (findErr, row) => {
-                if (!row) {
+                if (!row) { // Produto não encontrado.
                      return res.status(404).json({ error: 'Produto não encontrado para atualização.' });
-                } else {
-                    // O produto existe, mas nada mudou (ou houve um erro silencioso)
-                    // Podemos retornar 200 OK com os dados originais ou uma mensagem específica
-                    // Por segurança, vamos buscar e retornar o estado atual
+                } else { // Produto existe, mas os dados enviados eram idênticos aos do banco.
+                    // Retorna o produto como está no banco (já que a data_modificacao foi "atualizada" para o mesmo valor).
                     db.get("SELECT * FROM produtos WHERE id = ?", [id], (getErr, updatedRow) => {
                          if (getErr || !updatedRow) {
-                             return res.status(500).json({ error: 'Erro ao buscar dados após atualização (sem alterações).' });
+                             console.error(`[PUT /api/produtos/:id] Produto ID ${id} encontrado, mas erro ao buscar dados após tentativa de atualização sem alterações:`, getErr?.message);
+                             return res.status(500).json({ error: 'Erro ao buscar dados do produto após tentativa de atualização (sem alterações efetivas).' });
                          }
-                         console.log(`Produto ${id} solicitado para atualização, mas nenhum dado foi alterado.`);
-                         res.status(200).json(updatedRow); // Retorna o produto como está no banco
+                         console.log(`[PUT /api/produtos/:id] Produto ID ${id} solicitado para atualização, mas nenhum dado foi efetivamente alterado (ou já estava atualizado).`);
+                         res.status(200).json(updatedRow); // Retorna o estado atual do produto.
                      });
                 }
              });
         } else {
-             // Busca o produto atualizado para retornar ao frontend
+             // 6. Produto atualizado com sucesso. Busca o produto atualizado para retornar.
              db.get("SELECT * FROM produtos WHERE id = ?", [id], (selectErr, row) => {
                  if (selectErr || !row) {
-                     console.error("Erro ao buscar produto após atualização bem-sucedida:", selectErr?.message);
-                     // Mesmo assim, a atualização ocorreu. Retornar um sucesso parcial.
-                     return res.status(200).json({ message: "Produto atualizado, mas erro ao retornar dados completos.", id: id });
+                     console.error(`[PUT /api/produtos/:id] Produto ID ${id} atualizado, mas erro ao buscar os dados completos:`, selectErr?.message);
+                     return res.status(200).json({ message: "Produto atualizado com sucesso, mas houve um erro ao recuperar todos os seus dados atualizados.", id: id });
                  }
-                 console.log(`Produto ${row.nome} (ID: ${id}) atualizado por ${req.user?.username || 'usuário'}`);
-                 res.status(200).json(row); // Retorna o objeto atualizado
+                 console.log(`[PUT /api/produtos/:id] Produto "${row.nome}" (ID: ${id}) atualizado por ${req.user?.username || 'usuário'}.`);
+                 res.status(200).json(row); // Retorna o objeto do produto atualizado.
              });
         }
     });
 });
 
 
-// DELETE /api/produtos/:id (Seu código existente)
-router.delete('/:id', authenticateToken, (req, res) => { // Protegido também
-    const { id } = req.params;
+// --- ROTA DELETE /api/produtos/:id - Excluir um Produto ---
+// Protegida por `authenticateToken` aplicado globalmente.
+router.delete('/:id', (req, res) => { // `authenticateToken` já foi aplicado
+    const { id } = req.params; // ID do produto a ser excluído.
     const sql = "DELETE FROM produtos WHERE id = ?";
-    db.run(sql, id, function(err) {
+
+    db.run(sql, id, function(err) { // Usa `function` para `this.changes`.
         if (err) {
-            console.error(`Erro ao excluir produto ${id}:`, err.message);
-            return res.status(500).json({ error: 'Erro interno ao excluir produto.' });
+            console.error(`[DELETE /api/produtos/:id] Erro ao excluir produto ID ${id}:`, err.message);
+            // TODO: Verificar se o erro é por FOREIGN KEY constraint (produto usado em transferência_itens)
+            // e retornar um 409 Conflict com mensagem apropriada.
+            // Ex: if (err.message.includes('FOREIGN KEY constraint failed')) {
+            //         return res.status(409).json({ error: 'Este produto não pode ser excluído pois está associado a transferências.' });
+            //     }
+            return res.status(500).json({ error: 'Erro interno do servidor ao excluir o produto.' });
         }
-        if (this.changes === 0) {
-            return res.status(404).json({ error: 'Produto não encontrado.' });
+        if (this.changes === 0) { // Nenhuma linha afetada.
+            return res.status(404).json({ error: 'Produto não encontrado para exclusão.' });
         }
-        console.log(`Produto ${id} excluído por ${req.user?.username || 'usuário'}`);
-        res.status(204).send(); // No Content
+        console.log(`[DELETE /api/produtos/:id] Produto ID ${id} excluído por ${req.user?.username || 'usuário'}.`);
+        res.status(204).send(); // 204 No Content (resposta padrão para DELETE bem-sucedido sem corpo).
     });
 });
 
-module.exports = router;
+module.exports = router; // Exporta o roteador.
