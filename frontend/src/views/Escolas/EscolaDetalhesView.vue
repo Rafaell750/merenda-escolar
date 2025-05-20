@@ -1,7 +1,7 @@
 <!--
   /frontend/src/views/Escolas/EscolaDetalhesView.vue
 
-  Visão Geral:
+  Visão Geral (desatualizado, criado uma nova "função" para retirada de estoque):
   Este componente Vue.js exibe os detalhes de uma escola específica, incluindo suas
   informações cadastrais e o histórico de estoque recebido. Ele permite que usuários
   autorizados (admin ou usuário da própria escola) confirmem o recebimento de
@@ -212,7 +212,7 @@ import ConfirmarRecebimentoModal from './ConfirmarRecebimentoModal.vue'; // Comp
 import RetirarEstoqueModal from './RetirarEstoqueModal.vue'; // Componente modal.
 import { useToast } from "vue-toastification"; // Para feedback visual.
 import ItemEstoqueConsolidado from './Historico/HistoricoItemEstoque.vue'; // Componente para item da tabela.
-import './EscolaDetalhesView.css'; // Estilos específicos.
+
 
 const route = useRoute(); // Instância para informações da rota atual.
 const toast = useToast(); // Instância do serviço de toast.
@@ -225,10 +225,15 @@ const detalhesEscola = ref(null);       // Objeto com detalhes cadastrais da esc
 const loading = ref(false);             // Estado de carregamento dos detalhes da escola.
 const error = ref(null);                // Mensagem de erro ao carregar detalhes da escola.
 
-// Estado para transferências confirmadas (histórico de estoque)
+// Estado para transferências confirmadas (histórico de estoque ENTRADA)
 const transferenciasConfirmadas = ref([]); // Array de transferências confirmadas.
 const loadingTransferencias = ref(false); // Estado de carregamento das transferências.
 const errorTransferencias = ref(null);    // Mensagem de erro ao carregar transferências.
+
+//Estado para retiradas de estoque (SAÍDA)
+const retiradasDaEscola = ref([]);
+const loadingRetiradas = ref(false);
+const errorRetiradas = ref(null);
 
 // Estado para controle dos modais
 const showConfirmarModal = ref(false);       // Visibilidade do modal de confirmação.
@@ -291,62 +296,94 @@ const podeInteragirComEstoque = computed(() => {
  * Ordena o resultado final pelo nome do produto.
  * @returns {Array<object>} Lista de itens de estoque consolidados.
  */
-const itensConsolidados = computed(() => {
-    const itensCompletos = []; // Array para todos os itens individuais de todas as transferências
+ const itensConsolidados = computed(() => {
+    // 1. Processar ENTRADAS
+    const itensCompletosEntrada = [];
     transferenciasConfirmadas.value.forEach(transferencia => {
         if (transferencia.itens && transferencia.itens.length > 0) {
-            transferencia.itens.forEach(item => {
-                // Usa data_recebimento_confirmado ou data_envio para ordenação e referência.
+            transferencia.itens.forEach(itemDeTransferencia => {
+                const produtoIdNumerico = parseInt(itemDeTransferencia.produto_id, 10);
+                if (isNaN(produtoIdNumerico)) {
+                    console.warn("Item de transferência sem produto_id numérico:", itemDeTransferencia);
+                    return;
+                }
                 const dataParaOrdenacao = transferencia.data_recebimento_confirmado || transferencia.data_envio || new Date(0).toISOString();
-                itensCompletos.push({
-                    ...item, // Propriedades do item (nome_produto, unidade_medida, quantidade_enviada, etc.)
+                itensCompletosEntrada.push({
+                    ...itemDeTransferencia,
+                    produto_id: produtoIdNumerico,
                     data_confirmacao: dataParaOrdenacao,
-                    data_formatada: transferencia.data_recebimento_confirmado_formatada || transferencia.data_formatada, // Data formatada para exibição
-                    nome_usuario: transferencia.nome_usuario, // Nome do usuário que confirmou/enviou
-                    original_transferencia_id: transferencia.transferencia_id, // ID da transferência original
-                    item_id_original: item.id || item.item_id // ID original do item na transferência
+                    data_formatada: transferencia.data_recebimento_confirmado_formatada || transferencia.data_envio_original_formatada, // Ajuste aqui se o nome da propriedade for outro
+                    nome_usuario: transferencia.nome_usuario,
+                    original_transferencia_id: transferencia.transferencia_id,
+                    item_id_original: itemDeTransferencia.id || itemDeTransferencia.item_id
                 });
             });
         }
     });
 
-    // Ordena todos os itens pela data de confirmação/envio (mais recente primeiro)
-    // Essa ordenação inicial pode não ser estritamente necessária aqui se o backend já envia ordenado,
-    // mas garante a ordem para a lógica de agregação pegar o "último" corretamente.
-    itensCompletos.sort((a, b) => new Date(b.data_confirmacao) - new Date(a.data_confirmacao));
+    itensCompletosEntrada.sort((a, b) => new Date(b.data_confirmacao) - new Date(a.data_confirmacao));
 
-    // Agrega os itens por produto e unidade de medida
     const agregador = new Map();
-    itensCompletos.forEach(item => {
-        const chaveAgregacao = `${item.nome_produto}|${item.unidade_medida}`; // Chave única para agregação
+    itensCompletosEntrada.forEach(item => {
+        // CHAVE CONSISTENTE: ID do Produto + Unidade de Medida
+        const chaveAgregacao = `${item.produto_id}|${item.unidade_medida}`;
+
         if (!agregador.has(chaveAgregacao)) {
-            // Se é o primeiro item deste tipo, inicializa o objeto agregado
             agregador.set(chaveAgregacao, {
-                _id_vfor: chaveAgregacao, // ID único para o v-for no template
+                _id_vfor: chaveAgregacao, // Usado para o :key no v-for
+                produto_id: item.produto_id,
                 nome_produto: item.nome_produto,
                 unidade_medida: item.unidade_medida,
                 quantidade_total: 0,
-                ultima_data_recebimento_formatada: item.data_formatada, // Primeiro item (mais recente) define a "última data"
-                ultimo_nome_usuario: item.nome_usuario, // e "último usuário"
-                historico_detalhado: [], // Array para o histórico de entradas deste item
+                ultima_data_recebimento_formatada: item.data_formatada,
+                ultimo_nome_usuario: item.nome_usuario,
+                historico_detalhado: [],
             });
         }
         const itemAgregado = agregador.get(chaveAgregacao);
         const quantidade = parseFloat(item.quantidade_enviada);
         if (!isNaN(quantidade)) {
-            itemAgregado.quantidade_total += quantidade; // Soma a quantidade
+            itemAgregado.quantidade_total += quantidade;
         }
-        // Adiciona o item original ao histórico detalhado do item agregado
         itemAgregado.historico_detalhado.push({
             data_formatada: item.data_formatada,
             nome_usuario: item.nome_usuario,
             quantidade_enviada: item.quantidade_enviada,
             original_transferencia_id: item.original_transferencia_id,
-            item_id_original: item.item_id_original
+            item_id_original: item.item_id_original,
+            produto_id: item.produto_id
         });
     });
 
-    const resultadoArray = Array.from(agregador.values()); // Converte o Map para Array
+        // 2. Processar SAÍDAS (novo)
+        const totaisRetiradosMap = new Map();
+        retiradasDaEscola.value.forEach(retirada => {
+        if (retirada.produto_id === undefined || retirada.produto_id === null || isNaN(retirada.produto_id)) {
+            console.warn(`Item de retirada ${retirada.nome_produto} (${retirada.unidade_medida}) não possui um 'produto_id' numérico válido. Será ignorado.`);
+            return;
+        }
+        // Usar a mesma chave de agregação que nas entradas
+        const chaveAgregacao = `${retirada.produto_id}|${retirada.unidade_medida}`;
+        const quantidadeRetirada = parseFloat(retirada.quantidade_retirada);
+
+        if (!isNaN(quantidadeRetirada)) {
+            totaisRetiradosMap.set(chaveAgregacao, (totaisRetiradosMap.get(chaveAgregacao) || 0) + quantidadeRetirada);
+        }
+    });
+
+    // 3. Aplicar SAÍDAS ao saldo dos itens agregados
+    agregador.forEach((itemAgregado, chaveAgregacao) => {
+        const totalRetiradoParaEsteItem = totaisRetiradosMap.get(chaveAgregacao) || 0;
+        itemAgregado.quantidade_total -= totalRetiradoParaEsteItem;
+        // Opcional: garantir que não fique negativo se houver inconsistência de dados
+        // if (itemAgregado.quantidade_total < 0) {
+        //     console.warn(`Quantidade negativa para ${itemAgregado.nome_produto}, ajustando para 0.`);
+        //     itemAgregado.quantidade_total = 0;
+        // }
+    });
+
+    const resultadoArray = Array.from(agregador.values()) // Converte o Map para Array
+    .filter(item => item.quantidade_total >= 0);
     // Ordena o resultado final alfabeticamente pelo nome do produto
     resultadoArray.sort((a, b) => a.nome_produto.localeCompare(b.nome_produto));
     return resultadoArray;
@@ -369,6 +406,39 @@ function formatarData(dataString) {
   } catch (e) {
       return dataString; // Retorna a string original em caso de erro na formatação
   }
+}
+
+/**
+ * @async
+ * @function fetchRetiradasDaEscola  <--- DEFINIÇÃO DA FUNÇÃO
+ * @description Busca o histórico de retiradas de estoque para a escola.
+ */
+ async function fetchRetiradasDaEscola() {
+    loadingRetiradas.value = true;
+    errorRetiradas.value = null;
+    retiradasDaEscola.value = []; // Limpa antes de buscar
+    const token = localStorage.getItem('authToken');
+    if (!token) {
+        errorRetiradas.value = 'Não autenticado.';
+        loadingRetiradas.value = false;
+        return;
+    }
+    try {
+        const response = await axios.get(`${API_URL}/escolas/${escolaId.value}/estoque/retiradas`, {
+            headers: { Authorization: `Bearer ${token}` }
+        });
+        retiradasDaEscola.value = response.data.map(r => ({
+            ...r,
+            produto_id: parseInt(r.produto_id, 10),
+        }));
+    } catch (err) {
+        console.error('Erro ao buscar retiradas da escola:', err);
+        errorRetiradas.value = err.response?.data?.error || 'Falha ao carregar histórico de retiradas.';
+        // Adicione um toast aqui se quiser notificar o usuário sobre o erro na busca de retiradas
+        // toast.error(errorRetiradas.value);
+    } finally {
+        loadingRetiradas.value = false;
+    }
 }
 
 /**
@@ -485,7 +555,7 @@ function abrirModalRetirarEstoque() {
  * O toast de sucesso é geralmente emitido pelo próprio modal de retirada.
  */
 async function handleRetiradaConfirmada() {
-  await fetchTransferenciasConfirmadasDaEscola(); // Atualiza a lista de estoque após retirada
+  await fetchRetiradasDaEscola(); // Atualiza a lista de estoque após retirada
 }
 
 /**
@@ -498,8 +568,11 @@ async function carregarDadosCompletos() {
   await fetchDetalhesEscola();
   // Só prossegue para buscar transferências se os detalhes da escola foram carregados sem erro
   if (detalhesEscola.value && !error.value) {
-      await fetchTransferenciasConfirmadasDaEscola();
-      await checkTransferenciasPendentes();
+    await Promise.all([
+          fetchTransferenciasConfirmadasDaEscola(),
+          fetchRetiradasDaEscola(), // ADICIONE A CHAMADA AQUI
+          checkTransferenciasPendentes()
+      ]);
   }
 }
 
@@ -534,6 +607,7 @@ watch(escolaId, (newId, oldId) => {
 /* ... (estilos já fornecidos e comentados anteriormente) ... */
 /* O CSS importado de './EscolaDetalhesView.css' cuidará da maior parte da estilização. */
 /* Estilos scoped específicos são para elementos adicionados/modificados nesta view. */
+@import './EscolaDetalhesView.css'; /* Estilos específicos. */
 
 .titulo-com-botao {
   display: flex;
@@ -589,18 +663,6 @@ watch(escolaId, (newId, oldId) => {
 }
 .view-only-message p {
     margin: 0;
-}
-
-/* Animação e indicador para botão de confirmação com pendências */
-/* (Já incluso no CSS global de EscolaDetalhesView.css, mas repetido aqui para clareza se fosse local) */
-.btn-confirmar-recebimento.has-pending-animation {
-    animation: pulse-red 2s infinite;
-}
-
-@keyframes pulse-red {
-    0% { box-shadow: 0 0 0 0 rgba(255, 82, 82, 0.7); }
-    70% { box-shadow: 0 0 0 10px rgba(255, 82, 82, 0); }
-    100% { box-shadow: 0 0 0 0 rgba(255, 82, 82, 0); }
 }
 
 .pending-indicator {

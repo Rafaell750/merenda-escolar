@@ -204,9 +204,9 @@
   }
   
   @keyframes pulse-glow {
-    0% { box-shadow: 0 0 3px 0px rgba(25, 135, 84, 0.5); }
-    50% { box-shadow: 0 0 8px 4px rgba(25, 135, 84, 0.7); }
-    100% { box-shadow: 0 0 3px 0px rgba(25, 135, 84, 0.5); }
+    0% { box-shadow: 0 0 3px 0px rgba(212, 26, 13, 0.5); }
+    50% { box-shadow: 0 0 8px 4px rgba(212, 26, 13, 0.5); }
+    100% { box-shadow: 0 0 3px 0px rgba(212, 26, 13, 0.5); }
   }
   
   .btn-confirmar-recebimento.has-pending-animation {

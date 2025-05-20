@@ -79,6 +79,10 @@ const props = defineProps({
   colunasNaTabelaPrincipal: {
     type: Number,
     default: 6
+  },
+  podeEditarItem: {         
+    type: Boolean,
+    default: false          // Ou true, se o padrão for que pode editar
   }
 });
 
@@ -207,7 +211,7 @@ function toggleExpandido() {
   border: 1px solid #dee2e6;
   transition: color 0.15s ease-in-out, background-color 0.15s ease-in-out, border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
   cursor: pointer;
-  border-radius: 0.25rem; /* Bordas arredondadas para cada botão */
+  border-radius: 0.5rem; /* Bordas arredondadas para cada botão */
 }
 
 .page-item .page-link:hover {

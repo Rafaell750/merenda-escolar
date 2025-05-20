@@ -80,6 +80,7 @@ const authRoutes = require('./routes/authRoutes');
 const userRoutes = require('./routes/userRoutes');
 const produtoRoutes = require('./routes/produtoRoutes');
 const escolaRoutes = require('./routes/escolaRoutes');
+const estoqueEscolaRoutes = require('./routes/estoqueEscolaRoutes');
 
 // Importa middlewares de autenticação e autorização
 const { authenticateToken, authorizeAdmin } = require('./middleware/authMiddleware');
@@ -129,6 +130,10 @@ app.get('/api/admin/painel', authenticateToken, authorizeAdmin, (req, res) => {
     // Esta rota requer autenticação E que o usuário tenha o papel 'admin'
     res.json({ message: `Bem-vindo ao painel de controle, Admin ${req.user.username}!` });
 });
+
+// SEM BLOCO NO Momento
+app.use('/api/escolas', authenticateToken, escolaRoutes); // Rotas de escolas existentes
+app.use('/api/escolas', authenticateToken, estoqueEscolaRoutes); // Adiciona as novas rotas de estoque da escola
 
 
 // --- BLOCO 6: INÍCIO DO SERVIDOR ---
@@ -220,6 +225,19 @@ async function setupDatabase() {
         -- Impede a exclusão de um produto se ele estiver em algum item de transferência.
     );`;
 
+    const createRetiradasEscolaItensTableSql = `
+    CREATE TABLE IF NOT EXISTS retiradas_escola_itens (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        escola_id INTEGER NOT NULL,
+        produto_id INTEGER NOT NULL,
+        quantidade_retirada REAL NOT NULL,
+        data_retirada DATETIME DEFAULT CURRENT_TIMESTAMP,
+        usuario_id_retirada INTEGER NOT NULL, 
+        FOREIGN KEY (escola_id) REFERENCES escolas (id) ON DELETE CASCADE,
+        FOREIGN KEY (produto_id) REFERENCES produtos (id) ON DELETE RESTRICT,
+        FOREIGN KEY (usuario_id_retirada) REFERENCES usuarios (id) ON DELETE RESTRICT
+    );`;
+
     // Trigger opcional para atualizar data_modificacao na tabela 'produtos'
     // Este trigger é acionado após um UPDATE na tabela 'produtos',
     // se o nome ou a quantidade do produto forem alterados.
@@ -298,6 +316,10 @@ async function setupDatabase() {
              if (err) console.error('Erro ao criar/verificar trigger "update_produto_modificacao":', err.message);
              else console.log('Trigger "update_produto_modificacao" verificado/criado com sucesso.');
          });
+        db.run(createRetiradasEscolaItensTableSql, (err) => {
+            if (err) console.error('Erro ao criar/verificar tabela "retiradas_escola_itens":', err.message);
+            else console.log('Tabela "retiradas_escola_itens" verificada/criada com sucesso.');
+        });
     });
      console.log("Setup do banco de dados (verificação/criação de tabelas) concluído.");
 }

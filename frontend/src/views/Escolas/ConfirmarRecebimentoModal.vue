@@ -335,9 +335,9 @@
 
 
   .modal-footer {
-
+    display: flex;
     justify-content: flex-end; /* alinha os botões à direita */
-    align-items: center;
+    align-items: baseline;
     padding: 1rem 1.5rem;
     border-top: 1px solid #dee2e6;
     background-color: #f8f9fa;

@@ -119,20 +119,22 @@
     if (!podeConfirmarRetirada.value) return;
   
     const itensComRetirada = itensParaRetirar.value
-      .filter(item => item.quantidade_a_retirar > 0)
-      .map(item => ({
-        produto_id: item.produto_id_original || item._id_vfor.split('|')[0], // Assumindo que _id_vfor é 'nome_produto|unidade_medida'
-        nome_produto: item.nome_produto,
-        unidade_medida: item.unidade_medida,
+    .filter(item => item.quantidade_a_retirar > 0)
+    .map(item => {
+      // **PONTO CRUCIAL:** Certifique-se que 'item.produto_id' é o ID correto do produto.
+      // Ele deve vir de props.itensDisponiveis.
+      if (item.produto_id === undefined || item.produto_id === null /* ou não é um número */) {
+        console.error("Item sem produto_id válido:", item);
+        toast.error(`Item ${item.nome_produto} está sem ID de produto válido. Retirada não pode ser processada.`);
+        throw new Error("ID do produto inválido para um item."); // Interrompe o processo
+      }
+      return {
+        produto_id: item.produto_id, // ESTE VALOR ESTÁ SENDO ENVIADO COMO STRING
+        // nome_produto: item.nome_produto, // Opcional
+        // unidade_medida: item.unidade_medida, // Opcional
         quantidade_retirada: item.quantidade_a_retirar,
-        // Adicionar mais detalhes se necessário para o backend, como o ID específico do produto no estoque.
-        // Por ora, usamos nome_produto e unidade_medida para identificar.
-        // O ideal seria ter um `produto_id` único vindo do `itensConsolidados`.
-        // Se `_id_vfor` é `produto_id|unidade_medida`, podemos usá-lo.
-        // Se `item` tiver um `produto_id` único, use-o.
-        // Para este exemplo, vou assumir que precisamos enviar o nome e unidade.
-        // E para o backend, ele precisará encontrar o item correspondente no estoque da escola.
-      }));
+      };
+    });
   
     if (itensComRetirada.length === 0) {
       toast.info("Nenhuma quantidade especificada para retirada.");

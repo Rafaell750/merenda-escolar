@@ -157,7 +157,7 @@
 import { ref, onMounted, computed, watch, nextTick, onBeforeUnmount } from 'vue';
 import { useEscolasStore } from '@/stores/escolas'; // Store Pinia para escolas.
 import { useToast } from "vue-toastification"; // Para feedback visual.
-import '../CSS/EnviarEstoqueModal.css'; // Estilos específicos do modal.
+
 
 // Definição das props recebidas pelo componente.
 const props = defineProps({
@@ -421,3 +421,7 @@ onBeforeUnmount(() => {
 });
 
 </script>
+
+<style scoped>
+@import '../CSS/EnviarEstoqueModal.css'; /* Estilos específicos do modal. */
+</style>

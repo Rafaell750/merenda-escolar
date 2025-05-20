@@ -69,8 +69,8 @@
          <div class="logo" :class="{ 'collapsed': isSidebarCollapsed }">
            <!-- Ícone pequeno quando recolhido -->
            <svg v-if="isSidebarCollapsed" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" class="bi bi-box-seam-fill small-logo-icon" viewBox="0 0 16 16">
-             <path fill-rule="evenodd" d="M15.528 2.973a.75.75 0 0 1 .472.696v8.662a.75.75 0 0 1-.472.696l-7.25 2.9a.75.75 0 0 1-.557 0l-7.25-2.9A.75.75 0 0 1 0 12.331V3.669a.75.75 0 0 1 .471-.696L7.75.073a.75.75 0 0 1 .5-.001zM10.4 M1.811 4.237v8.166l6.717 2.687 6.718-2.687V4.237L8.53 1.511z"/>
-           </svg>
+  <path fill-rule="evenodd" d="M15.528 2.973a.75.75 0 0 1 .472.696v8.662a.75.75 0 0 1-.472.696l-7.25 2.9a.75.75 0 0 1-.557 0l-7.25-2.9A.75.75 0 0 1 0 12.331V3.669a.75.75 0 0 1 .471-.696L7.75.073a.75.75 0 0 1 .5-.001l7.278 2.9zm-1.808.816L8 1.511 2.28 4.237v8.166l5.72 2.288 5.72-2.288V3.79z"/>
+</svg>
            <!-- Título visível quando expandido -->
            <h2 v-show="!isSidebarCollapsed">Merenda Escolar</h2>
          </div>
@@ -130,34 +130,52 @@
         </router-link>
 
         <!-- 2.2.2. SEÇÃO DE ESCOLAS -->
-        <!-- Divisor e título da seção visível apenas para ADMIN e se houver escolas -->
-        <hr v-if="isAdminUser && !escolasStore.loading && escolasStore.listaEscolas.length > 0" class="sidebar-divider">
-        <div v-if="isAdminUser && !isSidebarCollapsed && !escolasStore.loading && escolasStore.listaEscolas.length > 0" class="menu-section-title">
-            Escolas Cadastradas
+        <!-- Divisor e título da seção visível para ADMIN ou USER PADRÃO e se houver escolas -->
+        <hr v-if="(isAdminUser || isStandardUser) && !escolasStore.loading && escolasStore.listaEscolas.length > 0" class="sidebar-divider">
+        <div
+            v-if="(isAdminUser || isStandardUser) && !isSidebarCollapsed && !escolasStore.loading && escolasStore.listaEscolas.length > 0"
+            class="menu-section-title with-toggle"
+        >
+            <span>Escolas Cadastradas</span>
+            <button @click="toggleEscolasLista" class="toggle-section-btn" :title="escolasListaVisivel ? 'Recolher lista' : 'Expandir lista'">
+                <svg v-if="escolasListaVisivel" xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-chevron-up" viewBox="0 0 16 16">
+                    <path fill-rule="evenodd" d="M7.646 4.646a.5.5 0 0 1 .708 0l6 6a.5.5 0 0 1-.708.708L8 5.707l-5.646 5.647a.5.5 0 0 1-.708-.708z"/>
+                </svg>
+                <svg v-else xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-chevron-down" viewBox="0 0 16 16">
+                    <path fill-rule="evenodd" d="M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708"/>
+                </svg>
+            </button>
         </div>
 
-        <!-- Indicador de carregamento de escolas (para Admin) -->
-        <div v-if="escolasStore.isLoading && isAdminUser" class="menu-item loading-item">
+        <!-- Indicador de carregamento de escolas (para Admin OU User Padrão) -->
+        <div v-if="escolasStore.isLoading && (isAdminUser || isStandardUser)" class="menu-item loading-item">
             <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
             <span class="menu-item-text" style="margin-left: 5px;">Carregando Escolas...</span>
         </div>
 
         <!-- Lista de links para cada escola (para Admin e User Padrão) -->
-        <div v-if="(isAdminUser || isStandardUser) && !escolasStore.isLoading">
-            <router-link
-                v-for="escola in escolasStore.listaEscolas"
-                :key="escola.id"
-                :to="{ name: 'EscolaDetalhes', params: { id: escola.id } }"
-                class="menu-item"
-                :class="{ 'active': $route.name === 'EscolaDetalhes' && $route.params.id == escola.id }"
-                :title="escola.nome"
+        <!-- Adiciona 'escolasListaVisivel' à condição e garante que só mostre se a sidebar não estiver colapsada -->
+        <transition name="expand-collapse-list">
+            <div
+                v-if="(isAdminUser || isStandardUser) && !escolasStore.isLoading && escolasStore.listaEscolas.length > 0 && escolasListaVisivel"
+                class="escolas-sub-list-container"
             >
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" class="bi bi-bank menu-icon" viewBox="0 0 16 16">
-                  <path d="m8 0 6.61 3h.89a.5.5 0 0 1 .5.5v2a.5.5 0 0 1-.5.5H15v7a.5.5 0 0 1 .485.38l.5 2a.498.498 0 0 1-.485.62H.5a.498.498 0 0 1-.485-.62l.5-2A.5.5 0 0 1 1 13V6H.5a.5.5 0 0 1-.5-.5v-2A.5.5 0 0 1 .5 3h.89zM3.777 3h8.447L8 1zM2 6v7h1V6zm2 0v7h1V6zm2 0v7h1V6zm2 0v7h1V6zm2 0v7h1V6zm2 0v7h1V6zM1 4h14V3H1z"/>
+                <router-link
+                    v-for="escola in escolasStore.listaEscolas"
+                    :key="escola.id"
+                    :to="{ name: 'EscolaDetalhes', params: { id: escola.id } }"
+                    class="menu-item sub-item"
+                    :class="{ 'active': $route.name === 'EscolaDetalhes' && $route.params.id == escola.id }"
+                    :title="escola.nome"
+                >
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" class="bi bi-mortarboard menu-icon" viewBox="0 0 16 16">
+                  <path d="M8.211 2.047a.5.5 0 0 0-.422 0l-7.5 3.5a.5.5 0 0 0 .025.917l7.5 3a.5.5 0 0 0 .372 0L16 6.464a.5.5 0 0 0 .025-.917zM8 8.464 1.758 5.964 8 3.052l6.242 2.912z"/>
+                  <path d="M4.176 9.032a.5.5 0 0 0-.656.327l-.5 1.7a.5.5 0 0 0 .294.605l4.5 1.8a.5.5 0 0 0 .372 0l4.5-1.8a.5.5 0 0 0 .294-.605l-.5-1.7a.5.5 0 0 0-.656-.327L8 10.466zm-.068 1.873.22-.748 3.496 1.311a.5.5 0 0 0 .352 0l3.496-1.311.22.748L8 12.46l-3.892-1.556z"/>
                 </svg>
-                <span class="menu-item-text">{{ escola.nome }}</span>
-            </router-link>
-        </div>
+                    <span class="menu-item-text">{{ escola.nome }}</span>
+                </router-link>
+            </div>
+        </transition>
 
         <!-- 2.2.3. LINK "MINHA ESCOLA" PARA USUÁRIO DO TIPO ESCOLA -->
         <router-link
@@ -236,6 +254,7 @@ const escolasStore = useEscolasStore(); // Instância da store de escolas.
 // --- BLOCO 2: ESTADO LOCAL DO COMPONENTE (REFS) ---
 const isSidebarCollapsed = ref(false); // Controla se a sidebar está recolhida ou expandida.
 const currentUser = ref(null);         // Armazena os dados do usuário logado (obtidos do localStorage).
+const escolasListaVisivel = ref(true);
 
 // --- BLOCO 3: PROPRIEDADES COMPUTADAS PARA CONTROLE DE UI E PERMISSÕES ---
 
@@ -262,11 +281,21 @@ const movimentacoesRouteExists = computed(() => {
 // --- BLOCO 4: MÉTODOS ---
 
 /**
+ * 
  * @function toggleSidebar
  * @description Alterna o estado de recolhimento da sidebar.
- */
-const toggleSidebar = () => {
+*/
+
+ const toggleSidebar = () => {
   isSidebarCollapsed.value = !isSidebarCollapsed.value;
+ };
+
+/** 
+ * @function toggleEscolasLista
+ * @description Alterna a visibilidade da lista de escolas na sidebar.
+ */
+ const toggleEscolasLista = () => {
+  escolasListaVisivel.value = !escolasListaVisivel.value;
 };
 
 /**
@@ -601,6 +630,59 @@ body {
     overflow: hidden;
 }
 .sidebar.collapsed .menu-section-title { display: none; } /* Esconde título da seção quando recolhido */
+
+/* Novo: Estilo para o título da seção com botão de toggle */
+.menu-section-title.with-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: space-between; /* Para colocar o botão no lado direito */
+    /* padding-right: 1rem; */ /* Reduzir padding direito se o botão tiver o seu próprio */
+}
+
+.toggle-section-btn {
+    background: none;
+    border: none;
+    color: #9ca3af; /* Mesma cor do texto do título */
+    cursor: pointer;
+    padding: 0.25rem; /* Pequeno padding para área de clique */
+    border-radius: 4px;
+    display: inline-flex; /* Para alinhar o SVG corretamente */
+    align-items: center;
+    justify-content: center;
+}
+
+.toggle-section-btn:hover {
+    color: #d1d5db; /* Cor mais clara no hover */
+    background-color: rgba(255, 255, 255, 0.05);
+}
+
+.toggle-section-btn svg {
+    width: 14px; /* Ajuste o tamanho do ícone conforme necessário */
+    height: 14px;
+}
+
+/* --- Transição para expandir/recolher lista de escolas --- */
+.expand-collapse-list-enter-active,
+.expand-collapse-list-leave-active {
+  transition: all 0.4s ease-in-out; /* Duração e easing da transição */
+  max-height: 500px; /* Um valor alto o suficiente para acomodar sua lista. Ajuste se necessário. */
+  overflow: hidden; /* Importante para que o conteúdo não vaze durante a animação de max-height */
+}
+
+.expand-collapse-list-enter-from,
+.expand-collapse-list-leave-to {
+  opacity: 0;
+  max-height: 0;
+  /* Você pode adicionar transformações aqui também, como um leve slide vertical: */
+  /* transform: translateY(-10px); */
+}
+
+.expand-collapse-list-enter-to,
+.expand-collapse-list-leave-from {
+  opacity: 1;
+  max-height: 500px; /* Mesmo valor de max-height que o -active */
+  /* transform: translateY(0); */
+}
 
 /* Estilo para item de carregamento na sidebar (opcional) */
 .loading-item {

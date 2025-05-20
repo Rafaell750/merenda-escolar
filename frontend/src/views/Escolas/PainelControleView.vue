@@ -194,7 +194,7 @@
 // Importações de funcionalidades do Vue, store Pinia e estilos CSS.
 import { ref, computed, onMounted, nextTick } from 'vue';
 import { useEscolasStore } from '@/stores/escolas'; // Store Pinia para gerenciar dados das escolas.
-import './PainelControleView.css'; // Estilos específicos para este componente.
+
 
 // --- BLOCO 2: INICIALIZAÇÃO DA STORE ---
 // Instância da store de escolas para interagir com o estado global e as actions.
@@ -431,3 +431,9 @@ onMounted(() => {
 });
 
 </script>
+
+<style scoped>
+
+@import './PainelControleView.css'; /* Estilos específicos para este componente. */
+
+</style>

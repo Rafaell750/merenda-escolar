@@ -222,7 +222,11 @@ router.get('/confirmadas/por-escola/:escolaId', (req, res) => {
         const promessasItens = transferencias.map(transferencia => {
             return new Promise((resolve, reject) => {
                 const sqlItens = `
-                    SELECT p.nome AS nome_produto, p.unidade_medida, ti.quantidade_enviada
+                    SELECT
+                        p.id AS produto_id,  -- <--- ADICIONE ESTA LINHA
+                        p.nome AS nome_produto,
+                        p.unidade_medida,
+                        ti.quantidade_enviada
                     FROM transferencia_itens ti
                     JOIN produtos p ON ti.produto_id = p.id
                     WHERE ti.transferencia_id = ?;
@@ -291,7 +295,11 @@ router.get('/pendentes/por-escola/:escolaId', (req, res) => {
         const promessasItens = transferencias.map(transferencia => {
             return new Promise((resolve, reject) => {
                 const sqlItens = `
-                    SELECT p.id AS produto_id, p.nome AS nome_produto, p.unidade_medida, ti.quantidade_enviada
+                    SELECT
+                        p.id AS produto_id,
+                        p.nome AS nome_produto,
+                        p.unidade_medida,
+                        ti.quantidade_enviada
                     FROM transferencia_itens ti
                     JOIN produtos p ON ti.produto_id = p.id
                     WHERE ti.transferencia_id = ?;

@@ -95,7 +95,7 @@
 import { ref } from 'vue'; // Para criar variáveis reativas.
 import { useRouter } from 'vue-router'; // Para navegação programática.
 import apiService from '@/services/apiService'; // Serviço para chamadas à API.
-import '@/styles/auth-styles.css'; // Estilos CSS específicos para autenticação.
+
 
 // --- BLOCO 2: ESTADO LOCAL DO COMPONENTE (REFS) ---
 const username = ref('');       // Armazena o nome de usuário inserido.
@@ -153,3 +153,9 @@ const handleLogin = async () => {
   }
 };
 </script>
+
+<style scoped>
+
+@import '../styles/auth-styles.css';
+
+</style>
