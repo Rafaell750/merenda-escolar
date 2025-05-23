@@ -113,6 +113,7 @@
           <!-- Título da seção e botão "Retirar Estoque" -->
           <div class="titulo-com-botao">
             <h2>Estoque Recebido</h2>
+            <div class="botoes-acao-estoque"><!-- Wrapper para os botões -->
             <!--
               Botão para retirar estoque.
               - `v-if`: Visível se houver itens e o usuário puder interagir.
@@ -122,7 +123,7 @@
                 v-if="itensConsolidados.length > 0 && podeInteragirComEstoque"
                 type="button"
                 @click="abrirModalRetirarEstoque"
-                class="btn-retirar-estoque"
+                class="btn-retirar-estoque btn-acao-estoque"
                 title="Retirar itens do estoque"
                 :disabled="!podeInteragirComEstoque"
             >
@@ -132,7 +133,23 @@
                 </svg>
                 Retirar Estoque
             </button>
-          </div>
+            <!-- NOVO BOTÃO DE HISTÓRICO -->
+          <button
+            type="button"
+            @click="abrirModalHistoricoRetiradas"
+            class="btn-historico-retiradas btn-acao-estoque"
+            title="Ver histórico de retiradas"
+            :disabled="loadingRetiradas" 
+            v-if="podeInteragirComEstoque || userRole === 'admin'"   
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-clock-history" viewBox="0 0 16 16">
+              <path d="M8.515 1.019A7 7 0 0 0 8 1V0a8 8 0 0 1 .589.022zm2.004.45a7 7 0 0 0-.985-.299l.219-.976q.576.129 1.126.342zm1.37.71a7 7 0 0 0-.439-.27l.493-.87a8 8 0 0 1 .979.654l-.615.789a7 7 0 0 0-.418-.302zm1.834 1.798a7 7 0 0 0-.653-.796l.724-.69q.406.429.746.91zm.744 1.352a7 7 0 0 0-.214-.468l.893-.45a8 8 0 0 1 .45 1.088l-.95.313a7 7 0 0 0-.179-.483m.53 2.507a7 7 0 0 0-.099-.415l.99-.155a8 8 0 0 1 .122.918l-.973.149a7 7 0 0 0-.046-.39m-.985 1.502a7 7 0 0 0 .258-.404l.866.505a8 8 0 0 1-.494.913l-.832-.54a7 7 0 0 0 .202-.375m-.914 1.205a7 7 0 0 0 .481-.348l.699.735a8 8 0 0 1-.854.867l-.547-.809a7 7 0 0 0 .322-.397m-.964 1.043a7 7 0 0 0 .653.261l.28-.975a8 8 0 0 1-1.185-.398l-.003.001q-.51.16-1.028.295l-.288.971a7 7 0 0 0 .613.237m1.834-1.024q.57.217 1.083.386l.22-.976a8 8 0 0 1-1.082-.387l-.218.975m.53 2.507a7 7 0 0 0 .099.415l-.99.155a8 8 0 0 1-.122-.918l.973-.149a7 7 0 0 0 .046.39M8 1a7 7 0 1 0 4.95 11.95A7 7 0 0 0 8 1m-.002 14a8 8 0 1 1 0-16 8 8 0 0 1 0 16M6.5 7.5a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5H7a.5.5 0 0 1-.5-.5z"/>
+              <path d="M8.5 5.001a.5.5 0 0 1 .5.5V7h1.5a.5.5 0 0 1 0 1H9v1.5a.5.5 0 0 1-1 0V8H6.5a.5.5 0 0 1 0-1H8V5.5a.5.5 0 0 1 .5-.5"/>
+            </svg>
+            Histórico
+          </button>
+        </div>
+      </div>
 
           <!-- Mensagens de estado para o carregamento do histórico de transferências -->
           <div v-if="loadingTransferencias" class="loading-message small">Carregando histórico...</div>
@@ -200,6 +217,17 @@
           @close="showRetirarEstoqueModal = false"
           @retirada-confirmada="handleRetiradaConfirmada"
       />
+
+       <!-- MODAL DE HISTÓRICO -->
+      <HistoricoRetiradasModal
+          :show="showHistoricoRetiradasModal"
+          :escola-id="escolaId"
+          :escola-nome="escolaNome"
+          :historico-retiradas="retiradasDaEscola"
+          :loading="loadingRetiradas"
+          :error="errorRetiradas"
+          @close="showHistoricoRetiradasModal = false"
+      />
   </div>
 </template>
 
@@ -212,6 +240,7 @@ import ConfirmarRecebimentoModal from './ConfirmarRecebimentoModal.vue'; // Comp
 import RetirarEstoqueModal from './RetirarEstoqueModal.vue'; // Componente modal.
 import { useToast } from "vue-toastification"; // Para feedback visual.
 import ItemEstoqueConsolidado from './Historico/HistoricoItemEstoque.vue'; // Componente para item da tabela.
+import HistoricoRetiradasModal from './Historico/HistoricoRetiradasModal.vue';
 
 
 const route = useRoute(); // Instância para informações da rota atual.
@@ -238,6 +267,7 @@ const errorRetiradas = ref(null);
 // Estado para controle dos modais
 const showConfirmarModal = ref(false);       // Visibilidade do modal de confirmação.
 const showRetirarEstoqueModal = ref(false); // Visibilidade do modal de retirada.
+const showHistoricoRetiradasModal = ref(false);
 
 // Estado para transferências pendentes (para animação do botão)
 const temTransferenciasPendentes = ref(false);    // Indica se há transferências pendentes.
@@ -576,6 +606,14 @@ async function carregarDadosCompletos() {
   }
 }
 
+// NOVA FUNÇÃO PARA ABRIR O MODAL DE HISTÓRICO
+function abrirModalHistoricoRetiradas() {
+  // Os dados de 'retiradasDaEscola' já devem estar carregados por onMounted ou após uma retirada.
+  // Se 'retiradasDaEscola' ainda não foi carregado ou estiver vazio,
+  // o modal vai mostrar "Carregando..." ou "Nenhuma retirada..."
+  showHistoricoRetiradasModal.value = true;
+}
+
 // --- BLOCO 6: HOOKS DE CICLO DE VIDA E WATCHERS ---
 /**
  * @hook onMounted
@@ -610,14 +648,60 @@ watch(escolaId, (newId, oldId) => {
 @import './EscolaDetalhesView.css'; /* Estilos específicos. */
 
 .titulo-com-botao {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 1rem; /* Espaçamento abaixo do título e botão */
+  display: flex; /* Já deve estar no .titulo-com-botao */
+  justify-content: space-between; /* Já deve estar no .titulo-com-botao */
+  align-items: center; /* Já deve estar no .titulo-com-botao */
+  padding-bottom: 10px; /* Espaçamento abaixo da linha e antes do conteúdo abaixo */
+  margin-bottom: 20px; /* Espaçamento após a linha e antes do conteúdo abaixo */
+  border-bottom: 1px solid #dee2e6; /* Cor da linha - ajuste conforme necessário (ex: #ccc, #e0e0e0) */
 }
 
 .titulo-com-botao h2 {
   margin-bottom: 0; /* Remove margem padrão do h2 se o container flex já cuida do espaçamento */
+}
+
+.botoes-acao-estoque {
+  display: flex;
+  gap: 10px; /* Espaço entre os botões */
+}
+
+/* Classe base para os botões de ação da seção de estoque */
+.btn-acao-estoque {
+  padding: 8px 15px; /* Ajuste o padding */
+  border: 1px solid transparent; /* Borda inicial transparente */
+  border-radius: 5px; /* Bordas arredondadas */
+  cursor: pointer;
+  font-size: 0.95em; /* Tamanho da fonte */
+  font-weight: 500;
+  display: inline-flex; /* Para alinhar ícone e texto */
+  align-items: center;
+  gap: 6px; /* Espaço entre ícone e texto */
+  transition: background-color 0.2s ease-in-out, border-color 0.2s ease-in-out, color 0.2s ease-in-out;
+  text-decoration: none; /* Remove sublinhado se for usado como link */
+  color: #fff; /* Cor do texto padrão (branco) */
+}
+
+.btn-acao-estoque svg {
+  width: 16px; /* Tamanho do ícone */
+  height: 16px;
+  /* fill: currentColor; (geralmente herdado) */
+}
+
+.btn-acao-estoque:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+/* Estilo para o botão "Histórico" (exemplo, usando um azul) */
+.btn-historico-retiradas {
+  background-color: #007bff; /* Azul Bootstrap "primary" */
+  border-color: #007bff;
+  color: white;
+}
+
+.btn-historico-retiradas:hover:not(:disabled) {
+  background-color: #0056b3; /* Azul mais escuro no hover */
+  border-color: #0056b3;
 }
 
 .btn-retirar-estoque {

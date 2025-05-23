@@ -195,9 +195,9 @@ router.get('/confirmadas/por-escola/:escolaId', (req, res) => {
         SELECT
             t.id AS transferencia_id,
             -- Formata a data de confirmação para o padrão brasileiro.
-            strftime('%d/%m/%Y %H:%M', t.data_recebimento_confirmado) AS data_recebimento_confirmado_formatada,
+            strftime('%d/%m/%Y %H:%M', t.data_recebimento_confirmado, 'localtime') AS data_recebimento_confirmado_formatada,
             -- Formata a data de envio original (pode ser útil para referência).
-            strftime('%d/%m/%Y %H:%M', t.data_transferencia) AS data_envio_original_formatada,
+            strftime('%d/%m/%Y %H:%M', t.data_transferencia, 'localtime') AS data_envio_original_formatada,
             u.username AS nome_usuario -- Nome do usuário da SME que realizou o envio.
         FROM
             transferencias t
@@ -223,7 +223,7 @@ router.get('/confirmadas/por-escola/:escolaId', (req, res) => {
             return new Promise((resolve, reject) => {
                 const sqlItens = `
                     SELECT
-                        p.id AS produto_id,  -- <--- ADICIONE ESTA LINHA
+                        p.id AS produto_id,  
                         p.nome AS nome_produto,
                         p.unidade_medida,
                         ti.quantidade_enviada
@@ -270,7 +270,7 @@ router.get('/pendentes/por-escola/:escolaId', (req, res) => {
         SELECT
             t.id AS transferencia_id,
             -- Formata a data de ENVIO original (já que não há data de confirmação ainda).
-            strftime('%d/%m/%Y %H:%M', t.data_transferencia) AS data_formatada,
+            strftime('%d/%m/%Y %H:%M', t.data_transferencia, 'localtime') AS data_formatada,
             u.username AS nome_usuario
         FROM
             transferencias t

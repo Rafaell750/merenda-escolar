@@ -62,13 +62,7 @@
     color: #212529;
   }
   
-  .estoque-recebido-section h2 { /* Mudado de .historico-transferencias */
-    font-size: 1.5rem;
-    color: #2c3e50;
-    margin-bottom: 1rem;
-    padding-bottom: 0.5rem;
-    border-bottom: 1px solid #e0e0e0;
-  }
+
   
   /* ALTERAÇÃO: Estilos para a tabela consolidada */
   .tabela-consolidada-container {

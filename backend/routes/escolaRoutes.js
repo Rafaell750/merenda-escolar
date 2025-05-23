@@ -124,7 +124,16 @@ router.get('/:id', authorizeSchoolAccess, (req, res) => {
     }
 
     // `authorizeSchoolAccess` já validou se o `req.user` tem permissão para esta ação GET nesta escola.
-    const sql = "SELECT id, nome, endereco, responsavel, data_cadastro FROM escolas WHERE id = ?";
+    const sql = `
+        SELECT
+            id,
+            nome,
+            endereco,
+            responsavel,
+            strftime('%Y-%m-%dT%H:%M:%SZ', data_cadastro) AS data_cadastro
+        FROM escolas
+        WHERE id = ?
+    `;
 
     db.get(sql, [id], (err, row) => { // `db.get` busca uma única linha.
         if (err) {

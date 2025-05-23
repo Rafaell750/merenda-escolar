@@ -43,7 +43,7 @@ const db = require('../database/dbConnection'); // Importa a conexão com o banc
 // `authenticateToken` é aplicado globalmente no server.js para o prefixo /api/produtos,
 // mas pode ser reafirmado aqui para clareza ou se houver necessidade de lógica específica
 // antes dele em alguma rota futura dentro deste arquivo (atualmente não é o caso).
-const { authenticateToken } = require('../middleware/authMiddleware');
+// const { authenticateToken } = require('../middleware/authMiddleware'); // Comentado pois é global
 const router = express.Router(); // Cria uma nova instância do roteador do Express
 
 // --- ROTA POST /api/produtos - Cadastrar Novo Produto ---
@@ -67,13 +67,13 @@ router.post('/', (req, res) => { // `authenticateToken` já foi aplicado em serv
     // Validação de formato de data_vencimento (YYYY-MM-DD) pode ser adicionada aqui se necessário.
 
     // 2. Define a data de modificação atual para o novo produto.
-    const dataModificacaoAtual = new Date().toISOString(); // Formato ISO8601 (YYYY-MM-DDTHH:mm:ss.sssZ)
+    // Esta dataModificacaoAtual é usada no INSERT. O SELECT de retorno usará strftime.
+    const dataModificacaoAtualParaInsert = new Date().toISOString(); // Formato ISO8601 (YYYY-MM-DDTHH:mm:ss.sssZ)
 
     // 3. Prepara a query SQL para inserção.
     const insertSql = `
         INSERT INTO produtos (nome, descricao, unidade_medida, categoria, quantidade, valor, data_vencimento, data_modificacao, data_cadastro)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP) 
-        -- data_cadastro é definido como CURRENT_TIMESTAMP pelo default da tabela, mas pode ser explícito.
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
     `;
 
     // 4. Executa a query de inserção.
@@ -86,7 +86,7 @@ router.post('/', (req, res) => { // `authenticateToken` já foi aplicado em serv
         (quantidade === '' || quantidade === undefined || quantidade === null) ? null : parseFloat(quantidade),
         (valor === '' || valor === undefined || valor === null) ? null : parseFloat(valor),
         (data_vencimento === '' || data_vencimento === undefined || data_vencimento === null) ? null : data_vencimento,
-        dataModificacaoAtual
+        dataModificacaoAtualParaInsert // Usa a data definida na aplicação para data_modificacao no INSERT
     ], function (err) { // Usa `function` para ter acesso a `this.lastID`.
         if (err) {
             console.error(`[POST /api/produtos] Erro ao cadastrar produto "${nome}":`, err.message);
@@ -102,7 +102,16 @@ router.post('/', (req, res) => { // `authenticateToken` já foi aplicado em serv
 
         // 5. Produto inserido com sucesso. Busca o produto recém-inserido para retorná-lo completo.
         const newProductId = this.lastID;
-        db.get("SELECT * FROM produtos WHERE id = ?", [newProductId], (selectErr, row) => {
+        // MODIFICAÇÃO: Formatar APENAS data_modificacao
+        const selectSql = `
+            SELECT
+                id, nome, descricao, unidade_medida, categoria, quantidade, valor, data_vencimento,
+                strftime('%Y-%m-%dT%H:%M:%SZ', data_modificacao) AS data_modificacao,
+                data_cadastro  -- data_cadastro permanece como o banco retorna
+            FROM produtos
+            WHERE id = ?
+        `;
+        db.get(selectSql, [newProductId], (selectErr, row) => {
             if (selectErr || !row) {
                 console.error(`[POST /api/produtos] Produto ID ${newProductId} cadastrado, mas houve erro ao buscar os dados completos:`, selectErr?.message);
                  // Mesmo com erro aqui, o produto foi inserido. Retorna um sucesso parcial.
@@ -112,7 +121,7 @@ router.post('/', (req, res) => { // `authenticateToken` já foi aplicado em serv
                     nome: nome, // Retorna os dados que foram enviados
                     categoria: categoria,
                     unidade_medida: unidade_medida,
-                    data_modificacao: dataModificacaoAtual // Importante retornar este
+                    data_modificacao: dataModificacaoAtualParaInsert // Retorna a data de modificação que foi usada no insert
                  });
             }
             console.log(`[POST /api/produtos] Produto "${row.nome}" (ID: ${row.id}) cadastrado por ${req.user?.username || 'usuário desconhecido (token sem username?)'}.`);
@@ -125,13 +134,21 @@ router.post('/', (req, res) => { // `authenticateToken` já foi aplicado em serv
 // Protegida por `authenticateToken` aplicado globalmente.
 router.get('/', (req, res) => { // `authenticateToken` já foi aplicado
     // Ordena os produtos pela data de modificação mais recente primeiro.
-    const sql = "SELECT * FROM produtos ORDER BY data_modificacao DESC";
+    // MODIFICAÇÃO: Formatar APENAS data_modificacao
+    const sql = `
+        SELECT
+            id, nome, descricao, unidade_medida, categoria, quantidade, valor, data_vencimento,
+            strftime('%Y-%m-%dT%H:%M:%SZ', data_modificacao) AS data_modificacao,
+            data_cadastro  -- data_cadastro permanece como o banco retorna
+        FROM produtos
+        ORDER BY data_modificacao DESC  -- Ordena pela data_modificacao original antes da formatação para exibição
+    `;
     db.all(sql, [], (err, rows) => {
         if (err) {
             console.error("[GET /api/produtos] Erro ao listar produtos:", err.message);
             return res.status(500).json({ error: 'Erro interno do servidor ao buscar produtos.' });
         }
-        res.status(200).json(rows); // Retorna a lista de produtos.
+        res.status(200).json(rows || []); // Retorna a lista de produtos.
     });
 });
 
@@ -152,8 +169,8 @@ router.put('/:id', (req, res) => { // `authenticateToken` já foi aplicado
         return res.status(400).json({ error: 'Valor inválido. Deve ser um número não negativo.' });
     }
 
-    // 2. Define a data de modificação atual.
-    const dataModificacaoAtual = new Date().toISOString();
+    // 2. Define a data de modificação atual para o UPDATE.
+    const dataModificacaoAtualParaUpdate = new Date().toISOString();
 
     // 3. Prepara a query SQL para atualização.
     const updateSql = `
@@ -178,7 +195,7 @@ router.put('/:id', (req, res) => { // `authenticateToken` já foi aplicado
         (quantidade === '' || quantidade === undefined || quantidade === null) ? null : parseFloat(quantidade),
         (valor === '' || valor === undefined || valor === null) ? null : parseFloat(valor),
         (data_vencimento === '' || data_vencimento === undefined || data_vencimento === null) ? null : data_vencimento,
-        dataModificacaoAtual,
+        dataModificacaoAtualParaUpdate, // Usa a data definida na aplicação para data_modificacao no UPDATE
         id
     ], function (err) { // Usa `function` para ter acesso a `this.changes`.
         if (err) {
@@ -189,30 +206,41 @@ router.put('/:id', (req, res) => { // `authenticateToken` já foi aplicado
             return res.status(500).json({ error: 'Erro interno do servidor ao atualizar o produto.' });
         }
 
+        // SQL para buscar o produto (seja após alteração ou para o caso de "dados idênticos")
+        // MODIFICAÇÃO: Formatar APENAS data_modificacao
+        const selectProdutoSql = `
+            SELECT
+                id, nome, descricao, unidade_medida, categoria, quantidade, valor, data_vencimento,
+                strftime('%Y-%m-%dT%H:%M:%SZ', data_modificacao) AS data_modificacao,
+                data_cadastro  -- data_cadastro permanece como o banco retorna
+            FROM produtos
+            WHERE id = ?
+        `;
+
         // 5. Verifica se alguma linha foi realmente alterada.
         if (this.changes === 0) {
             // Nenhuma linha alterada. Verifica se o produto existe para diferenciar de "dados idênticos".
-             db.get("SELECT id FROM produtos WHERE id = ?", [id], (findErr, row) => {
-                if (!row) { // Produto não encontrado.
-                     return res.status(404).json({ error: 'Produto não encontrado para atualização.' });
-                } else { // Produto existe, mas os dados enviados eram idênticos aos do banco.
-                    // Retorna o produto como está no banco (já que a data_modificacao foi "atualizada" para o mesmo valor).
-                    db.get("SELECT * FROM produtos WHERE id = ?", [id], (getErr, updatedRow) => {
-                         if (getErr || !updatedRow) {
-                             console.error(`[PUT /api/produtos/:id] Produto ID ${id} encontrado, mas erro ao buscar dados após tentativa de atualização sem alterações:`, getErr?.message);
-                             return res.status(500).json({ error: 'Erro ao buscar dados do produto após tentativa de atualização (sem alterações efetivas).' });
-                         }
-                         console.log(`[PUT /api/produtos/:id] Produto ID ${id} solicitado para atualização, mas nenhum dado foi efetivamente alterado (ou já estava atualizado).`);
-                         res.status(200).json(updatedRow); // Retorna o estado atual do produto.
-                     });
+             db.get(selectProdutoSql, [id], (findErr, row) => { // Usa selectProdutoSql que já formata
+                if (findErr || !row) { // Erro ao buscar ou produto não encontrado.
+                     // Se row é null, o produto não existe.
+                     console.error(`[PUT /api/produtos/:id] Erro ao buscar produto ID ${id} após tentativa de atualização (sem alterações) ou produto não encontrado:`, findErr?.message);
+                     return res.status(row ? 500 : 404).json({ error: row ? 'Erro ao buscar dados do produto.' : 'Produto não encontrado para atualização.' });
                 }
+                // Produto existe, mas os dados enviados eram idênticos aos do banco.
+                console.log(`[PUT /api/produtos/:id] Produto ID ${id} solicitado para atualização, mas nenhum dado foi efetivamente alterado (ou já estava atualizado).`);
+                res.status(200).json(row); // Retorna o estado atual do produto, com data_modificacao formatada.
              });
         } else {
              // 6. Produto atualizado com sucesso. Busca o produto atualizado para retornar.
-             db.get("SELECT * FROM produtos WHERE id = ?", [id], (selectErr, row) => {
+             db.get(selectProdutoSql, [id], (selectErr, row) => { // Usa selectProdutoSql que já formata
                  if (selectErr || !row) {
                      console.error(`[PUT /api/produtos/:id] Produto ID ${id} atualizado, mas erro ao buscar os dados completos:`, selectErr?.message);
-                     return res.status(200).json({ message: "Produto atualizado com sucesso, mas houve um erro ao recuperar todos os seus dados atualizados.", id: id });
+                     // Retorna a data que foi usada para o update como fallback para data_modificacao
+                     return res.status(200).json({
+                        message: "Produto atualizado com sucesso, mas houve um erro ao recuperar todos os seus dados atualizados.",
+                        id: id,
+                        data_modificacao: dataModificacaoAtualParaUpdate
+                    });
                  }
                  console.log(`[PUT /api/produtos/:id] Produto "${row.nome}" (ID: ${id}) atualizado por ${req.user?.username || 'usuário'}.`);
                  res.status(200).json(row); // Retorna o objeto do produto atualizado.
