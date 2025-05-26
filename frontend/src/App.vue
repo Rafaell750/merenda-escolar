@@ -210,6 +210,21 @@
 
       <!-- 2.3. RODAPÉ DA SIDEBAR -->
       <div class="sidebar-footer">
+           <!-- INÍCIO: Bloco para exibir nome do usuário logado -->
+           <div v-if="currentUser && currentUser.username && !isLoginPage" class="logged-user-info-container">
+             <div v-show="!isSidebarCollapsed" class="logged-user-details">
+               <span class="user-greeting">Logado como:</span>
+               <strong class="user-name" :title="currentUser.username">{{ currentUser.username }}</strong>
+             </div>
+             <div v-show="isSidebarCollapsed" class="logged-user-icon" :title="`Logado como: ${currentUser.username}`">
+               <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" fill="currentColor" class="bi bi-person-circle" viewBox="0 0 16 16">
+                 <path d="M11 6a3 3 0 1 1-6 0 3 3 0 0 1 6 0"/>
+                 <path fill-rule="evenodd" d="M0 8a8 8 0 1 1 16 0A8 8 0 0 1 0 8m8-7a7 7 0 0 0-5.468 11.37C3.242 11.226 4.805 10 8 10s4.757 1.225 5.468 2.37A7 7 0 0 0 8 1"/>
+               </svg>
+             </div>
+           </div>
+           <!-- FIM: Bloco para exibir nome do usuário logado -->
+
            <!-- Botão de Logout -->
            <button v-if="!isLoginPage" @click="logout" class="logout-button" title="Sair">
                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" class="bi bi-box-arrow-left menu-icon" viewBox="0 0 16 16">
@@ -243,7 +258,7 @@
 
 <script setup>
 // --- BLOCO 1: IMPORTAÇÕES E INICIALIZAÇÕES ---
-import { ref, computed, onMounted, watch } from 'vue';
+import { ref, computed, onMounted, watch, toRaw } from 'vue';
 import { useRoute, useRouter } from 'vue-router'; // Para interagir com o sistema de rotas.
 import { useEscolasStore } from '@/stores/escolas'; // Store Pinia para dados das escolas.
 
@@ -713,6 +728,69 @@ body {
 }
 @keyframes spinner-border {
   to { transform: rotate(360deg); }
+}
+
+/* --- Estilos para Informação do Usuário Logado no Rodapé --- */
+.logged-user-info-container {
+  padding: 0.5rem 0.75rem; /* Reduzir padding horizontal para menos espaço nas laterais */
+  margin-bottom: 0.75rem; /* Espaço antes do botão de logout */
+  text-align: center;
+  border-top: 1px solid rgba(255, 255, 255, 0.05); /* Linha sutil de separação opcional */
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05); /* Linha sutil de separação opcional */
+  margin-left: 0.5rem; /* Pequena margem lateral */
+  margin-right: 0.5rem; /* Pequena margem lateral */
+  border-radius: 4px;
+}
+
+.sidebar.collapsed .logged-user-info-container {
+  padding: 0.5rem 0; /* Ajustar padding vertical quando colapsado */
+  border-top: none;
+  border-bottom: none;
+  margin-left: 0;
+  margin-right: 0;
+}
+
+.logged-user-details {
+  color: var(--sidebar-text-color);
+  font-size: 0.8rem;
+  line-height: 1.3;
+}
+
+.user-greeting {
+  display: block;
+  font-size: 0.7rem;
+  color: #a0aec0; /* Um tom mais claro */
+}
+
+.user-name {
+  display: block;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: calc(var(--sidebar-width-expanded) - 60px); /* Ajustar para não vazar */
+}
+
+.sidebar.collapsed .user-name {
+   max-width: calc(var(--sidebar-width-collapsed) - 20px); /* Ajustar para não vazar */
+}
+
+.logged-user-icon {
+  color: var(--sidebar-text-color);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.logged-user-icon svg {
+  width: 22px; /* Tamanho do ícone */
+  height: 22px;
+}
+
+/* Ajuste no rodapé para melhor espaçamento se necessário */
+.sidebar-footer {
+  padding-top: 0.5rem; /* Reduzir um pouco o padding superior do footer */
+  padding-bottom: 0.5rem; /* Reduzir um pouco o padding inferior do footer */
 }
 
 

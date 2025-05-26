@@ -1,3 +1,4 @@
+<!-- /frontend/src/viws/Historico/HistoricoRetiradasModal.vue -->
 <template>
     <div v-if="show" class="modal-overlay" @click.self="closeModal">
       <div class="modal-content historico-modal-content">

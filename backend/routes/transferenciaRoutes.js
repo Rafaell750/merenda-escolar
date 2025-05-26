@@ -352,14 +352,10 @@ router.post('/confirmar-recebimento', (req, res) => {
     let sqlConfirmar = `
         UPDATE transferencias
         SET data_recebimento_confirmado = CURRENT_TIMESTAMP
-        -- TODO: Adicionar uma coluna 'usuario_confirmacao_id' à tabela 'transferencias' seria ideal
-        -- para registrar QUEM da escola confirmou. Se adicionada, descomente a linha abaixo e ajuste os params.
         -- , usuario_confirmacao_id = ?
         WHERE id IN (${placeholders})
           AND data_recebimento_confirmado IS NULL -- Importante: Só atualiza as que ainda estão pendentes.
     `;
-    // Se 'usuario_confirmacao_id' for adicionado:
-    // params.unshift(usuarioConfirmacaoId); // Adiciona no início se for o primeiro '?' após SET
 
     // Validação opcional: Se `escola_id` foi fornecido e o usuário não é 'admin',
     // garante que a transferência pertence à escola do usuário logado.
@@ -391,6 +387,81 @@ router.post('/confirmar-recebimento', (req, res) => {
         }
         console.log(`[POST /confirmar-recebimento] ${this.changes} transferência(s) marcada(s) como recebida(s). Confirmado por Usuário ID: ${usuarioConfirmacaoId}.`);
         res.status(200).json({ message: `${this.changes} transferência(s) confirmada(s) com sucesso.` });
+    });
+});
+
+// --- NOVA ROTA: GET /api/transferencias/historico-sme ---
+// Busca o histórico de todas as transferências (envios) realizadas pela SME.
+// Idealmente, adicionar middleware de autorização para garantir que apenas admin/SME possam ver tudo.
+router.get('/historico-sme', (req, res) => {
+    // SQL para buscar o histórico de envios da SME
+    const sqlHistoricoEnviosSME = `
+        SELECT
+            t.id AS transferencia_id,
+            -- Formata a data de ENVIO para o padrão brasileiro.
+            strftime('%d/%m/%Y %H:%M', t.data_transferencia, 'localtime') AS data_envio_formatada,
+            -- Verifica se já foi confirmado o recebimento e formata a data se houver
+            CASE 
+                WHEN t.data_recebimento_confirmado IS NOT NULL 
+                THEN strftime('%d/%m/%Y %H:%M', t.data_recebimento_confirmado, 'localtime')
+                ELSE NULL 
+            END AS data_recebimento_confirmado_formatada,
+            u_sme.username AS usuario_sme_nome, -- Nome do usuário da SME que realizou o envio.
+            e.nome AS nome_escola, -- Nome da escola que recebeu.
+            e.id AS escola_id -- ID da escola que recebeu.
+        FROM
+            transferencias t
+        JOIN
+            usuarios u_sme ON t.usuario_id = u_sme.id -- Usuário que enviou (SME)
+        JOIN
+            escolas e ON t.escola_id = e.id -- Escola que recebeu
+        -- Poderíamos adicionar um filtro aqui se quiséssemos apenas envios de usuários com role 'user' ou 'admin' (SME)
+        -- Ex: WHERE u_sme.role IN ('admin', 'user') 
+        ORDER BY
+            t.data_transferencia DESC; -- Mais recentes primeiro.
+    `;
+
+    db.all(sqlHistoricoEnviosSME, [], (err, envios) => {
+        if (err) {
+            console.error("[GET /api/transferencias/historico-sme] Erro ao buscar histórico de envios da SME:", err.message);
+            return res.status(500).json({ error: "Erro interno ao buscar histórico de envios." });
+        }
+        if (envios.length === 0) {
+            return res.json([]); // Retorna array vazio se não houver envios.
+        }
+
+        // Para cada envio, busca seus itens correspondentes.
+        const promessasItens = envios.map(envio => {
+            return new Promise((resolve, reject) => {
+                const sqlItens = `
+                    SELECT
+                        p.id AS produto_id,  
+                        p.nome AS nome_produto,
+                        p.unidade_medida,
+                        ti.quantidade_enviada
+                    FROM transferencia_itens ti
+                    JOIN produtos p ON ti.produto_id = p.id
+                    WHERE ti.transferencia_id = ?;
+                `;
+                db.all(sqlItens, [envio.transferencia_id], (errItens, itens) => {
+                    if (errItens) {
+                        console.error(`[GET /api/transferencias/historico-sme] Erro ao buscar itens para envio ID ${envio.transferencia_id}:`, errItens.message);
+                        // Resolve com erro nos itens, mas continua processando outros envios.
+                        resolve({ ...envio, itens: [], error_itens: "Erro ao buscar itens deste envio" });
+                    } else {
+                        resolve({ ...envio, itens: itens });
+                    }
+                });
+            });
+        });
+
+        // Espera todas as buscas de itens terminarem.
+        Promise.all(promessasItens)
+            .then(enviosComItens => res.json(enviosComItens))
+            .catch(errorGlobal => {
+                console.error("[GET /api/transferencias/historico-sme] Erro global ao processar itens do histórico de envios:", errorGlobal);
+                res.status(500).json({ error: "Erro ao processar detalhes dos itens do histórico de envios." });
+            });
     });
 });
 

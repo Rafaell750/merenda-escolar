@@ -36,155 +36,160 @@
     <!-- Título principal da visualização do painel de controle. -->
     <header class="page-header">
       <h1>Painel de Controle</h1>
+      <!-- NAVEGAÇÃO DAS SEÇÕES -->
+      <nav class="section-navigation">
+        <button
+          @click="setActiveSection('escolas')"
+          :class="{ active: activeSection === 'escolas' }"
+          class="nav-button"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-building" viewBox="0 0 16 16">
+            <path d="M4 2.5a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-1a.5.5 0 0 1-.5-.5zm3 0a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-1a.5.5 0 0 1-.5-.5zm3.5-.5a.5.5 0 0 0-.5.5v1a.5.5 0 0 0 .5.5h1a.5.5 0 0 0 .5-.5v-1a.5.5 0 0 0-.5-.5zM4 5.5a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-1a.5.5 0 0 1-.5-.5zM7.5 5a.5.5 0 0 0-.5.5v1a.5.5 0 0 0 .5.5h1a.5.5 0 0 0 .5-.5v-1a.5.5 0 0 0-.5-.5zm2.5.5a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-1a.5.5 0 0 1-.5-.5zM4.5 8a.5.5 0 0 0-.5.5v1a.5.5 0 0 0 .5.5h1a.5.5 0 0 0 .5-.5v-1a.5.5 0 0 0-.5-.5zm2.5.5a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-1a.5.5 0 0 1-.5-.5zm3.5-.5a.5.5 0 0 0-.5.5v1a.5.5 0 0 0 .5.5h1a.5.5 0 0 0 .5-.5v-1a.5.5 0 0 0-.5-.5z"/>
+            <path d="M2 1a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1zm11 0H3v14h3v-2.5a.5.5 0 0 1 .5-.5h3a.5.5 0 0 1 .5.5V15h3z"/>
+          </svg>
+          Escolas Cadastradas
+        </button>
+        <button
+          @click="setActiveSection('historico')"
+          :class="{ active: activeSection === 'historico' }"
+          class="nav-button"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-file-earmark-text" viewBox="0 0 16 16">
+            <path d="M5.5 7a.5.5 0 0 0 0 1h5a.5.5 0 0 0 0-1zM5 9.5a.5.5 0 0 1 .5-.5h5a.5.5 0 0 1 0 1h-5a.5.5 0 0 1-.5-.5m0 2a.5.5 0 0 1 .5-.5h2a.5.5 0 0 1 0 1h-2a.5.5 0 0 1-.5-.5"/>
+            <path d="M9.5 0H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V4.5zm0 1v2A1.5 1.5 0 0 0 11 4.5h2V14a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1z"/>
+          </svg>
+          Histórico/PDF
+        </button>
+        <button
+          @click="setActiveSection('notificacoes')"
+          :class="{ active: activeSection === 'notificacoes' }"
+          class="nav-button"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-bell" viewBox="0 0 16 16">
+            <path d="M8 16a2 2 0 0 0 2-2H6a2 2 0 0 0 2 2M8 1.918l-.797.161A4 4 0 0 0 4.203 6H4a4 4 0 0 0-4 4v1c0 .278.022.543.064.806l.054.266h15.764l.054-.266A6.7 6.7 0 0 0 16 11v-1a4 4 0 0 0-4-4h-.203a4 4 0 0 0-3.002-3.921zM14.22 12c.223.447.481.801.78 1H1c.299-.199.557-.553.78-1z"/>
+          </svg>
+          Notificações
+        </button>
+      </nav>
     </header>
 
-    <!-- 2. LAYOUT PRINCIPAL -->
-    <!-- Container que organiza a lista de escolas e o formulário. -->
-    <div class="main-layout">
-
-      <!-- 3. BLOCO DA LISTA DE ESCOLAS -->
-      <!-- Seção para exibir as escolas cadastradas. Esta seção é sempre visível. -->
-      <section class="lista-escolas-section card">
-        <div class="list-header">
-          <h2>Escolas Cadastradas</h2>
-          <!--
-            3.1. BOTÃO NOVA ESCOLA
-            - Abre o painel do formulário para adicionar uma nova escola.
-            - Desabilitado se o formulário já estiver aberto e em modo de edição de outra escola.
-          -->
-          <button @click="openFormPanel" class="btn-add-new" :disabled="isEditing">
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-plus-circle-fill" viewBox="0 0 16 16">
-              <path d="M16 8A8 8 0 1 1 0 8a8 8 0 0 1 16 0M8.5 4.5a.5.5 0 0 0-1 0v3h-3a.5.5 0 0 0 0 1h3v3a.5.5 0 0 0 1 0v-3h3a.5.5 0 0 0 0-1h-3z"/>
-            </svg>
-            Nova Escola
-          </button>
-        </div>
-
-        <!--
-          3.2. CONTEÚDO DA LISTA DE ESCOLAS
-          - Renderização condicional baseada no estado da store (carregando, erro, lista vazia, ou lista preenchida).
-        -->
-        <div v-if="escolasStore.isLoading && escolasStore.listaEscolas.length === 0" class="loading-message">
-          <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
-          Carregando escolas...
-        </div>
-        <div v-else-if="!escolasStore.isLoading && escolasStore.error && escolasStore.listaEscolas.length === 0" class="error-message">
-          Erro ao carregar escolas: {{ escolasStore.error }}
-        </div>
-        <div v-else-if="!escolasStore.isLoading && !escolasStore.error && escolasStore.listaEscolas.length === 0" class="empty-list-message">
-          Nenhuma escola cadastrada ainda. Clique em "Nova Escola" para adicionar a primeira.
-        </div>
-        <ul v-else class="escolas-list">
-          <!--
-            3.2.1. ITEM DA LISTA DE ESCOLAS
-            - Itera sobre `escolasStore.listaEscolas` para exibir cada escola.
-            - `key` é o `escola.id` para otimização do Vue.
-          -->
-          <li v-for="escola in escolasStore.listaEscolas" :key="escola.id" class="escola-item">
-            <div class="escola-info">
-                <span class="escola-nome">{{ escola.nome }}</span>
-                <!-- Exibe endereço e responsável se existirem -->
-                <span class="escola-detalhe" v-if="escola.endereco">
-                  {{ escola.endereco }}
-                </span>
-                <span class="escola-detalhe" v-if="escola.responsavel">Responsável: {{ escola.responsavel }}</span>
-            </div>
-            <div class="action-buttons">
-              <!--
-                3.2.2. BOTÃO EDITAR ESCOLA
-                - Chama `startEdit` com os dados da escola.
-                - Desabilitado se o painel do formulário estiver aberto para uma escola diferente da atual.
-              -->
-              <button @click="startEdit(escola)" class="btn-edit" title="Editar Escola" :disabled="isFormExpanded && editingEscolaId !== escola.id">
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-pencil-square" viewBox="0 0 16 16"> <path d="M15.502 1.94a.5.5 0 0 1 0 .706L14.459 3.69l-2-2L13.502.646a.5.5 0 0 1 .707 0l1.293 1.293zm-1.75 2.456-2-2L4.939 9.21a.5.5 0 0 0-.121.196l-.805 2.414a.25.25 0 0 0 .316.316l2.414-.805a.5.5 0 0 0 .196-.12l6.813-6.814z"/> <path fill-rule="evenodd" d="M1 13.5A1.5 1.5 0 0 0 2.5 15h11a1.5 1.5 0 0 0 1.5-1.5v-6a.5.5 0 0 0-1 0v6a.5.5 0 0 1-.5.5h-11a.5.5 0 0 1-.5-.5v-11a.5.5 0 0 1 .5-.5H9a.5.5 0 0 0 0-1H2.5A1.5 1.5 0 0 0 1 2.5z"/> </svg>
-                Editar
-              </button>
-              <!--
-                3.2.3. BOTÃO EXCLUIR ESCOLA
-                - Chama `confirmDeleteEscola` com o ID e nome da escola.
-                - Desabilitado se o painel do formulário estiver aberto.
-              -->
-              <button @click="confirmDeleteEscola(escola.id, escola.nome)" class="btn-delete" title="Excluir Escola" :disabled="isFormExpanded">
-                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-trash3-fill" viewBox="0 0 16 16"> <path d="M11 1.5v1h3.5a.5.5 0 0 1 0 1h-.538l-.853 10.66A2 2 0 0 1 11.115 16h-6.23a2 2 0 0 1-1.994-1.84L2.038 3.5H1.5a.5.5 0 0 1 0-1h3.5v-1A1.5 1.5 0 0 1 6.5 0h3A1.5 1.5 0 0 1 11 1.5m-5 0v1h4v-1a.5.5 0 0 0-.5-.5h-3a.5.5 0 0 0-.5.5M4.5 5.029l.5 8.5a.5.5 0 1 0 .998-.06l-.5-8.5a.5.5 0 1 0-.998.06m6.53-.528a.5.5 0 0 0-.528.47l-.5 8.5a.5.5 0 0 0 .998.058l.5-8.5a.5.5 0 0 0-.47-.528M8 4.5a.5.5 0 0 0-.5.5v8.5a.5.5 0 0 0 1 0V5a.5.5 0 0 0-.5-.5"/> </svg>
-                Excluir
+  
+    
+    <!-- CONTEÚDO DAS SEÇÕES -->
+    <div class="sections-container">
+      <!-- SEÇÃO: ESCOLAS CADASTRADAS (Conteúdo Existente) -->
+      <div v-if="activeSection === 'escolas'" class="content-section active-section">
+        <!-- 2. LAYOUT PRINCIPAL (para Escolas) -->
+        <div class="main-layout">
+          <!-- 3. BLOCO DA LISTA DE ESCOLAS -->
+          <section class="lista-escolas-section card">
+            <div class="list-header">
+              <h2>Escolas Cadastradas</h2>
+              <button @click="openFormPanel" class="btn-add-new" :disabled="isEditing">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-plus-circle-fill" viewBox="0 0 16 16">
+                  <path d="M16 8A8 8 0 1 1 0 8a8 8 0 0 1 16 0M8.5 4.5a.5.5 0 0 0-1 0v3h-3a.5.5 0 0 0 0 1h3v3a.5.5 0 0 0 1 0v-3h3a.5.5 0 0 0 0-1h-3z"/>
+                </svg>
+                Nova Escola
               </button>
             </div>
-          </li>
-        </ul>
-        <!-- Mensagem de erro específica para a lista (ex: falha ao excluir) -->
-        <div v-if="listError" class="error-message list-error-margin">
-          {{ listError }}
+            <div v-if="escolasStore.isLoading && escolasStore.listaEscolas.length === 0" class="loading-message">
+              <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+              Carregando escolas...
+            </div>
+            <div v-else-if="!escolasStore.isLoading && escolasStore.error && escolasStore.listaEscolas.length === 0" class="error-message">
+              Erro ao carregar escolas: {{ escolasStore.error }}
+            </div>
+            <div v-else-if="!escolasStore.isLoading && !escolasStore.error && escolasStore.listaEscolas.length === 0" class="empty-list-message">
+              Nenhuma escola cadastrada ainda. Clique em "Nova Escola" para adicionar a primeira.
+            </div>
+            <ul v-else class="escolas-list">
+              <li v-for="escola in escolasStore.listaEscolas" :key="escola.id" class="escola-item">
+                <div class="escola-info">
+                    <span class="escola-nome">{{ escola.nome }}</span>
+                    <span class="escola-detalhe" v-if="escola.endereco">{{ escola.endereco }}</span>
+                    <span class="escola-detalhe" v-if="escola.responsavel">Responsável: {{ escola.responsavel }}</span>
+                </div>
+                <div class="action-buttons">
+                  <button @click="startEdit(escola)" class="btn-edit" title="Editar Escola" :disabled="isFormExpanded && editingEscolaId !== escola.id">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-pencil-square" viewBox="0 0 16 16"> <path d="M15.502 1.94a.5.5 0 0 1 0 .706L14.459 3.69l-2-2L13.502.646a.5.5 0 0 1 .707 0l1.293 1.293zm-1.75 2.456-2-2L4.939 9.21a.5.5 0 0 0-.121.196l-.805 2.414a.25.25 0 0 0 .316.316l2.414-.805a.5.5 0 0 0 .196-.12l6.813-6.814z"/> <path fill-rule="evenodd" d="M1 13.5A1.5 1.5 0 0 0 2.5 15h11a1.5 1.5 0 0 0 1.5-1.5v-6a.5.5 0 0 0-1 0v6a.5.5 0 0 1-.5.5h-11a.5.5 0 0 1-.5-.5v-11a.5.5 0 0 1 .5-.5H9a.5.5 0 0 0 0-1H2.5A1.5 1.5 0 0 0 1 2.5z"/> </svg>
+                    Editar
+                  </button>
+                  <button @click="confirmDeleteEscola(escola.id, escola.nome)" class="btn-delete" title="Excluir Escola" :disabled="isFormExpanded">
+                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-trash3-fill" viewBox="0 0 16 16"> <path d="M11 1.5v1h3.5a.5.5 0 0 1 0 1h-.538l-.853 10.66A2 2 0 0 1 11.115 16h-6.23a2 2 0 0 1-1.994-1.84L2.038 3.5H1.5a.5.5 0 0 1 0-1h3.5v-1A1.5 1.5 0 0 1 6.5 0h3A1.5 1.5 0 0 1 11 1.5m-5 0v1h4v-1a.5.5 0 0 0-.5-.5h-3a.5.5 0 0 0-.5.5M4.5 5.029l.5 8.5a.5.5 0 1 0 .998-.06l-.5-8.5a.5.5 0 1 0-.998.06m6.53-.528a.5.5 0 0 0-.528.47l-.5 8.5a.5.5 0 0 0 .998.058l.5-8.5a.5.5 0 0 0-.47-.528M8 4.5a.5.5 0 0 0-.5.5v8.5a.5.5 0 0 0 1 0V5a.5.5 0 0 0-.5-.5"/> </svg>
+                    Excluir
+                  </button>
+                </div>
+              </li>
+            </ul>
+            <div v-if="listError" class="error-message list-error-margin">
+              {{ listError }}
+            </div>
+          </section>
+
+          <!-- 4. BLOCO DO FORMULÁRIO (CADASTRO/EDIÇÃO) -->
+          <transition name="form-slide-fade">
+            <section v-if="isFormExpanded" class="form-section card" :key="formMode">
+              <div class="form-header">
+                <h2>{{ isEditing ? `Editando Escola: ${formData.nome || '...'}` : 'Cadastrar Nova Escola' }}</h2>
+                <button @click="closeFormPanel" class="btn-toggle-form btn-close" title="Fechar Formulário">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" class="bi bi-x-lg" viewBox="0 0 16 16">
+                    <path d="M2.146 2.854a.5.5 0 1 1 .708-.708L8 7.293l5.146-5.147a.5.5 0 0 1 .708.708L8.707 8l5.147 5.146a.5.5 0 0 1-.708.708L8 8.707l-5.146 5.147a.5.5 0 0 1-.708-.708L7.293 8z"/>
+                  </svg>
+                </button>
+              </div>
+              <div class="form-content">
+                <form @submit.prevent="handleSubmit" class="escola-form">
+                  <div class="form-group">
+                    <label for="form-nome">Nome da Escola <span class="required">*</span></label>
+                    <input type="text" id="form-nome" v-model="formData.nome" required>
+                  </div>
+                  <div class="form-group">
+                    <label for="form-endereco">Endereço</label>
+                    <input type="text" id="form-endereco" v-model="formData.endereco">
+                  </div>
+                  <div class="form-group">
+                    <label for="form-responsavel">Responsável</label>
+                    <input type="text" id="form-responsavel" v-model="formData.responsavel">
+                  </div>
+                  <div v-if="formError" class="error-message"> {{ formError }} </div>
+                  <div v-if="formSuccessMessage" class="success-message"> {{ formSuccessMessage }} </div>
+                  <div class="form-actions">
+                      <button v-if="isEditing" type="button" @click="cancelEdit" class="btn-cancel">
+                        Cancelar Edição
+                      </button>
+                      <button type="submit" :disabled="escolasStore.isLoading" class="submit-button">
+                        {{ isEditing ? (escolasStore.isLoading ? 'Salvando...' : 'Salvar Alterações') : (escolasStore.isLoading ? 'Cadastrando...' : 'Cadastrar Escola') }}
+                      </button>
+                  </div>
+                </form>
+              </div>
+            </section>
+          </transition>
         </div>
-      </section>
-      <!-- Fim da Seção Lista (Bloco 3) -->
+      </div>
 
-      <!-- 4. BLOCO DO FORMULÁRIO (CADASTRO/EDIÇÃO) -->
-      <!--
-        - Seção para o formulário de cadastro ou edição de escolas.
-        - Visível condicionalmente (`v-if="isFormExpanded"`).
-        - Utiliza `<transition>` para animação de entrada/saída.
-        - A `key` dinâmica (`formMode`) força a recriação do componente de formulário quando se alterna
-          entre "adicionar" e "editar" (ou editar diferentes itens), garantindo que o estado interno
-          do formulário seja resetado ou inicializado corretamente.
-      -->
-      <transition name="form-slide-fade">
-        <section v-if="isFormExpanded" class="form-section card" :key="formMode">
-          <div class="form-header">
-            <!-- Título dinâmico: "Cadastrar Nova Escola" ou "Editando Escola: [Nome da Escola]" -->
-            <h2>{{ isEditing ? `Editando Escola: ${formData.nome || '...'}` : 'Cadastrar Nova Escola' }}</h2>
-            <!-- Botão para fechar o painel do formulário -->
-            <button @click="closeFormPanel" class="btn-toggle-form btn-close" title="Fechar Formulário">
-              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" class="bi bi-x-lg" viewBox="0 0 16 16">
-                <path d="M2.146 2.854a.5.5 0 1 1 .708-.708L8 7.293l5.146-5.147a.5.5 0 0 1 .708.708L8.707 8l5.147 5.146a.5.5 0 0 1-.708.708L8 8.707l-5.146 5.147a.5.5 0 0 1-.708-.708L7.293 8z"/>
-              </svg>
-            </button>
-          </div>
+      <!-- SEÇÃO: HISTÓRICO DE ENVIOS (AGORA UM COMPONENTE) -->
+      <div v-if="activeSection === 'historico'" class="content-section card active-section">
+        <HistoricoEnviosSME />
+      </div>
 
-          <div class="form-content">
-            <!--
-              4.1. FORMULÁRIO HTML
-              - `@submit.prevent="handleSubmit"` previne o comportamento padrão do formulário e chama o método `handleSubmit`.
-            -->
-            <form @submit.prevent="handleSubmit" class="escola-form">
-              <!-- Campos do formulário -->
-              <div class="form-group">
-                <label for="form-nome">Nome da Escola <span class="required">*</span></label>
-                <input type="text" id="form-nome" v-model="formData.nome" required>
-              </div>
-              <div class="form-group">
-                <label for="form-endereco">Endereço</label>
-                <input type="text" id="form-endereco" v-model="formData.endereco">
-              </div>
-              <!-- Campos de Cidade e UF foram removidos do formulário, mas mantidos na estrutura de dados caso sejam reintroduzidos. -->
-              <div class="form-group">
-                <label for="form-responsavel">Responsável</label>
-                <input type="text" id="form-responsavel" v-model="formData.responsavel">
-              </div>
-
-              <!-- Mensagens de erro e sucesso específicas do formulário -->
-              <div v-if="formError" class="error-message"> {{ formError }} </div>
-              <div v-if="formSuccessMessage" class="success-message"> {{ formSuccessMessage }} </div>
-
-              <!--
-                4.2. AÇÕES DO FORMULÁRIO
-              -->
-              <div class="form-actions">
-                  <!-- Botão "Cancelar Edição", visível apenas no modo de edição -->
-                  <button v-if="isEditing" type="button" @click="cancelEdit" class="btn-cancel">
-                    Cancelar Edição
-                  </button>
-                  <!-- Botão de submissão principal (Cadastrar/Salvar) -->
-                  <button type="submit" :disabled="escolasStore.isLoading" class="submit-button">
-                    {{ isEditing ? (escolasStore.isLoading ? 'Salvando...' : 'Salvar Alterações') : (escolasStore.isLoading ? 'Cadastrando...' : 'Cadastrar Escola') }}
-                  </button>
-              </div>
-            </form>
-          </div>
-        </section>
-      </transition>
-      <!-- Fim da Seção Formulário (Bloco 4) -->
-
-    </div> <!-- Fim do .main-layout -->
+      <!-- SEÇÃO: NOTIFICAÇÃO (Placeholder) -->
+      <div v-if="activeSection === 'notificacoes'" class="content-section card active-section">
+         <div class="section-placeholder-header">
+          <h2>Central de Notificações</h2>
+        </div>
+        <div class="section-placeholder-content">
+          <p>Esta seção exibirá notificações importantes para o administrador do sistema, como:</p>
+          <ul>
+            <li>Solicitações pendentes de escolas (se aplicável).</li>
+            <li>Alertas de estoque baixo (se implementado).</li>
+            <li>Confirmações de recebimento.</li>
+            <li>Outras mensagens relevantes para a gestão.</li>
+          </ul>
+          <p><em>(Funcionalidade em desenvolvimento)</em></p>
+        </div>
+      </div>
+    </div> <!-- Fim do .sections-container -->
 
   </div>
 </template>
@@ -192,9 +197,9 @@
 <script setup>
 // --- BLOCO 1: IMPORTAÇÕES ---
 // Importações de funcionalidades do Vue, store Pinia e estilos CSS.
-import { ref, computed, onMounted, nextTick } from 'vue';
+import { ref, computed, onMounted, nextTick, watch } from 'vue';
 import { useEscolasStore } from '@/stores/escolas'; // Store Pinia para gerenciar dados das escolas.
-
+import HistoricoEnviosSME from './Historico/HistoricoEnviosSME.vue';
 
 // --- BLOCO 2: INICIALIZAÇÃO DA STORE ---
 // Instância da store de escolas para interagir com o estado global e as actions.
@@ -215,6 +220,13 @@ const formData = ref({                  // Objeto para vincular os dados do form
 const formError = ref('');              // Mensagem de erro para o formulário.
 const formSuccessMessage = ref('');     // Mensagem de sucesso para o formulário.
 const listError = ref('');              // Mensagem de erro para a lista de escolas (ex: falha na exclusão).
+
+// Estado para controlar a seção ativa
+const activeSection = ref('escolas'); // 'escolas', 'historico', 'notificacoes'
+
+const setActiveSection = (sectionName) => { // <<<--- DEFINIDA AQUI
+  activeSection.value = sectionName;
+};
 
 // --- BLOCO 4: FUNÇÕES AUXILIARES ---
 
@@ -430,10 +442,122 @@ onMounted(() => {
     }
 });
 
+// NOVO: Watcher para carregar dados da seção de escolas se ela for ativada
+// e os dados ainda não tiverem sido carregados.
+watch(activeSection, (newSectionValue) => {
+  if (newSectionValue === 'escolas') {
+    if (escolasStore.listaEscolas.length === 0 && !escolasStore.isLoading && !escolasStore.error) {
+      escolasStore.fetchEscolas();
+    }
+  }
+  // Adicionar aqui lógica para carregar dados de outras seções quando ativadas, se necessário.
+  // Ex: if (newSectionValue === 'historico' && !historicoDataLoaded.value) { fetchHistoricoData(); }
+});
+
 </script>
 
 <style scoped>
 
 @import './PainelControleView.css'; /* Estilos específicos para este componente. */
 
+/* --- ESTILOS PARA NAVEGAÇÃO DE SEÇÕES --- */
+.section-navigation {
+  display: flex;
+  gap: 0.5rem; /* Espaço entre os botões */
+  margin-top: 1rem; /* Espaço abaixo do título "Painel de Controle" */
+  padding-bottom: 1rem; /* Espaço antes do conteúdo da seção */
+  border-bottom: 2px solid #e5e7eb; /* Linha divisória mais proeminente */
+  margin-bottom: 1.5rem; /* Espaço antes do container de seções */
+}
+
+.nav-button {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.65rem 1.25rem;
+  border: none;
+  background-color: transparent; /* Fundo transparente por padrão */
+  color: #4b5563; /* Cinza escuro para texto */
+  border-radius: 6px 6px 0 0; /* Cantos arredondados apenas no topo */
+  cursor: pointer;
+  font-weight: 500;
+  font-size: 0.95rem;
+  transition: background-color 0.2s ease, color 0.2s ease, border-bottom-color 0.2s ease;
+  border-bottom: 2px solid transparent; /* Borda inferior para indicar atividade */
+  margin-bottom: -2px; /* Para alinhar com a borda do container */
+}
+
+.nav-button:hover {
+  color: #1f2937; /* Cor mais escura no hover */
+  background-color: #f0f0f0; /* Leve fundo no hover */
+}
+
+.nav-button.active {
+  /* Estilo para o botão da seção ativa (Exemplo com azul, ajuste para sua paleta) */
+  background-color: #fff; /* Pode ser a cor de fundo do card */
+  color: var(--primary-color, #3b82f6); /* Cor primária da aplicação */
+  border-bottom: 2px solid var(--primary-color, #3b82f6);
+  font-weight: 600;
+}
+
+.nav-button svg {
+  /* Estilos para os ícones dos botões, se necessário */
+  width: 18px;
+  height: 18px;
+}
+
+/* --- ESTILOS PARA O CONTAINER DAS SEÇÕES E SEÇÕES INDIVIDUAIS --- */
+.sections-container {
+  /* Pode não precisar de estilos específicos se as seções internas cuidarem disso */
+}
+
+.content-section {
+  /* Estilo base para todas as seções de conteúdo.
+     A classe 'card' já está sendo aplicada, o que é bom.
+     Este .content-section pode ser usado para espaçamentos ou transições.
+  */
+  /* display: none; /* Seções são ocultadas por v-if */
+  /* Se for usar transições, precisaria de uma abordagem diferente (v-show e classes de transição) */
+}
+
+/* .content-section.active-section { */
+  /* display: block; /* Mostra a seção ativa (já tratado pelo v-if) */
+/* } */
+
+
+/* Estilos para os placeholders das novas seções */
+.section-placeholder-header {
+  padding-bottom: 0.75rem;
+  margin-bottom: 1rem;
+  border-bottom: 1px solid #e5e7eb;
+}
+.section-placeholder-header h2 {
+  font-size: 1.4rem;
+  color: #1f2937; /* Cor um pouco mais escura para o título da seção */
+  margin: 0;
+}
+
+.section-placeholder-content p {
+  margin-bottom: 0.75rem;
+  line-height: 1.6;
+  color: #374151;
+}
+.section-placeholder-content ul {
+  list-style-type: disc;
+  margin-left: 1.5rem;
+  margin-bottom: 1rem;
+}
+.section-placeholder-content li {
+  margin-bottom: 0.4rem;
+}
+.section-placeholder-content em {
+  color: #6b7280; /* Cinza para o texto em itálico */
+  font-size: 0.9rem;
+}
+
+/* Para garantir que o layout flex das escolas funcione dentro da aba */
+.content-section .main-layout {
+  display: flex; /* Já está no seu CSS, mas confirmando */
+  /* ... outros estilos de .main-layout */
+}
 </style>

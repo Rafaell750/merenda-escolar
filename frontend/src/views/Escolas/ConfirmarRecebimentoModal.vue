@@ -33,10 +33,9 @@
                 </label>
               </div>
               <ul v-if="transferencia.itens && transferencia.itens.length > 0" class="itens-preview-lista">
-                <li v-for="(item, index) in transferencia.itens.slice(0, 3)" :key="index">
-                  {{ item.nome_produto }} (Qtd: {{ item.quantidade_enviada }})
+                <li v-for="(item, index) in transferencia.itens.slice(0, 100)" :key="index">
+                  {{ item.nome_produto }} (Quantidade: {{ item.quantidade_enviada }})
                 </li>
-                <li v-if="transferencia.itens.length > 3" class="mais-itens">... e mais {{ transferencia.itens.length - 3 }} itens.</li>
               </ul>
               <div v-else class="sem-itens">Nenhum item detalhado neste envio.</div>
             </div>
