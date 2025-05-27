@@ -346,16 +346,24 @@ router.post('/confirmar-recebimento', (req, res) => {
     }
 
     // Cria placeholders ( ?, ?, ... ) para a cláusula IN da query SQL.
-    const placeholders = transferencia_ids.map(() => '?').join(',');
-    const params = [...transferencia_ids]; // Parâmetros para os placeholders.
+    const placeholdersParaIn = transferencia_ids.map(() => '?').join(',');
 
+    // Query SQL base
     let sqlConfirmar = `
-        UPDATE transferencias
-        SET data_recebimento_confirmado = CURRENT_TIMESTAMP
-        -- , usuario_confirmacao_id = ?
-        WHERE id IN (${placeholders})
-          AND data_recebimento_confirmado IS NULL -- Importante: Só atualiza as que ainda estão pendentes.
+    UPDATE transferencias
+    SET data_recebimento_confirmado = CURRENT_TIMESTAMP,
+        usuario_confirmacao_id = ?  -- Este é o primeiro '?' na query
+    WHERE id IN (${placeholdersParaIn}) -- Seguido por N '?' para os IDs
+    AND data_recebimento_confirmado IS NULL
     `;
+
+    // Monta a lista de parâmetros na ordem correta
+    const queryParams = [];
+    queryParams.push(usuarioConfirmacaoId); // 1º Parâmetro: para usuario_confirmacao_id = ?
+
+    transferencia_ids.forEach(id => {   // Próximos N Parâmetros: para o IN (?, ?, ...)
+        queryParams.push(id);
+    });
 
     // Validação opcional: Se `escola_id` foi fornecido e o usuário não é 'admin',
     // garante que a transferência pertence à escola do usuário logado.
@@ -367,15 +375,15 @@ router.post('/confirmar-recebimento', (req, res) => {
             return res.status(403).json({ error: "Usuário da escola tentando confirmar recebimento para outra escola." });
         }
         sqlConfirmar += ` AND escola_id = ?`;
-        params.push(req.user.school_id); // Garante que o usuário só confirme para sua própria escola.
+        queryParams.push(req.user.school_id); // Garante que o usuário só confirme para sua própria escola.
     } else if (req.user.role === 'admin' && escola_id && Number.isInteger(parseInt(escola_id, 10)) && parseInt(escola_id, 10) > 0) {
         // Se admin e escola_id é fornecido, adiciona ao filtro (útil se admin estiver confirmando para uma escola específica)
         sqlConfirmar += ` AND escola_id = ?`;
-        params.push(parseInt(escola_id, 10));
+        queryParams.push(parseInt(escola_id, 10));
     }
     // Se for admin e escola_id não for fornecido, ele pode confirmar qualquer transferência (cuidado com essa lógica).
 
-    db.run(sqlConfirmar, params, function(err) { // Usa `function` para ter acesso a `this.changes`.
+    db.run(sqlConfirmar, queryParams, function(err) { // Usa `function` para ter acesso a `this.changes`.
         if (err) {
             console.error("[POST /confirmar-recebimento] Erro ao confirmar recebimento de transferências:", err.message);
             return res.status(500).json({ error: "Erro interno do servidor ao confirmar o recebimento." });
@@ -408,15 +416,16 @@ router.get('/historico-sme', (req, res) => {
             END AS data_recebimento_confirmado_formatada,
             u_sme.username AS usuario_sme_nome, -- Nome do usuário da SME que realizou o envio.
             e.nome AS nome_escola, -- Nome da escola que recebeu.
-            e.id AS escola_id -- ID da escola que recebeu.
+            e.id AS escola_id, -- ID da escola que recebeu.
+            u_conf.username AS nome_usuario_confirmacao
         FROM
             transferencias t
         JOIN
             usuarios u_sme ON t.usuario_id = u_sme.id -- Usuário que enviou (SME)
         JOIN
             escolas e ON t.escola_id = e.id -- Escola que recebeu
-        -- Poderíamos adicionar um filtro aqui se quiséssemos apenas envios de usuários com role 'user' ou 'admin' (SME)
-        -- Ex: WHERE u_sme.role IN ('admin', 'user') 
+        LEFT JOIN
+            usuarios u_conf ON t.usuario_confirmacao_id = u_conf.id
         ORDER BY
             t.data_transferencia DESC; -- Mais recentes primeiro.
     `;

@@ -19,7 +19,7 @@
                 <th>Produto</th>
                 <th>Unidade</th>
                 <th class="text-right">Qtd. Retirada</th>
-                <th>Usuário Responsável</th>
+                <th>Usuário que retirou</th>
               </tr>
             </thead>
             <tbody>

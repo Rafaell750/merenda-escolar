@@ -206,6 +206,7 @@ async function setupDatabase() {
         data_transferencia DATETIME DEFAULT CURRENT_TIMESTAMP, -- Data do envio pela SME
         usuario_id INTEGER NOT NULL, -- ID do usuário da SME que realizou o envio
         data_recebimento_confirmado DATETIME NULL, -- Data da confirmação de recebimento pela escola
+        usuario_confirmacao_id INTEGER DEFAULT NULL,
         FOREIGN KEY (escola_id) REFERENCES escolas (id) ON DELETE CASCADE,
         -- ON DELETE CASCADE: Se uma escola for excluída, suas transferências associadas também são.
         -- Considere ON DELETE RESTRICT ou SET NULL dependendo da regra de negócio.

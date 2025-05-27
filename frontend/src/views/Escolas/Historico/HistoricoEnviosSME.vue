@@ -45,14 +45,25 @@
                   Enviado Por: {{ envio.usuario_sme_nome }}
               </span>
               <span :class="['status-recebimento', envio.data_recebimento_confirmado_formatada ? 'confirmado' : 'pendente']">
-                  <svg v-if="envio.data_recebimento_confirmado_formatada" xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" class="bi bi-check-circle-fill" viewBox="0 0 16 16">
-                      <path d="M16 8A8 8 0 1 1 0 8a8 8 0 0 1 16 0m-3.97-3.03a.75.75 0 0 0-1.08.022L7.477 9.417 5.384 7.323a.75.75 0 0 0-1.06 1.06L6.97 11.03a.75.75 0 0 0 1.079-.02l3.992-4.99a.75.75 0 0 0-.01-1.05z"/>
-                  </svg>
-                  <svg v-else xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" class="bi bi-hourglass-split" viewBox="0 0 16 16">
-                      <path d="M2.5 15a.5.5 0 1 1 0-1 .5.5 0 0 1 0 1m2-13C3.5 1.5 3 2.5 3 3.5v1c0 1 .5 2 1.5 2.5V15a.5.5 0 0 1-1 0V9.333a2.5 2.5 0 0 1-.176-.273A2.5 2.5 0 0 1 3 8.5v-1c0-.355.08-.67.2-.937l.21-.468C3.607 5.776 4.234 5 5.5 5c.414 0 .786.126 1.076.316L8 6.632l1.424-1.316A1.5 1.5 0 0 1 10.5 5c1.266 0 1.893.776 2.09 1.125l.21.468c.12.267.2.582.2.937v1a2.5 2.5 0 0 1-.324.963q-.16.217-.176.273V15a.5.5 0 0 1-1 0V9.25A1.5 1.5 0 0 1 11.5 8c-1 0-1.5-1-1.5-2.5v-1C10 3.5 9.5 2.5 8.5 2M4 2h7v1.5a1.5 1.5 0 0 1-1.5 1.5h-4A1.5 1.5 0 0 1 4 3.5z"/>
-                  </svg>
-                  {{ envio.data_recebimento_confirmado_formatada ? 'Recebido em: ' + envio.data_recebimento_confirmado_formatada : 'Pendente de Recebimento' }}
-              </span>
+    <template v-if="envio.data_recebimento_confirmado_formatada && envio.nome_usuario_confirmacao">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" class="bi bi-check-circle-fill" viewBox="0 0 16 16">
+            <path d="M16 8A8 8 0 1 1 0 8a8 8 0 0 1 16 0m-3.97-3.03a.75.75 0 0 0-1.08.022L7.477 9.417 5.384 7.323a.75.75 0 0 0-1.06 1.06L6.97 11.03a.75.75 0 0 0 1.079-.02l3.992-4.99a.75.75 0 0 0-.01-1.05z"/>
+        </svg>
+        {{ `Recebido e confirmado por: ${envio.nome_usuario_confirmacao ? envio.nome_usuario_confirmacao.trim() : 'Usuário Desconhecido'}, em ${envio.data_recebimento_confirmado_formatada}` }}
+    </template>
+    <template v-else-if="envio.data_recebimento_confirmado_formatada"> <!-- Fallback -->
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" class="bi bi-check-circle-fill" viewBox="0 0 16 16">
+            <path d="M16 8A8 8 0 1 1 0 8a8 8 0 0 1 16 0m-3.97-3.03a.75.75 0 0 0-1.08.022L7.477 9.417 5.384 7.323a.75.75 0 0 0-1.06 1.06L6.97 11.03a.75.75 0 0 0 1.079-.02l3.992-4.99a.75.75 0 0 0-.01-1.05z"/>
+        </svg>
+        Recebido em: {{ envio.data_recebimento_confirmado_formatada }}
+    </template>
+    <template v-else>
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" class="bi bi-hourglass-split" viewBox="0 0 16 16">
+            <path d="M2.5 15a.5.5 0 1 1 0-1 .5.5 0 0 1 0 1m2-13C3.5 1.5 3 2.5 3 3.5v1c0 1 .5 2 1.5 2.5V15a.5.5 0 0 1-1 0V9.333a2.5 2.5 0 0 1-.176-.273A2.5 2.5 0 0 1 3 8.5v-1c0-.355.08-.67.2-.937l.21-.468C3.607 5.776 4.234 5 5.5 5c.414 0 .786.126 1.076.316L8 6.632l1.424-1.316A1.5 1.5 0 0 1 10.5 5c1.266 0 1.893.776 2.09 1.125l.21.468c.12.267.2.582.2.937v1a2.5 2.5 0 0 1-.324.963q-.16.217-.176.273V15a.5.5 0 0 1-1 0V9.25A1.5 1.5 0 0 1 11.5 8c-1 0-1.5-1-1.5-2.5v-1C10 3.5 9.5 2.5 8.5 2M4 2h7v1.5a1.5 1.5 0 0 1-1.5 1.5h-4A1.5 1.5 0 0 1 4 3.5z"/>
+        </svg>
+        Pendente de Recebimento
+    </template>
+</span>
             </div>
             <div class="historico-item-body">
               <p class="destino-escola">
