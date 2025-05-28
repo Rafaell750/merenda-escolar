@@ -100,8 +100,14 @@
 }
 .user-list .role-tag.user {
     color: #1f2937; /* Dark Gray text */
-    background-color: #e5e7eb; /* Lighter Gray bg */
+    background-color: #d4dd85; /* Lighter Gray bg */
 }
+
+  /* Adicione estilos para a tag .school se desejar uma cor diferente */
+  .role-tag.school {
+    background-color: #c9d1e2; /* Azul, por exemplo */
+    color: #3498db;
+  }
 
 .loading-users {
     margin-top: 1.5rem; /* Mais espaço */

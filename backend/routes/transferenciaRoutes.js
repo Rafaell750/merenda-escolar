@@ -402,75 +402,105 @@ router.post('/confirmar-recebimento', (req, res) => {
 // Busca o histórico de todas as transferências (envios) realizadas pela SME.
 // Idealmente, adicionar middleware de autorização para garantir que apenas admin/SME possam ver tudo.
 router.get('/historico-sme', (req, res) => {
+    const { destino, dataInicio, dataFim } = req.query; // 1. LER OS PARÂMETROS DA QUERY
     // SQL para buscar o histórico de envios da SME
-    const sqlHistoricoEnviosSME = `
+    let sqlHistoricoEnviosSME = `
         SELECT
             t.id AS transferencia_id,
-            -- Formata a data de ENVIO para o padrão brasileiro.
+            -- As datas já estão sendo formatadas aqui. Se o frontend também formatar, pode haver redundância,
+            -- mas não é um grande problema. A store também está preparada para formatar se não vier formatado.
             strftime('%d/%m/%Y %H:%M', t.data_transferencia, 'localtime') AS data_envio_formatada,
-            -- Verifica se já foi confirmado o recebimento e formata a data se houver
-            CASE 
-                WHEN t.data_recebimento_confirmado IS NOT NULL 
+            CASE
+                WHEN t.data_recebimento_confirmado IS NOT NULL
                 THEN strftime('%d/%m/%Y %H:%M', t.data_recebimento_confirmado, 'localtime')
-                ELSE NULL 
+                ELSE NULL
             END AS data_recebimento_confirmado_formatada,
-            u_sme.username AS usuario_sme_nome, -- Nome do usuário da SME que realizou o envio.
-            e.nome AS nome_escola, -- Nome da escola que recebeu.
-            e.id AS escola_id, -- ID da escola que recebeu.
-            u_conf.username AS nome_usuario_confirmacao
+            u_sme.username AS usuario_sme_nome,
+            e.nome AS nome_escola,
+            e.id AS escola_id,
+            u_conf.username AS nome_usuario_confirmacao,
+            -- Importante: Alias para os itens deve ser 'itens' se a store frontend espera 'envio.itens'
+            -- O JSON_GROUP_ARRAY é mais robusto para SQLite moderno.
+            COALESCE(
+              (
+                SELECT JSON_GROUP_ARRAY(
+                          JSON_OBJECT(
+                            'produto_id', p_sub.id,
+                            'nome_produto', p_sub.nome,
+                            'unidade_medida', p_sub.unidade_medida,
+                            'quantidade_enviada', ti_sub.quantidade_enviada
+                          )
+                        )
+                FROM transferencia_itens ti_sub
+                JOIN produtos p_sub ON ti_sub.produto_id = p_sub.id
+                WHERE ti_sub.transferencia_id = t.id
+              ),
+              '[]' -- Retorna um array JSON vazio se não houver itens
+            ) as itens -- Alias para os itens da transferência
         FROM
             transferencias t
         JOIN
-            usuarios u_sme ON t.usuario_id = u_sme.id -- Usuário que enviou (SME)
+            usuarios u_sme ON t.usuario_id = u_sme.id
         JOIN
-            escolas e ON t.escola_id = e.id -- Escola que recebeu
+            escolas e ON t.escola_id = e.id
         LEFT JOIN
             usuarios u_conf ON t.usuario_confirmacao_id = u_conf.id
-        ORDER BY
-            t.data_transferencia DESC; -- Mais recentes primeiro.
     `;
 
-    db.all(sqlHistoricoEnviosSME, [], (err, envios) => {
+    const paramsSQL = [];
+    const conditions = [];
+
+    // 2. CONSTRUIR A SQL DINAMICAMENTE
+    if (destino) {
+        conditions.push("e.nome LIKE ?");
+        paramsSQL.push(`%${destino}%`);
+    }
+    if (dataInicio) {
+        // A função date() do SQLite compara apenas a parte da data
+        // Assumindo que data_transferencia é DATETIME e dataInicio é YYYY-MM-DD
+        conditions.push("date(t.data_transferencia) >= date(?)");
+        paramsSQL.push(dataInicio);
+    }
+    if (dataFim) {
+        conditions.push("date(t.data_transferencia) <= date(?)");
+        paramsSQL.push(dataFim);
+    }
+
+    if (conditions.length > 0) {
+        sqlHistoricoEnviosSME += " WHERE " + conditions.join(" AND ");
+    }
+
+    // GROUP BY é necessário se o JSON_GROUP_ARRAY estiver no select principal,
+    // mas como está numa subquery correlacionada, o GROUP BY t.id pode não ser
+    // estritamente necessário aqui para o propósito do JSON, mas não prejudica.
+    // É bom para garantir uma linha por transferência se houvesse outros JOINs que pudessem duplicar.
+    sqlHistoricoEnviosSME += " GROUP BY t.id ORDER BY t.data_transferencia DESC;";
+
+    db.all(sqlHistoricoEnviosSME, paramsSQL, (err, envios) => { // 3. PASSAR OS PARÂMETROS PARA DB.ALL
         if (err) {
             console.error("[GET /api/transferencias/historico-sme] Erro ao buscar histórico de envios da SME:", err.message);
             return res.status(500).json({ error: "Erro interno ao buscar histórico de envios." });
         }
-        if (envios.length === 0) {
-            return res.json([]); // Retorna array vazio se não houver envios.
-        }
 
-        // Para cada envio, busca seus itens correspondentes.
-        const promessasItens = envios.map(envio => {
-            return new Promise((resolve, reject) => {
-                const sqlItens = `
-                    SELECT
-                        p.id AS produto_id,  
-                        p.nome AS nome_produto,
-                        p.unidade_medida,
-                        ti.quantidade_enviada
-                    FROM transferencia_itens ti
-                    JOIN produtos p ON ti.produto_id = p.id
-                    WHERE ti.transferencia_id = ?;
-                `;
-                db.all(sqlItens, [envio.transferencia_id], (errItens, itens) => {
-                    if (errItens) {
-                        console.error(`[GET /api/transferencias/historico-sme] Erro ao buscar itens para envio ID ${envio.transferencia_id}:`, errItens.message);
-                        // Resolve com erro nos itens, mas continua processando outros envios.
-                        resolve({ ...envio, itens: [], error_itens: "Erro ao buscar itens deste envio" });
-                    } else {
-                        resolve({ ...envio, itens: itens });
-                    }
-                });
-            });
+        // O SQL já monta o array de 'itens' como JSON. O frontend/store fará o parse.
+        // Se o SQLite for muito antigo e JSON_GROUP_ARRAY não funcionar, a abordagem anterior
+        // de buscar itens em um loop de promessas seria necessária.
+        // A store no frontend está preparada para parsear `envio.itens` se for uma string JSON.
+        const enviosProcessados = envios.map(envio => {
+            let itensArray;
+            try {
+                itensArray = JSON.parse(envio.itens || '[]'); // Parseia a string JSON dos itens
+            } catch (e) {
+                console.error("Erro ao parsear itens JSON do backend para envio ID:", envio.transferencia_id, e);
+                itensArray = []; // Fallback para array vazio
+            }
+            return {
+                ...envio,
+                itens: itensArray
+            };
         });
 
-        // Espera todas as buscas de itens terminarem.
-        Promise.all(promessasItens)
-            .then(enviosComItens => res.json(enviosComItens))
-            .catch(errorGlobal => {
-                console.error("[GET /api/transferencias/historico-sme] Erro global ao processar itens do histórico de envios:", errorGlobal);
-                res.status(500).json({ error: "Erro ao processar detalhes dos itens do histórico de envios." });
-            });
+        res.json(enviosProcessados);
     });
 });
 

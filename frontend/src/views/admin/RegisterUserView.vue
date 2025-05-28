@@ -93,7 +93,7 @@
                         <label for="role" class="form-label">Permissão (Role):</label>
                         <!-- 6. SELECT PARA PERMISSÃO -->
                         <select id="role" class="form-select" v-model="newUser.role">
-                            <option value="user">Usuário Padrão</option>
+                            <option value="user">SME</option>
                             <option value="admin">Administrador</option>
                             <option value="escola">Escola</option>
                         </select>
@@ -153,9 +153,17 @@
                              <span class="user-info">{{ user.username }}</span>
                              <!-- 14. TAG DE PERMISSÃO (ROLE) -->
                              <!-- Classe dinâmica para estilizar a tag da permissão. -->
-                             <span class="role-tag" :class="user.role === 'admin' ? 'admin' : 'user'">
-                                 {{ user.role }}
-                             </span>
+                             <span class="role-tag" 
+                                  :class="{
+                                    'admin': user.role === 'admin',
+                                    'user': user.role === 'user',
+                                    'school': user.role === 'escola'
+                                  }">
+                                {{ getRoleDisplayName(user.role) }}
+                                <template v-if="user.role === 'escola' && user.school_id">
+                                    - {{ getSchoolNameById(user.school_id) }}
+                                </template>
+                            </span>
                              <!-- TODO: Adicionar botões de editar/excluir usuário se necessário. -->
                          </li>
                      </ul>
@@ -349,8 +357,49 @@
       isLoading.value = false; // Finaliza o estado de carregamento do formulário
     }
   };
+
+  // --- BLOCO 8: FUNÇÕES AUXILIARES ---
+/**
+ * @function getSchoolNameById
+ * @description Retorna o nome da escola com base no seu ID.
+ * @param {number|string} schoolId - O ID da escola.
+ * @returns {string} O nome da escola ou 'Escola não encontrada' se não for achada.
+ */
+const getSchoolNameById = (schoolId) => {
+    if (!schoolId || !availableSchools.value || availableSchools.value.length === 0) {
+        return 'Escola desconhecida';
+    }
+    const school = availableSchools.value.find(s => s.id === parseInt(schoolId)); // Garante que o ID seja comparado como número se necessário
+    return school ? school.nome : 'Escola não vinculada'; // Caso o ID exista mas a escola não esteja na lista (ex: deletada)
+};
+
+/**
+ * @function getRoleDisplayName
+ * @description Retorna um nome mais amigável para a role.
+ * @param {string} role - A role do usuário (e.g., 'admin', 'user', 'escola').
+ * @returns {string} O nome de exibição da role.
+ */
+const getRoleDisplayName = (role) => {
+    switch (role) {
+        case 'admin':
+            return 'Administrador';
+        case 'user':
+            return 'SME';
+        case 'escola':
+            return 'Escola';
+        default:
+            return role; // Retorna a role original se não houver um nome amigável definido
+    }
+};
+
+
   </script>
 
   <style scoped>
+
+
+
+
+
 
 </style>
