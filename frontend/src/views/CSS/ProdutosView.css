@@ -173,18 +173,6 @@
     flex-grow: 1; /* Faz todos crescerem por padrão */
 }
 
-/* >>>>> INÍCIO DA ADIÇÃO PARA LINHAS VERTICAIS NO FORMULÁRIO <<<<< */
-.form-row > .form-group:not(:last-child) {
-    /* Adiciona uma linha vertical à direita de cada .form-group, exceto o último */
-    border-right: 1px solid #e2e8f0; /* Cor e espessura da linha */
-    /* Adiciona um padding à direita ANTES da linha, igual ao gap original.
-       Isso assegura que o conteúdo não cole na linha.
-       O `gap` em `.form-row` cuidará do espaço DEPOIS da linha. */
-    padding-right: var(--form-row-gap);
-}
-/* >>>>> FIM DA ADIÇÃO PARA LINHAS VERTICAIS NO FORMULÁRIO <<<<< */
-
-
 /* --- Classes de Largura das Colunas (Formulário) --- */
 .form-group.col-grow {
     flex-grow: 3; /* Nome ocupa mais espaço */

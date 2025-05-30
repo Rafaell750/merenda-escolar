@@ -402,41 +402,15 @@ router.post('/confirmar-recebimento', (req, res) => {
 // Busca o histórico de todas as transferências (envios) realizadas pela SME.
 // Idealmente, adicionar middleware de autorização para garantir que apenas admin/SME possam ver tudo.
 router.get('/historico-sme', (req, res) => {
-    const { destino, dataInicio, dataFim } = req.query; // 1. LER OS PARÂMETROS DA QUERY
-    // SQL para buscar o histórico de envios da SME
-    let sqlHistoricoEnviosSME = `
-        SELECT
-            t.id AS transferencia_id,
-            -- As datas já estão sendo formatadas aqui. Se o frontend também formatar, pode haver redundância,
-            -- mas não é um grande problema. A store também está preparada para formatar se não vier formatado.
-            strftime('%d/%m/%Y %H:%M', t.data_transferencia, 'localtime') AS data_envio_formatada,
-            CASE
-                WHEN t.data_recebimento_confirmado IS NOT NULL
-                THEN strftime('%d/%m/%Y %H:%M', t.data_recebimento_confirmado, 'localtime')
-                ELSE NULL
-            END AS data_recebimento_confirmado_formatada,
-            u_sme.username AS usuario_sme_nome,
-            e.nome AS nome_escola,
-            e.id AS escola_id,
-            u_conf.username AS nome_usuario_confirmacao,
-            -- Importante: Alias para os itens deve ser 'itens' se a store frontend espera 'envio.itens'
-            -- O JSON_GROUP_ARRAY é mais robusto para SQLite moderno.
-            COALESCE(
-              (
-                SELECT JSON_GROUP_ARRAY(
-                          JSON_OBJECT(
-                            'produto_id', p_sub.id,
-                            'nome_produto', p_sub.nome,
-                            'unidade_medida', p_sub.unidade_medida,
-                            'quantidade_enviada', ti_sub.quantidade_enviada
-                          )
-                        )
-                FROM transferencia_itens ti_sub
-                JOIN produtos p_sub ON ti_sub.produto_id = p_sub.id
-                WHERE ti_sub.transferencia_id = t.id
-              ),
-              '[]' -- Retorna um array JSON vazio se não houver itens
-            ) as itens -- Alias para os itens da transferência
+    const { destino, dataInicio, dataFim, page = 1, limit = 10 } = req.query; // Adiciona page e limit
+
+    console.log("Backend [GET /historico-sme] - Filtros:", req.query);
+
+    const pageNum = parseInt(page, 10);
+    const limitNum = parseInt(limit, 10);
+    const offset = (pageNum - 1) * limitNum;
+
+    let sqlBase = `
         FROM
             transferencias t
         JOIN
@@ -447,17 +421,15 @@ router.get('/historico-sme', (req, res) => {
             usuarios u_conf ON t.usuario_confirmacao_id = u_conf.id
     `;
 
+    let sqlWhere = "";
     const paramsSQL = [];
     const conditions = [];
 
-    // 2. CONSTRUIR A SQL DINAMICAMENTE
     if (destino) {
         conditions.push("e.nome LIKE ?");
         paramsSQL.push(`%${destino}%`);
     }
     if (dataInicio) {
-        // A função date() do SQLite compara apenas a parte da data
-        // Assumindo que data_transferencia é DATETIME e dataInicio é YYYY-MM-DD
         conditions.push("date(t.data_transferencia) >= date(?)");
         paramsSQL.push(dataInicio);
     }
@@ -467,40 +439,93 @@ router.get('/historico-sme', (req, res) => {
     }
 
     if (conditions.length > 0) {
-        sqlHistoricoEnviosSME += " WHERE " + conditions.join(" AND ");
+        sqlWhere = " WHERE " + conditions.join(" AND ");
     }
 
-    // GROUP BY é necessário se o JSON_GROUP_ARRAY estiver no select principal,
-    // mas como está numa subquery correlacionada, o GROUP BY t.id pode não ser
-    // estritamente necessário aqui para o propósito do JSON, mas não prejudica.
-    // É bom para garantir uma linha por transferência se houvesse outros JOINs que pudessem duplicar.
-    sqlHistoricoEnviosSME += " GROUP BY t.id ORDER BY t.data_transferencia DESC;";
+    // 1. Query para contar o total de itens (com os mesmos filtros)
+    const sqlCount = `SELECT COUNT(DISTINCT t.id) as totalItems ${sqlBase} ${sqlWhere}`;
 
-    db.all(sqlHistoricoEnviosSME, paramsSQL, (err, envios) => { // 3. PASSAR OS PARÂMETROS PARA DB.ALL
-        if (err) {
-            console.error("[GET /api/transferencias/historico-sme] Erro ao buscar histórico de envios da SME:", err.message);
-            return res.status(500).json({ error: "Erro interno ao buscar histórico de envios." });
+    db.get(sqlCount, paramsSQL, (errCount, countRow) => {
+        if (errCount) {
+            console.error("[GET /historico-sme] Erro ao contar itens:", errCount.message);
+            return res.status(500).json({ error: "Erro interno ao processar a contagem de itens." });
         }
 
-        // O SQL já monta o array de 'itens' como JSON. O frontend/store fará o parse.
-        // Se o SQLite for muito antigo e JSON_GROUP_ARRAY não funcionar, a abordagem anterior
-        // de buscar itens em um loop de promessas seria necessária.
-        // A store no frontend está preparada para parsear `envio.itens` se for uma string JSON.
-        const enviosProcessados = envios.map(envio => {
-            let itensArray;
-            try {
-                itensArray = JSON.parse(envio.itens || '[]'); // Parseia a string JSON dos itens
-            } catch (e) {
-                console.error("Erro ao parsear itens JSON do backend para envio ID:", envio.transferencia_id, e);
-                itensArray = []; // Fallback para array vazio
-            }
-            return {
-                ...envio,
-                itens: itensArray
-            };
-        });
+        const totalItems = countRow ? countRow.totalItems : 0;
+        const totalPages = Math.ceil(totalItems / limitNum);
 
-        res.json(enviosProcessados);
+        if (totalItems === 0) {
+             return res.json({
+                 items: [],
+                 currentPage: pageNum,
+                 totalPages: 0,
+                 totalItems: 0
+             });
+        }
+
+        // 2. Query para buscar os itens da página atual (com os mesmos filtros + LIMIT e OFFSET)
+        let sqlHistoricoEnviosSME = `
+            SELECT
+                t.id AS transferencia_id,
+                strftime('%d/%m/%Y %H:%M', t.data_transferencia, 'localtime') AS data_envio_formatada,
+                CASE
+                    WHEN t.data_recebimento_confirmado IS NOT NULL
+                    THEN strftime('%d/%m/%Y %H:%M', t.data_recebimento_confirmado, 'localtime')
+                    ELSE NULL
+                END AS data_recebimento_confirmado_formatada,
+                u_sme.username AS usuario_sme_nome,
+                e.nome AS nome_escola,
+                e.id AS escola_id,
+                u_conf.username AS nome_usuario_confirmacao,
+                COALESCE(
+                  (
+                    SELECT JSON_GROUP_ARRAY(
+                              JSON_OBJECT(
+                                'produto_id', p_sub.id,
+                                'nome_produto', p_sub.nome,
+                                'unidade_medida', p_sub.unidade_medida,
+                                'quantidade_enviada', ti_sub.quantidade_enviada
+                              )
+                            )
+                    FROM transferencia_itens ti_sub
+                    JOIN produtos p_sub ON ti_sub.produto_id = p_sub.id
+                    WHERE ti_sub.transferencia_id = t.id
+                  ),
+                  '[]'
+                ) as itens
+            ${sqlBase}
+            ${sqlWhere}
+            GROUP BY t.id
+            ORDER BY t.data_transferencia DESC
+            LIMIT ? OFFSET ?
+        `;
+
+        const finalParamsSQL = [...paramsSQL, limitNum, offset]; // Adiciona limit e offset aos parâmetros
+
+        db.all(sqlHistoricoEnviosSME, finalParamsSQL, (err, envios) => {
+            if (err) {
+                console.error("[GET /historico-sme] Erro ao buscar histórico:", err.message);
+                return res.status(500).json({ error: "Erro interno ao buscar histórico de envios." });
+            }
+
+            const enviosProcessados = envios.map(envio => {
+                let itensArray;
+                try {
+                    itensArray = JSON.parse(envio.itens || '[]');
+                } catch (e) {
+                    console.error("Erro ao parsear itens JSON:", envio.transferencia_id, e);
+                    itensArray = [];
+                }
+                return { ...envio, itens: itensArray };
+            });
+
+            res.json({
+                items: enviosProcessados,
+                currentPage: pageNum,
+                totalPages: totalPages,
+                totalItems: totalItems
+            });
+        });
     });
 });
 

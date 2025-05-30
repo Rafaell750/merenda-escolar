@@ -3,16 +3,21 @@ import { defineStore } from 'pinia';
 import { useToast } from 'vue-toastification';
 
 const toast = useToast();
+const ITEMS_PER_PAGE = 10; // Defina quantos itens por página
 
 export const useHistoricoStore = defineStore('historico', {
   state: () => ({
     historicoEnviosSME: [],
     isLoading: false,
     error: null,
+    // Novas propriedades para paginação
+    currentPage: 1,
+    totalPages: 0,
+    totalItems: 0,
   }),
   actions: {
     // Modificado para aceitar filtros, mantendo a lógica original o máximo possível
-    async fetchHistoricoEnviosSME(filters = {}) { // Adicionado parâmetro filters
+    async fetchHistoricoEnviosSME(filters = {}, page = 1) { // Adicionado parâmetro filters
       // Lógica para evitar chamadas duplicadas:
       // Se é um refresh simples (sem filtros explícitos) E já está carregando, não faz nada.
       // Se filtros são passados (mesmo que vazios, indicando intenção de (re)filtrar), a chamada prossegue.
@@ -22,6 +27,7 @@ export const useHistoricoStore = defineStore('historico', {
 
       this.isLoading = true;
       this.error = null;
+      this.currentPage = page;
 
       // Se filtros estão sendo aplicados, limpar o histórico atual para uma melhor UX
       const hasActiveFilters = Object.values(filters).some(value => !!value);
@@ -50,6 +56,9 @@ export const useHistoricoStore = defineStore('historico', {
           params.append('dataFim', filters.dataFim);
         }
 
+        params.append('page', this.currentPage); // Envia a página atual
+        params.append('limit', ITEMS_PER_PAGE);  // Envia o limite de itens por página
+
         const queryString = params.toString();
         // Sua URL base. Adiciona a queryString se ela existir.
         const apiUrl = `http://localhost:3000/api/transferencias/historico-sme${queryString ? `?${queryString}` : ''}`;
@@ -74,7 +83,7 @@ export const useHistoricoStore = defineStore('historico', {
           throw new Error(errorData.error || `Erro HTTP: ${response.status}`);
         }
 
-        const rawData = await response.json();
+        const data = await response.json();
 
         // Processamento dos dados para garantir o formato esperado pelo componente:
         // O componente HistoricoEnviosSME.vue espera:
@@ -84,7 +93,7 @@ export const useHistoricoStore = defineStore('historico', {
         // Se o seu backend já retorna os dados exatamente neste formato, o .map pode ser mais simples
         // ou até removido se o 'rawData' já for perfeito.
         // A lógica abaixo tenta garantir esses campos.
-        this.historicoEnviosSME = rawData.map(envio => {
+        this.historicoEnviosSME = data.items.map(envio => {
           let parsedItens = [];
           if (Array.isArray(envio.itens)) {
             parsedItens = envio.itens;
@@ -122,6 +131,9 @@ export const useHistoricoStore = defineStore('historico', {
             // eles serão preservados pelo ...envio.
           };
         });
+        this.totalPages = data.totalPages;
+        this.totalItems = data.totalItems;
+        // this.currentPage já foi setado no início da action
 
       } catch (err) {
         console.error("Erro ao buscar histórico de envios SME:", err);

@@ -19,7 +19,7 @@
         Carregando histórico de envios...
       </div>
       <div v-else-if="historicoStore.error && historicoStore.historicoEnviosSME.length === 0" class="error-message">
-        Erro ao carregar histórico: {{ historicoStore.error }}
+        Erro ao carregar histórico. Faça Login novamente. {{ historicoStore.error }}
          <button @click="refreshHistorico" class="btn-try-again">Tentar Novamente</button>
       </div>
       <div v-else-if="!historicoStore.isLoading && historicoStore.historicoEnviosSME.length === 0 && !historicoStore.error" class="empty-list-message">
@@ -103,6 +103,14 @@
             </div>
           </li>
         </ul>
+         <!-- Controles de Paginação -->
+         <PaginationControls
+          v-if="historicoStore.totalPages > 0"
+          :current-page="historicoStore.currentPage"
+          :total-pages="historicoStore.totalPages"
+          @page-changed="(newPageNumber) => goToPage(newPageNumber)"
+          :max-visible-buttons="3" 
+        />
       </div>
     </div>
   </template>
@@ -112,6 +120,7 @@
   import { useHistoricoStore } from '@/stores/historicoStore';
   import { gerarPdfComprovanteEnvio } from '@/utils/pdfGenerator';
   import HistoricoFiltros from './HistoricoFiltros.vue'; // Importar o componente de filtros
+  import PaginationControls from '@/components/PaginationControls.vue';
   
   const historicoStore = useHistoricoStore();
   
@@ -131,6 +140,21 @@
   const aplicarFiltrosDaBusca = (novosFiltros) => {
     currentFilters.value = { ...novosFiltros }; // Atualiza os filtros locais
     historicoStore.fetchHistoricoEnviosSME(currentFilters.value); // Busca dados com os novos filtros
+  };
+
+  const fetchData = (page = 1) => {
+    historicoStore.fetchHistoricoEnviosSME(currentFilters.value, page);
+  };
+
+  // Função goToPage (certifique-se que está exatamente assim)
+const goToPage = (page) => { // 'page' aqui é o número da nova página
+  console.log("HistoricoEnviosSME: goToPage chamada com a página:", page); // Adicione para depuração
+  fetchData(page);
+};
+
+  const handleFiltrosAtualizados = (novosFiltros) => {
+    currentFilters.value = { ...novosFiltros };
+    fetchData(1); // Ao aplicar novos filtros, sempre volta para a página 1
   };
 
   // Função para o botão "Atualizar" e "Tentar Novamente"
@@ -246,12 +270,13 @@
   
   
   .historico-list-container {
-    /* Ajuste esta altura conforme necessário. 
-       Subtraia a altura do header, do componente de filtro, etc. */
-    max-height: calc(100vh - 350px); /* Exemplo, ajuste este valor! */
-    overflow-y: auto;
-    position: relative;
-  }
+  /* REMOVA ou COMENTE estas linhas para permitir expansão vertical: */
+  /* max-height: calc(100vh - 350px); */
+  /* overflow-y: auto; */
+
+  position: relative; /* Mantenha se o .loading-overlay depender disso */
+  /* A lista agora vai tentar ocupar toda a altura necessária para seu conteúdo */
+}
   
   .historico-list {
     list-style-type: none;
