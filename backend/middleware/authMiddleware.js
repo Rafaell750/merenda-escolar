@@ -222,9 +222,39 @@ function authorizeSchoolAccess(req, res, next) {
     return res.status(403).json({ error: 'Você não tem permissão para acessar os recursos desta escola com seu perfil atual.' });
 }
 
+/**
+ * @middleware authorizeRole
+ * @description Middleware genérico para verificar se o usuário autenticado
+ * possui um dos papéis (roles) especificados. Este middleware DEVE ser usado
+ * após `authenticateToken`.
+ *
+ * @param {Array<string>} rolesPermitidas - Um array de strings contendo os papéis permitidos.
+ * @returns {function} Uma função middleware Express.
+ */
+const authorizeRole = (rolesPermitidas) => {
+    return (req, res, next) => {
+        // Verifica se req.user foi populado pelo authenticateToken.
+        if (!req.user || !req.user.role) {
+            console.log('[Middleware AuthRole]: Tentativa de autorização de papel sem req.user ou req.user.role definido. URL:', req.originalUrl);
+            return res.status(401).json({ error: 'Não autenticado ou papel do usuário não encontrado. Falha ao verificar permissões.' });
+        }
+
+        // Verifica se o papel do usuário está na lista de papéis permitidos.
+        if (!rolesPermitidas.includes(req.user.role)) {
+            console.log(`[Middleware AuthRole]: Acesso negado para usuário ${req.user.username} (Role: ${req.user.role}) à rota ${req.originalUrl}. Papéis permitidos: ${rolesPermitidas.join(', ')}.`);
+            return res.status(403).json({ error: 'Acesso negado. Você não tem permissão para acessar este recurso com seu perfil atual.' });
+        }
+
+        // Se o usuário tem um dos papéis permitidos, permite o prosseguimento.
+        // console.log(`[Middleware AuthRole]: Acesso permitido para ${req.user.username} (Role: ${req.user.role}) à rota ${req.originalUrl}. Papéis permitidos: ${rolesPermitidas.join(', ')}.`);
+        next();
+    };
+};
+
 // Exporta os middlewares para serem usados em outros lugares (ex: server.js ou arquivos de rotas).
 module.exports = {
     authenticateToken,
     authorizeAdmin,
-    authorizeSchoolAccess
+    authorizeSchoolAccess,
+    authorizeRole
 };

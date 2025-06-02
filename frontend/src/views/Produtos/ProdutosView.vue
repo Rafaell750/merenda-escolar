@@ -185,6 +185,23 @@
                                  </svg>
                                  <span>Enviar Estoque</span>
                              </button>
+
+                             <!-- NOVO BOTÃO ADICIONADO AQUI -->
+                            <button
+                                type="button"
+                                @click="openReabastecerEstoqueModal"
+                                class="action-button reabastecer-stock-button"
+                                title="Reabastecer Estoque"
+                                :disabled="produtos.length === 0 || isLoadingList"
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-box-arrow-in-up" viewBox="0 0 16 16">
+                                    <path fill-rule="evenodd" d="M3.5 10a.5.5 0 0 1-.5-.5v-8a.5.5 0 0 1 .5-.5h9a.5.5 0 0 1 .5.5v8a.5.5 0 0 1-.5.5h-2a.5.5 0 0 0 0 1h2A1.5 1.5 0 0 0 14 9.5v-8A1.5 1.5 0 0 0 12.5 0h-9A1.5 1.5 0 0 0 2 1.5v8A1.5 1.5 0 0 0 3.5 11h2a.5.5 0 0 0 0-1z"/>
+                                    <path fill-rule="evenodd" d="M7.646 4.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1-.708.708L8.5 5.707V14.5a.5.5 0 0 1-1 0V5.707L5.354 7.854a.5.5 0 1 1-.708-.708z"/>
+                                </svg>
+                                <span>Reabastecer Estoque</span>
+                            </button>
+                            <!-- FIM DO NOVO BOTÃO -->
+
                              <!-- Botão para mostrar/ocultar filtros -->
                              <button
                                 type="button"
@@ -310,6 +327,15 @@
           @close="showEnviarModal = false"
           @confirmar-envio="handleConfirmarEnvio"
         />
+
+        <ReabastecerEstoqueModal
+        ref="reabastecerModalRef"
+        :show="showReabastecerModal"
+        :produtos="produtos"
+        @close="showReabastecerModal = false"
+        @confirmar-reabastecimento="handleConfirmarReabastecimento"
+        />
+
     </div> <!-- Fim da view de produtos -->
   </template>
   
@@ -320,6 +346,7 @@
   import ProdutoFiltros from './ProdutoFiltros.vue'; // Componente filho para filtros.
   import EnviarEstoqueModal from './EnviarEstoqueModal.vue'; // Componente filho para o modal de envio.
   import { useEscolasStore } from '@/stores/escolas'; // Store Pinia (instanciada mas não usada diretamente neste arquivo).
+  import ReabastecerEstoqueModal from './ReabastecerEstoqueModal.vue';
   
   const toast = useToast(); // Instância do serviço de toast.
   const escolasStore = useEscolasStore(); // Instância da store de escolas (uso potencial pelo modal ou futuras features).
@@ -332,6 +359,8 @@
   const openedActionMenuId = ref(null);   // ID do produto cujo menu de ações está aberto.
   const isFilterExpanded = ref(false);    // Controla se o painel de filtros está expandido.
   const showEnviarModal = ref(false);     // Controla a visibilidade do modal de envio de estoque.
+  const showReabastecerModal = ref(false); // Adicione esta linha
+  const reabastecerModalRef = ref(null); // Para controlar o loading do modal filho
   
   // Estrutura inicial para o `formData` (usado para v-model no formulário).
   const getInitialFormData = () => ({
@@ -875,8 +904,93 @@
         showEnviarModal.value = false;
     }
   };
+
+  // --- BLOCO 9: LÓGICA DO MODAL DE Reabastecimento 
+
+/**
+ * @function openReabastecerEstoqueModal
+ * @description Abre o modal `ReabastecerEstoqueModal`.
+ */
+const openReabastecerEstoqueModal = () => {
+  showReabastecerModal.value = true;
+};
+
+/**
+ * @function handleConfirmarReabastecimento
+ * @param {Array} payload - Array de { produto_id, quantidade_adicionada }.
+ * @description Envia os dados de reabastecimento para a API. Em caso de sucesso, atualiza
+ * as quantidades dos produtos na lista local e exibe um toast. Fecha o modal.
+ */
+const handleConfirmarReabastecimento = async (payloadItens) => {
+  if (!reabastecerModalRef.value) return; // Segurança
+  reabastecerModalRef.value.setLoading(true); // Ativa o loading no modal filho
+
+  try {
+    const token = localStorage.getItem('authToken');
+    if (!token) {
+      toast.error("Sessão expirada. Faça login novamente.");
+      showReabastecerModal.value = false;
+      reabastecerModalRef.value.setLoading(false);
+      return;
+    }
+
+    // Endpoint do backend para reabastecer múltiplos produtos
+    // Este endpoint precisa ser criado no backend!
+    const response = await fetch('http://localhost:3000/api/produtos/reabastecer-multiplos', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ itens: payloadItens }), // Backend espera um objeto com uma chave 'itens'
+    });
+    const responseData = await response.json();
+
+    if (!response.ok) {
+        throw new Error(responseData.error || `Falha ao reabastecer o estoque (Status: ${response.status})`);
+    }
+
+    toast.success(responseData.message || "Estoque reabastecido com sucesso!");
+
+    // Atualiza as quantidades na lista local e a data de modificação
+    // A API DEVE retornar os produtos atualizados ou pelo menos os IDs e novas quantidades/datas.
+    // Se a API retornar os produtos atualizados:
+    if (responseData.produtos_atualizados && Array.isArray(responseData.produtos_atualizados)) {
+        responseData.produtos_atualizados.forEach(produtoAtualizado => {
+            const index = produtos.value.findIndex(p => p.id === produtoAtualizado.id);
+            if (index !== -1) {
+                // Para garantir reatividade, substitua o objeto
+                produtos.value[index] = { ...produtos.value[index], ...produtoAtualizado };
+            }
+        });
+    } else {
+        // Fallback: atualiza localmente apenas as quantidades e a data para 'agora'
+        // Isso é menos preciso se a data_modificacao do backend for diferente
+        payloadItens.forEach(itemReabastecido => {
+            const index = produtos.value.findIndex(p => p.id === itemReabastecido.produto_id);
+            if (index !== -1) {
+                const produtoOriginal = produtos.value[index];
+                const novaQuantidade = (produtoOriginal.quantidade ?? 0) + itemReabastecido.quantidade_adicionada;
+                produtos.value[index] = {
+                    ...produtoOriginal,
+                    quantidade: novaQuantidade,
+                    data_modificacao: new Date().toISOString(), // Atualiza para agora
+                };
+            }
+        });
+    }
+
+
+    showReabastecerModal.value = false;
+  } catch (error) {
+      console.error("Erro ao reabastecer estoque:", error);
+      toast.error(`Erro ao reabastecer: ${error.message}`);
+      // Não fecha o modal em caso de erro, para o usuário tentar novamente ou corrigir.
+  } finally {
+    if (reabastecerModalRef.value) {
+      reabastecerModalRef.value.setLoading(false); // Desativa o loading no modal filho
+    }
+  }
+};
   
-  // --- BLOCO 9: HOOK DE CICLO DE VIDA ---
+  // --- BLOCO 10: HOOK DE CICLO DE VIDA ---
   
   /**
    * @hook onMounted
@@ -958,6 +1072,18 @@
       border-color: #117a8b;
       color: white;
   }
+
+  /* NOVO: ESTILOS PARA O BOTÃO "REABASTECER ESTOQUE" */
+.reabastecer-stock-button {
+    background-color: #28a745; /* Cor de sucesso (verde) */
+    border-color: #28a745;
+    color: white;
+}
+.reabastecer-stock-button:hover:not(:disabled) {
+    background-color: #218838;
+    border-color: #1e7e34;
+    color: white;
+}
   
   /* .toggle-filter-button: (sem estilos específicos aqui, herda de .action-button e CSS global/ProdutosView.css) */
   

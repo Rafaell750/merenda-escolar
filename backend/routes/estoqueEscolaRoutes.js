@@ -2,7 +2,7 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../database/dbConnection');
-// const { authorizeAdmin, authorizeSchoolOrAdmin } = require('../middleware/authMiddleware'); // Middlewares de autorização podem ser necessários
+
 
 // --- ROTA NOVA: GET /api/escolas/:escolaId/estoque/retiradas ---
 // Busca todos os itens retirados do estoque de uma escola específica.

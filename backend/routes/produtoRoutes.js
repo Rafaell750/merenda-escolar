@@ -43,7 +43,7 @@ const db = require('../database/dbConnection'); // Importa a conexão com o banc
 // `authenticateToken` é aplicado globalmente no server.js para o prefixo /api/produtos,
 // mas pode ser reafirmado aqui para clareza ou se houver necessidade de lógica específica
 // antes dele em alguma rota futura dentro deste arquivo (atualmente não é o caso).
-// const { authenticateToken } = require('../middleware/authMiddleware'); // Comentado pois é global
+const { authorizeRole } = require('../middleware/authMiddleware');
 const router = express.Router(); // Cria uma nova instância do roteador do Express
 
 // --- ROTA POST /api/produtos - Cadastrar Novo Produto ---
@@ -64,7 +64,6 @@ router.post('/', (req, res) => { // `authenticateToken` já foi aplicado em serv
     if (valor !== undefined && valor !== null && (isNaN(parseFloat(valor)) || parseFloat(valor) < 0)) {
         return res.status(400).json({ error: 'Valor inválido. Deve ser um número não negativo.' });
     }
-    // Validação de formato de data_vencimento (YYYY-MM-DD) pode ser adicionada aqui se necessário.
 
     // 2. Define a data de modificação atual para o novo produto.
     // Esta dataModificacaoAtual é usada no INSERT. O SELECT de retorno usará strftime.
@@ -273,5 +272,114 @@ router.delete('/:id', (req, res) => { // `authenticateToken` já foi aplicado
         res.status(204).send(); // 204 No Content (resposta padrão para DELETE bem-sucedido sem corpo).
     });
 });
+
+// --- NOVA SEÇÃO: ROTA POST /api/produtos/reabastecer-multiplos - Reabastecer Estoque de Múltiplos Produtos ---
+// Protegida por `authenticateToken` (global) e `authorizeRole` (específico)
+router.post('/reabastecer-multiplos', authorizeRole(['admin', 'user']), async (req, res) => {
+    const { itens } = req.body; // Espera um array [{ produto_id, quantidade_adicionada }]
+    const userId = req.user?.id; // ou req.user.username para log
+    const username = req.user?.username || 'usuário desconhecido';
+
+    if (!Array.isArray(itens) || itens.length === 0) {
+        return res.status(400).json({ error: 'Nenhum item fornecido para reabastecimento.' });
+    }
+
+    const produtosAtualizados = [];
+    let erroValidacao = null;
+
+    // Validar todos os itens antes de iniciar a transação
+    for (const item of itens) {
+        if (!item.produto_id || typeof item.quantidade_adicionada !== 'number' || item.quantidade_adicionada <= 0) {
+            erroValidacao = `Dados inválidos para o produto ID ${item.produto_id || 'desconhecido'}. Quantidade a adicionar deve ser um número positivo.`;
+            break;
+        }
+    }
+
+    if (erroValidacao) {
+        return res.status(400).json({ error: erroValidacao });
+    }
+
+    // Função auxiliar para executar queries com Promises (para melhor controle do fluxo assíncrono)
+    const runQuery = (sql, params = []) => {
+        return new Promise((resolve, reject) => {
+            db.run(sql, params, function(err) { // Usar function para this
+                if (err) return reject(err);
+                resolve(this); // Resolve com o contexto (this.lastID, this.changes)
+            });
+        });
+    };
+
+    const getQuery = (sql, params = []) => {
+        return new Promise((resolve, reject) => {
+            db.get(sql, params, (err, row) => {
+                if (err) return reject(err);
+                resolve(row);
+            });
+        });
+    };
+    
+    // Iniciar transação
+    try {
+        await runQuery('BEGIN TRANSACTION');
+        console.log(`[POST /reabastecer-multiplos] Transação iniciada por ${username}.`);
+
+        for (const item of itens) {
+            const produtoExistente = await getQuery("SELECT id, nome, quantidade FROM produtos WHERE id = ?", [item.produto_id]);
+            
+            if (!produtoExistente) {
+                // Este erro fará o catch ser acionado e a transação ser revertida.
+                throw new Error(`Produto com ID ${item.produto_id} não encontrado.`);
+            }
+
+            const novaQuantidade = (Number(produtoExistente.quantidade) || 0) + Number(item.quantidade_adicionada);
+            const dataModificacaoAtual = new Date().toISOString();
+
+            const updateResult = await runQuery(
+                "UPDATE produtos SET quantidade = ?, data_modificacao = ? WHERE id = ?",
+                [novaQuantidade, dataModificacaoAtual, item.produto_id]
+            );
+
+            if (updateResult.changes === 0) {
+                // Isso não deveria acontecer se o produtoExistente foi encontrado, mas é uma segurança.
+                console.warn(`[POST /reabastecer-multiplos] Nenhum produto atualizado para ID ${item.produto_id} na transação de ${username}.`);
+                // Poderia lançar um erro aqui também se for crítico
+            }
+            
+            // Buscar o produto atualizado para retornar ao frontend (com data_modificacao formatada)
+            const produtoAtualizado = await getQuery(`
+                SELECT id, nome, descricao, unidade_medida, categoria, quantidade, valor, data_vencimento,
+                       strftime('%Y-%m-%dT%H:%M:%SZ', data_modificacao) AS data_modificacao,
+                       data_cadastro
+                FROM produtos WHERE id = ?
+            `, [item.produto_id]);
+            
+            if (produtoAtualizado) {
+                produtosAtualizados.push(produtoAtualizado);
+            } else {
+                 console.warn(`[POST /reabastecer-multiplos] Produto ID ${item.produto_id} não encontrado após update para reabastecimento por ${username}.`);
+            }
+        }
+
+        await runQuery('COMMIT');
+        console.log(`[POST /reabastecer-multiplos] Transação COMMITada para ${username}. Produtos atualizados: ${produtosAtualizados.length}`);
+        res.status(200).json({ 
+            message: 'Estoque reabastecido com sucesso!',
+            produtos_atualizados: produtosAtualizados 
+        });
+
+    } catch (error) {
+        console.error(`[POST /reabastecer-multiplos] Erro na transação de reabastecimento para ${username}:`, error.message);
+        try {
+            await runQuery('ROLLBACK');
+            console.log(`[POST /reabastecer-multiplos] Transação ROLLBACK para ${username} devido a erro.`);
+        } catch (rollbackError) {
+            console.error("[POST /reabastecer-multiplos] Erro CRÍTICO ao tentar reverter a transação (ROLLBACK):", rollbackError.message);
+            // Se o rollback falhar, o estado do banco pode ser inconsistente.
+            // É um erro grave, talvez necessite de intervenção manual ou log mais detalhado.
+        }
+        res.status(500).json({ error: error.message || 'Erro interno ao reabastecer estoque.' });
+    }
+});
+// --- FIM DA NOVA SEÇÃO ---
 
 module.exports = router; // Exporta o roteador.
