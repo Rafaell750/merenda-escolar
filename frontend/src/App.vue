@@ -596,26 +596,29 @@ body {
 .sidebar.collapsed .logout-button .menu-item-text { display: none; } /* Esconde texto do logout ao recolher */
 
 
-/* --- Estilos da Área de Conteúdo Principal --- */
 .main-content-area {
-  flex: 1; /* Ocupa o espaço restante */
+  flex: 1;
   background-color: var(--content-bg-color);
   display: flex;
   flex-direction: column;
-  padding: 2rem; /* Espaçamento interno */
-  overflow-y: auto; /* Scroll vertical se o conteúdo for maior */
+  padding: 2rem; /* Padding padrão para páginas com sidebar */
+  overflow-y: auto;
   min-height: 100vh;
-  transition: margin-left var(--sidebar-transition-duration) ease-in-out; /* Animação da margem */
-  margin-left: var(--sidebar-width-expanded); /* Margem para acomodar a sidebar expandida */
+  transition: margin-left var(--sidebar-transition-duration) ease-in-out, padding 0s, background-color 0s; /* Adicionar padding e bg-color à transição para evitar "saltos" se quiser */
+  margin-left: var(--sidebar-width-expanded);
 }
 /* Ajuste da margem quando a sidebar está visível E recolhida */
 .main-content-area.sidebar-visible.sidebar-collapsed {
   margin-left: var(--sidebar-width-collapsed);
 }
-/* Ajuste para a página de login (sem sidebar, sem margem) */
+/* Ajuste COMPLETO para a página de login */
 .main-content-area.login-page {
-  margin-left: 0;
-  /* transition: none; */ /* Opcional: remover transição ao entrar/sair da tela de login */
+  margin-left: 0 !important; /* Garante que não haja margem */
+  padding: 0 !important; /* REMOVE O PADDING */
+  background-color: transparent !important; /* TORNA O FUNDO TRANSPARENTE */
+  /* Se a imagem de fundo do LoginView ainda não preencher,
+     garantir que LoginView (auth-view-container) também tenha 100% de altura/largura */
+  /* overflow-y: hidden; */ /* Pode ser útil para evitar barras de rolagem apenas na página de login, se necessário */
 }
 
 /* Animação de Fade para transição de rotas */

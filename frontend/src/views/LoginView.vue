@@ -158,4 +158,27 @@ const handleLogin = async () => {
 
 @import '../styles/auth-styles.css';
 
+/* Estilo para o container principal da view de autenticação */
+.auth-view-container {
+
+
+  /* --- NOVO: Imagem de Fundo --- */
+  background-image: url('/images/login-background.jpg'); /* Caminho para sua imagem na pasta public */
+  background-size: cover; /* Faz a imagem cobrir todo o container */
+  background-position: center; /* Centraliza a imagem */
+  background-repeat: no-repeat; /* Evita que a imagem se repita */
+  /* Opcional: background-attachment: fixed; para um efeito de parallax suave ao rolar (se houver scroll) */
+}
+
+/* Estilo para o card de autenticação */
+.auth-card {
+  /* --- MODIFICADO: Fundo semi-transparente --- */
+  background-color: rgba(255, 255, 255, 0.85); /* Branco com 85% de opacidade. Ajuste (R, G, B, A) conforme necessário */
+  /* Exemplo com fundo escuro semi-transparente: background-color: rgba(0, 0, 0, 0.7); */
+
+
+}
+
+
+
 </style>

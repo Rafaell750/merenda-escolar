@@ -57,13 +57,25 @@ router.post('/', (req, res) => { // `authenticateToken` já foi aplicado em serv
         return res.status(400).json({ error: 'Nome, Unidade de Medida e Categoria são obrigatórios.' });
     }
     // Valida se quantidade, se fornecida, é um número não negativo.
-    if (quantidade !== undefined && quantidade !== null && (isNaN(parseFloat(quantidade)) || parseFloat(quantidade) < 0)) {
+    if (quantidade === undefined || quantidade === null || quantidade === '' || isNaN(parseFloat(quantidade)) || parseFloat(quantidade) < 0) {
         return res.status(400).json({ error: 'Quantidade inválida. Deve ser um número não negativo.' });
     }
     // Valida se valor, se fornecido, é um número não negativo.
     if (valor !== undefined && valor !== null && (isNaN(parseFloat(valor)) || parseFloat(valor) < 0)) {
         return res.status(400).json({ error: 'Valor inválido. Deve ser um número não negativo.' });
     }
+
+// VERIFICAÇÃO DE NOME DUPLICADO (CASE-INSENSITIVE)
+    const checkNameSql = "SELECT id FROM produtos WHERE LOWER(nome) = LOWER(?)";
+    db.get(checkNameSql, [nome], (err, row) => {
+        if (err) {
+            console.error(`[POST /api/produtos] Erro ao verificar nome duplicado para "${nome}":`, err.message);
+            return res.status(500).json({ error: 'Erro interno do servidor ao verificar o nome do produto.' });
+        }
+        if (row) {
+            // Já existe um produto com este nome
+            return res.status(409).json({ error: `Já existe um produto cadastrado com o nome "${nome}".` });
+        }
 
     // 2. Define a data de modificação atual para o novo produto.
     // Esta dataModificacaoAtual é usada no INSERT. O SELECT de retorno usará strftime.
@@ -81,8 +93,7 @@ router.post('/', (req, res) => { // `authenticateToken` já foi aplicado em serv
         descricao,
         unidade_medida,
         categoria,
-        // Converte quantidade e valor para float, tratando strings vazias ou undefined como NULL.
-        (quantidade === '' || quantidade === undefined || quantidade === null) ? null : parseFloat(quantidade),
+        parseFloat(quantidade),
         (valor === '' || valor === undefined || valor === null) ? null : parseFloat(valor),
         (data_vencimento === '' || data_vencimento === undefined || data_vencimento === null) ? null : data_vencimento,
         dataModificacaoAtualParaInsert // Usa a data definida na aplicação para data_modificacao no INSERT
@@ -125,9 +136,11 @@ router.post('/', (req, res) => { // `authenticateToken` já foi aplicado em serv
             }
             console.log(`[POST /api/produtos] Produto "${row.nome}" (ID: ${row.id}) cadastrado por ${req.user?.username || 'usuário desconhecido (token sem username?)'}.`);
             res.status(201).json(row); // 201 Created, retorna o objeto completo do produto.
+            });
         });
     });
 });
+
 
 // --- ROTA GET /api/produtos - Listar Todos os Produtos ---
 // Protegida por `authenticateToken` aplicado globalmente.
@@ -161,12 +174,24 @@ router.put('/:id', (req, res) => { // `authenticateToken` já foi aplicado
     if (!nome || !unidade_medida || !categoria) {
         return res.status(400).json({ error: 'Nome, Unidade de Medida e Categoria são obrigatórios para atualização.' });
     }
-    if (quantidade !== undefined && quantidade !== null && (isNaN(parseFloat(quantidade)) || parseFloat(quantidade) < 0)) {
+    if (quantidade === undefined || quantidade === null || quantidade === '' || isNaN(parseFloat(quantidade)) || parseFloat(quantidade) < 0) {
         return res.status(400).json({ error: 'Quantidade inválida. Deve ser um número não negativo.' });
     }
     if (valor !== undefined && valor !== null && (isNaN(parseFloat(valor)) || parseFloat(valor) < 0)) {
         return res.status(400).json({ error: 'Valor inválido. Deve ser um número não negativo.' });
     }
+
+        // VERIFICAÇÃO DE NOME DUPLICADO (CASE-INSENSITIVE), EXCLUINDO O PRÓPRIO PRODUTO ATUAL
+        const checkNameSql = "SELECT id FROM produtos WHERE LOWER(nome) = LOWER(?) AND id != ?";
+        db.get(checkNameSql, [nome, id], (err, row) => {
+            if (err) {
+                console.error(`[PUT /api/produtos/:id] Erro ao verificar nome duplicado para "${nome}" (ID: ${id}):`, err.message);
+                return res.status(500).json({ error: 'Erro interno do servidor ao verificar o nome do produto.' });
+            }
+            if (row) {
+                // Já existe OUTRO produto com este nome
+                return res.status(409).json({ error: `Já existe outro produto cadastrado com o nome "${nome}".` });
+            }
 
     // 2. Define a data de modificação atual para o UPDATE.
     const dataModificacaoAtualParaUpdate = new Date().toISOString();
@@ -191,7 +216,7 @@ router.put('/:id', (req, res) => { // `authenticateToken` já foi aplicado
         descricao,
         unidade_medida,
         categoria,
-        (quantidade === '' || quantidade === undefined || quantidade === null) ? null : parseFloat(quantidade),
+        parseFloat(quantidade),
         (valor === '' || valor === undefined || valor === null) ? null : parseFloat(valor),
         (data_vencimento === '' || data_vencimento === undefined || data_vencimento === null) ? null : data_vencimento,
         dataModificacaoAtualParaUpdate, // Usa a data definida na aplicação para data_modificacao no UPDATE
@@ -245,6 +270,7 @@ router.put('/:id', (req, res) => { // `authenticateToken` já foi aplicado
                  res.status(200).json(row); // Retorna o objeto do produto atualizado.
              });
         }
+        });
     });
 });
 

@@ -127,14 +127,14 @@
                                 </div>
                                 <div class="form-group col-1-of-4">
                                     <label for="quantidadeProduto" class="form-label">Quantidade:</label>
-                                    <input type="number" id="quantidadeProduto" v-model.number="formData.quantidade" class="form-input" placeholder="Ex: 10" step="any" min="0"/>
+                                    <input type="number" id="quantidadeProduto" v-model.number="formData.quantidade" class="form-input" placeholder="Ex: 10" step="any" min="0" required />
                                 </div>
                                 <div class="form-group col-1-of-4">
-                                    <label for="valorProduto" class="form-label">Valor (R$):</label>
+                                    <label for="valorProduto" class="form-label">Valor em R$ (Opcional):</label>
                                     <input type="number" id="valorProduto" v-model.number="formData.valor" class="form-input" placeholder="Ex: 15,50" step="0.01" min="0"/>
                                 </div>
                                 <div class="form-group col-1-of-4">
-                                    <label for="vencimentoProduto" class="form-label">Vencimento:</label>
+                                    <label for="vencimentoProduto" class="form-label">Vencimento (Opcional):</label>
                                     <input type="date" id="vencimentoProduto" v-model="formData.data_vencimento" class="form-input"/>
                                 </div>
                             </div>
@@ -651,6 +651,7 @@
       // Prepara payload, convertendo campos numéricos e tratando datas vazias.
       const payload = {
           ...formData.value,
+          nome: formData.value.nome.trim(),
           quantidade: (formData.value.quantidade === '' || formData.value.quantidade === null) ? null : Number(formData.value.quantidade),
           valor: (formData.value.valor === '' || formData.value.valor === null) ? null : Number(formData.value.valor),
           data_vencimento: formData.value.data_vencimento === '' ? null : formData.value.data_vencimento
@@ -664,7 +665,15 @@
       });
       const responseData = await response.json();
       if (!response.ok) {
-          throw new Error(responseData.error || `Falha ao cadastrar produto (Status: ${response.status})`);
+          if (response.status === 409 && responseData.error) { // Erro de nome duplicado
+              validationError.value = responseData.error; // Exibe no formulário
+              toast.error(responseData.error); // E como toast
+          } else {
+              const genericError = responseData.error || `Falha ao cadastrar produto (Status: ${response.status})`;
+              validationError.value = genericError;
+              toast.error(`Erro ao cadastrar: ${genericError}`);
+          }
+          return; // Interrompe a execução aqui
       }
       // Adiciona o novo produto no início da lista (assumindo retorno da API com ID e data_modificacao)
       produtos.value.unshift(responseData);
@@ -721,6 +730,7 @@
   
         const payload = {
           ...formData.value,
+          nome: formData.value.nome.trim(),
           quantidade: (formData.value.quantidade === '' || formData.value.quantidade === null) ? null : Number(formData.value.quantidade),
           valor: (formData.value.valor === '' || formData.value.valor === null) ? null : Number(formData.value.valor),
           data_vencimento: formData.value.data_vencimento === '' ? null : formData.value.data_vencimento
@@ -733,7 +743,15 @@
         });
         const responseData = await response.json();
         if (!response.ok) {
-            throw new Error(responseData.error || `Falha ao atualizar produto (Status: ${response.status})`);
+            if (response.status === 409 && responseData.error) { // Erro de nome duplicado
+                validationError.value = responseData.error; // Exibe no formulário
+                toast.error(responseData.error); // E como toast
+            } else {
+                const genericError = responseData.error || `Falha ao atualizar produto (Status: ${response.status})`;
+                validationError.value = genericError;
+                toast.error(`Erro ao atualizar: ${genericError}`);
+            }
+            return; // Interrompe a execução aqui
         }
   
         // Atualiza o produto na lista local com os dados retornados (incluindo nova data_modificacao)
@@ -1084,6 +1102,19 @@ const handleConfirmarReabastecimento = async (payloadItens) => {
     border-color: #1e7e34;
     color: white;
 }
+
+/* Adicionado para feedback de erro de nome duplicado */
+  .form-feedback {
+    margin-bottom: 1rem;
+    padding: 0.75rem 1rem;
+    border-radius: 4px;
+    font-size: 0.9rem;
+  }
+  .form-feedback.error {
+    background-color: #f8d7da;
+    color: #721c24;
+    border: 1px solid #f5c6cb;
+  }
   
   /* .toggle-filter-button: (sem estilos específicos aqui, herda de .action-button e CSS global/ProdutosView.css) */
   
