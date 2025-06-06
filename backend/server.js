@@ -121,6 +121,8 @@ app.use('/api/transferencias', authenticateToken, transferenciaRoutes);
 // `/api/users/register` pode ser acessado por admin (verificado dentro da rota).
 app.use('/api/users', userRoutes);
 
+app.use('/api/escolas', authenticateToken, estoqueEscolaRoutes);
+
 // Rotas de Exemplo (podem ser mantidas para testes ou removidas)
 app.get('/api/dados-protegidos', authenticateToken, (req, res) => {
     // `req.user` é adicionado pelo middleware `authenticateToken` com os dados do token decodificado
@@ -170,7 +172,8 @@ async function setupDatabase() {
         descricao TEXT,
         unidade_medida TEXT NOT NULL,
         categoria TEXT NOT NULL,
-        quantidade REAL NOT NULL,            
+        quantidade REAL NOT NULL,
+        quantidade_referencia_alerta REAL DEFAULT 0,            
         valor REAL,                  
         data_vencimento TEXT,        
         data_cadastro DATETIME DEFAULT CURRENT_TIMESTAMP,

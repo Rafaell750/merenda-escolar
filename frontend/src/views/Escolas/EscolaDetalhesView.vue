@@ -103,8 +103,6 @@
           <p><strong>Endereço:</strong> {{ detalhesEscola.endereco || 'Não informado' }}</p>
           <p><strong>Responsável:</strong> {{ detalhesEscola.responsavel || 'Não informado' }}</p>
           <p><strong>Cadastrada em:</strong> {{ formatarData(detalhesEscola.data_cadastro) }}</p>
-          <!-- Botão para editar dados da escola (funcionalidade futura/opcional) -->
-          <!-- <button v-if="podeGerenciarEscola" @click="abrirModalEditarDadosEscola">Editar Dados</button> -->
       </div>
 
       <!-- 4. SEÇÃO DE ESTOQUE RECEBIDO -->

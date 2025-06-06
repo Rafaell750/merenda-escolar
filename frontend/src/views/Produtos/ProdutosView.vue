@@ -161,7 +161,8 @@
                     </div>
                 </Transition>
             </div> <!-- Fim do card do formulário -->
-  
+            
+            
             <!-- 4. CONTAINER PARA A LISTA DE PRODUTOS E FILTROS -->
             <!-- Organiza a lista e os filtros lado a lado ou empilhados, dependendo do CSS. -->
             <div class="list-filter-container">
@@ -220,12 +221,15 @@
                         </button>
                     </div>
                   </div>
+                  <EstoqueAlertas v-if="!isLoadingList && produtos && produtos.length > 0 && produtosFiltrados.length > 0" :produtosComAlerta="produtosComAlerta" />
   
                     <!-- 4.1.2. CONTEÚDO DA LISTA (TABELA DE PRODUTOS) -->
                     <!-- Mensagens de estado: carregando, lista vazia, nenhum resultado para filtros. -->
                     <div v-if="isLoadingList" class="loading-list">Carregando produtos...</div>
                     <div v-else-if="!produtos || produtos.length === 0" class="empty-list">Nenhum produto cadastrado ainda.</div>
                     <div v-else-if="produtosFiltrados.length === 0" class="empty-list">Nenhum produto encontrado com os filtros atuais.</div>
+
+                    
   
                     <!-- Tabela responsiva para exibir os produtos -->
                     <div class="table-responsive" v-else>
@@ -247,7 +251,7 @@
                               Cada linha `<tr>` representa um produto.
                             -->
                             <TransitionGroup name="list" tag="tbody">
-                                <tr v-for="produto in produtosFiltrados" :key="produto.id">
+                                <tr v-for="produto in produtosFiltrados" :key="produto.id" :class="getRowClass(produto)">
                                     <td data-label="Nome:">{{ produto.nome }}</td>
                                     <td data-label="Categoria:">{{ getCategoriaLabel(produto.categoria) }}</td>
                                     <td data-label="Unidade:">{{ produto.unidade_medida }}</td>
@@ -347,6 +351,7 @@
   import EnviarEstoqueModal from './EnviarEstoqueModal.vue'; // Componente filho para o modal de envio.
   import { useEscolasStore } from '@/stores/escolas'; // Store Pinia (instanciada mas não usada diretamente neste arquivo).
   import ReabastecerEstoqueModal from './ReabastecerEstoqueModal.vue';
+  import EstoqueAlertas from './EstoqueAlertas.vue';
   
   const toast = useToast(); // Instância do serviço de toast.
   const escolasStore = useEscolasStore(); // Instância da store de escolas (uso potencial pelo modal ou futuras features).
@@ -418,6 +423,22 @@
     });
     return listaFiltrada;
   });
+
+    // Computado para os produtos que necessitam de alerta.
+    const produtosComAlerta = computed(() => {
+        return produtosFiltrados.value.filter(produto => {
+            // Verifica se a quantidade é um número, senão considera 0 para segurança
+            const quantidadeAtual = Number(produto.quantidade);
+            if (isNaN(quantidadeAtual)) return false; // Se não for número, não alerta
+
+            if (quantidadeAtual === 0) return true; // Alerta para estoque zerado
+
+            const referencia = Number(produto.quantidade_referencia_alerta);
+            // Alerta de metade apenas se a referência for positiva e estoque atual <= 50%
+            // e quantidade atual > 0 (para não duplicar o alerta de estoque zerado)
+            return !isNaN(referencia) && referencia > 0 && quantidadeAtual > 0 && quantidadeAtual <= referencia / 2;
+        });
+    });
   
   
   // --- BLOCO 4: DIRETIVA CUSTOMIZADA v-click-outside ---
@@ -564,6 +585,21 @@
         return '';
     }
   };
+
+
+const getRowClass = (produto) => {
+  const quantidadeAtual = Number(produto.quantidade);
+  if (isNaN(quantidadeAtual)) return ''; // Se não for número, sem classe especial
+
+  if (quantidadeAtual === 0) {
+    return 'stock-zero';
+  }
+  const referencia = Number(produto.quantidade_referencia_alerta);
+  if (!isNaN(referencia) && referencia > 0 && quantidadeAtual > 0 && quantidadeAtual <= referencia / 2) {
+    return 'stock-half';
+  }
+  return '';
+};
   
   // --- BLOCO 7: FUNÇÕES DE INTERAÇÃO COM API (CRUD DE PRODUTOS) ---
   
@@ -576,24 +612,55 @@
     isLoadingList.value = true;
     try {
         const token = localStorage.getItem('authToken');
-        if (!token) throw new Error("Token de autenticação não encontrado.");
-  
-        const response = await fetch('http://localhost:3000/api/produtos', {
-            headers: { 'Authorization': `Bearer ${token}` }
-        });
-  
+    if (!token) {
+        // Se não houver token, não há necessidade de fazer a chamada fetch
+        toast.error("Token de autenticação não encontrado. Faça login.");
+        produtos.value = []; // Limpa os produtos
+        // router.push('/login'); // Redirecionar para login
+        isLoadingList.value = false;
+        return; // Interrompe a execução
+    }
+
+    const response = await fetch('http://localhost:3000/api/produtos', {
+        headers: { 'Authorization': `Bearer ${token}` }
+    });
+
+    // Lê o corpo da resposta UMA VEZ, independentemente do status
+    const responseData = await response.json().catch(err => {
+        // Se response.json() falhar (ex: corpo vazio ou não JSON),
+        // responseData será undefined ou o erro.
+        // Isso pode acontecer se o servidor retornar um erro 500 sem corpo JSON.
+        console.warn("Falha ao parsear JSON da resposta:", err, "Status:", response.status);
+        // Retorna um objeto de erro padronizado para ser tratado abaixo
+        return { error: `Erro ao processar resposta do servidor (Status: ${response.status})`, details: err.message };
+    });
+
+    if (!response.ok) {
+        // Agora usamos responseData que já foi lido (ou é um objeto de erro do catch acima)
+        let errorMsg = responseData?.error || `Falha ao buscar produtos (Status: ${response.status})`;
+        if (responseData?.details) {
+            errorMsg += ` Detalhes: ${responseData.details}`;
+        }
+
         if (response.status === 401 || response.status === 403) {
-             localStorage.removeItem('authToken'); // Limpa token inválido
-             toast.error("Sessão inválida ou expirada. Faça login novamente.");
-             // TODO: Implementar redirecionamento para login: router.push('/login');
-             produtos.value = []; isLoadingList.value = false; return;
+            localStorage.removeItem('authToken');
+            toast.error("Sessão inválida ou expirada. Faça login novamente.");
+            // router.push('/login'); // DESCOMENTE SE TIVER O ROUTER CONFIGURADO
+        } else {
+            toast.error(errorMsg);
         }
-        if (!response.ok) {
-            let errorMsg = `Falha ao buscar produtos (Status: ${response.status})`;
-            try { const errorData = await response.json(); errorMsg = errorData.error || errorMsg; } catch(e) {}
-            throw new Error(errorMsg);
-        }
-        produtos.value = await response.json(); // API deve retornar 'data_modificacao'
+        produtos.value = []; // Limpa os produtos em caso de erro
+        throw new Error(errorMsg); // Lança o erro para ser pego pelo catch externo, se necessário
+    }
+
+    // Se response.ok for true, responseData contém os produtos
+    produtos.value = responseData.map(p => ({
+      ...p,
+      // Converte para número, tratando null/undefined para 0 ou null conforme apropriado
+      quantidade: p.quantidade !== null && p.quantidade !== undefined ? Number(p.quantidade) : 0,
+      quantidade_referencia_alerta: p.quantidade_referencia_alerta !== null && p.quantidade_referencia_alerta !== undefined ? Number(p.quantidade_referencia_alerta) : null,
+      valor: p.valor !== null && p.valor !== undefined ? Number(p.valor) : null
+    }));
     } catch (error) {
         console.error("Erro ao buscar produtos:", error);
         toast.error(`Erro ao carregar produtos: ${error.message}`);
@@ -959,10 +1026,20 @@ const handleConfirmarReabastecimento = async (payloadItens) => {
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify({ itens: payloadItens }), // Backend espera um objeto com uma chave 'itens'
     });
-    const responseData = await response.json();
+    const responseData = await response.json().catch(err => { // Adicionado .catch aqui como na solução anterior de fetchProdutos
+        console.warn("Falha ao parsear JSON da resposta de reabastecimento:", err, "Status:", response.status);
+        return { error: `Erro ao processar resposta do servidor (Status: ${response.status})`, details: err.message };
+    });
 
     if (!response.ok) {
-        throw new Error(responseData.error || `Falha ao reabastecer o estoque (Status: ${response.status})`);
+        // Se response.ok é false, responseData já foi lido ou é um objeto de erro.
+        let errorMsg = responseData?.error || `Falha ao reabastecer o estoque (Status: ${response.status})`;
+        if (responseData?.details && errorMsg === `Erro ao processar resposta do servidor (Status: ${response.status})`) {
+            // Evita duplicar a mensagem de erro de parse se ela já foi capturada
+        } else if (responseData?.details) {
+             errorMsg += ` Detalhes: ${responseData.details}`;
+        }
+        throw new Error(errorMsg);
     }
 
     toast.success(responseData.message || "Estoque reabastecido com sucesso!");
@@ -971,11 +1048,16 @@ const handleConfirmarReabastecimento = async (payloadItens) => {
     // A API DEVE retornar os produtos atualizados ou pelo menos os IDs e novas quantidades/datas.
     // Se a API retornar os produtos atualizados:
     if (responseData.produtos_atualizados && Array.isArray(responseData.produtos_atualizados)) {
-        responseData.produtos_atualizados.forEach(produtoAtualizado => {
-            const index = produtos.value.findIndex(p => p.id === produtoAtualizado.id);
+        responseData.produtos_atualizados.forEach(produtoAtualizadoServidor => { 
+            const index = produtos.value.findIndex(p => p.id === produtoAtualizadoServidor.id);
             if (index !== -1) {
                 // Para garantir reatividade, substitua o objeto
-                produtos.value[index] = { ...produtos.value[index], ...produtoAtualizado };
+                produtos.value[index] = {
+                    ...produtos.value[index],
+                    ...produtoAtualizadoServidor,
+                    quantidade: Number(produtoAtualizadoServidor.quantidade),
+                    quantidade_referencia_alerta: produtoAtualizadoServidor.quantidade_referencia_alerta !== null ? Number(produtoAtualizadoServidor.quantidade_referencia_alerta) : null
+                };
             }
         });
     } else {
@@ -989,6 +1071,7 @@ const handleConfirmarReabastecimento = async (payloadItens) => {
                 produtos.value[index] = {
                     ...produtoOriginal,
                     quantidade: novaQuantidade,
+                    quantidade_referencia_alerta: novaQuantidade,
                     data_modificacao: new Date().toISOString(), // Atualiza para agora
                 };
             }
@@ -1115,6 +1198,18 @@ const handleConfirmarReabastecimento = async (payloadItens) => {
     color: #721c24;
     border: 1px solid #f5c6cb;
   }
+
+  /* ESTILOS QUE PERMANECEM EM ProdutosView.vue: */
+.product-table tr.stock-half td {
+  background-color: rgba(255, 165, 0, 0.15) !important; /* Laranja claro */
+}
+.product-table tr.stock-zero td {
+  background-color: rgba(255, 0, 0, 0.1) !important; /* Vermelho claro */
+}
+.product-table tr.stock-half:hover td,
+.product-table tr.stock-zero:hover td {
+  background-color: rgba(0, 0, 0, 0.075) !important;
+}
   
   /* .toggle-filter-button: (sem estilos específicos aqui, herda de .action-button e CSS global/ProdutosView.css) */
   
