@@ -226,7 +226,8 @@ router.get('/confirmadas/por-escola/:escolaId', (req, res) => {
                         p.id AS produto_id,  
                         p.nome AS nome_produto,
                         p.unidade_medida,
-                        ti.quantidade_enviada
+                        ti.quantidade_enviada,
+                        p.quantidade_referencia_alerta
                     FROM transferencia_itens ti
                     JOIN produtos p ON ti.produto_id = p.id
                     WHERE ti.transferencia_id = ?;

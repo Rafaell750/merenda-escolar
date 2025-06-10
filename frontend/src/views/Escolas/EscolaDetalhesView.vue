@@ -153,6 +153,13 @@
           <div v-if="loadingTransferencias" class="loading-message small">Carregando histórico...</div>
           <div v-if="errorTransferencias" class="error-message small">{{ errorTransferencias }}</div>
 
+          <!-- NOVO COMPONENTE DE ALERTA -->
+          <EstoqueAlertas 
+              v-if="!loadingTransferencias && itensComAlerta.length > 0"
+              :produtos-com-alerta="itensComAlerta" 
+              class="mb-3"
+          />
+
           <!-- Mensagem se não houver itens de estoque recebidos -->
           <div v-if="!loadingTransferencias && itensConsolidados.length === 0 && !errorTransferencias" class="empty-message">
               Nenhum item de estoque confirmado como recebido para esta escola ainda.
@@ -239,6 +246,7 @@ import RetirarEstoqueModal from './RetirarEstoqueModal.vue'; // Componente modal
 import { useToast } from "vue-toastification"; // Para feedback visual.
 import ItemEstoqueConsolidado from './Historico/HistoricoItemEstoque.vue'; // Componente para item da tabela.
 import HistoricoRetiradasModal from './Historico/HistoricoRetiradasModal.vue';
+import EstoqueAlertas from '@/views/Produtos/EstoqueAlertas.vue';
 
 
 const route = useRoute(); // Instância para informações da rota atual.
@@ -325,96 +333,168 @@ const podeInteragirComEstoque = computed(() => {
  * @returns {Array<object>} Lista de itens de estoque consolidados.
  */
  const itensConsolidados = computed(() => {
-    // 1. Processar ENTRADAS
-    const itensCompletosEntrada = [];
-    transferenciasConfirmadas.value.forEach(transferencia => {
-        if (transferencia.itens && transferencia.itens.length > 0) {
-            transferencia.itens.forEach(itemDeTransferencia => {
-                const produtoIdNumerico = parseInt(itemDeTransferencia.produto_id, 10);
-                if (isNaN(produtoIdNumerico)) {
-                    console.warn("Item de transferência sem produto_id numérico:", itemDeTransferencia);
-                    return;
-                }
-                const dataParaOrdenacao = transferencia.data_recebimento_confirmado || transferencia.data_envio || new Date(0).toISOString();
-                itensCompletosEntrada.push({
-                    ...itemDeTransferencia,
-                    produto_id: produtoIdNumerico,
-                    data_confirmacao: dataParaOrdenacao,
-                    data_formatada: transferencia.data_recebimento_confirmado_formatada || transferencia.data_envio_original_formatada, // Ajuste aqui se o nome da propriedade for outro
-                    nome_usuario: transferencia.nome_usuario,
-                    original_transferencia_id: transferencia.transferencia_id,
-                    item_id_original: itemDeTransferencia.id || itemDeTransferencia.item_id
-                });
-            });
-        }
+    // 1. UNIFICAR TRANSAÇÕES
+    const entradas = transferenciasConfirmadas.value.flatMap(transferencia => {
+        // A propriedade correta para a data da transação confirmada
+        const dataString = transferencia.data_recebimento_confirmado_formatada;
+        
+        return (transferencia.itens || []).map(item => ({
+            tipo: 'entrada',
+            data: parsePtBrDate(dataString),
+            produto_id: parseInt(item.produto_id, 10),
+            nome_produto: item.nome_produto,
+            unidade_medida: item.unidade_medida,
+            quantidade: parseFloat(item.quantidade_enviada),
+            data_formatada: dataString, // Mantemos a string original para exibição
+            nome_usuario: transferencia.nome_usuario,
+            original_transferencia_id: transferencia.transferencia_id,
+            item_id_original: item.id || item.item_id
+        }));
     });
 
-    itensCompletosEntrada.sort((a, b) => new Date(b.data_confirmacao) - new Date(a.data_confirmacao));
+const saidas = retiradasDaEscola.value.map(retirada => {
+        // A propriedade correta para a data da retirada
+        const dataString = retirada.data_retirada_formatada;
+        
+        return {
+            tipo: 'saida',
+            data: parsePtBrDate(dataString), // Usando a função robusta
+            // ... resto das propriedades ...
+            produto_id: parseInt(retirada.produto_id, 10),
+            nome_produto: retirada.nome_produto,
+            unidade_medida: retirada.unidade_medida,
+            quantidade: parseFloat(retirada.quantidade_retirada)
+        };
+    });
 
+    const transacoes = [...entradas, ...saidas];
+
+     // Remove quaisquer transações que não puderam ter a data convertida
+     const transacoesValidas = transacoes.filter(t => t.data && !isNaN(t.data.getTime()));
+
+    // 2. ORDENAÇÃO COM CRITÉRIO DE DESEMPATE
+    transacoesValidas.sort((a, b) => {
+        // Primeiro, tenta ordenar pela data
+        const dateDiff = a.data - b.data;
+        if (dateDiff !== 0) {
+            return dateDiff; // Se as datas forem diferentes, usa a diferença
+        }
+        
+        // Se as datas são idênticas, entra o critério de desempate:
+        // Queremos processar 'saida' (-1) antes de 'entrada' (1).
+        // Isso força as saídas a terem prioridade quando o timestamp é o mesmo.
+        if (a.tipo === 'saida' && b.tipo === 'entrada') {
+            return -1; // 'a' (saida) vem antes
+        }
+        if (a.tipo === 'entrada' && b.tipo === 'saida') {
+            return 1; // 'b' (saida) vem antes
+        }
+        
+        // Se os tipos também forem iguais, a ordem não importa.
+        return 0;
+    });
+
+    // 3. PROCESSAR TRANSAÇÕES PARA CALCULAR SALDO E PICO DE ESTOQUE
     const agregador = new Map();
-    itensCompletosEntrada.forEach(item => {
-        // CHAVE CONSISTENTE: ID do Produto + Unidade de Medida
-        const chaveAgregacao = `${item.produto_id}|${item.unidade_medida}`;
 
+    // Itera sobre a lista de transações JÁ ORDENADA
+    for (const transacao of transacoesValidas) {
+        if (isNaN(transacao.produto_id)) continue;
+
+        const chaveAgregacao = `${transacao.produto_id}|${transacao.unidade_medida}`;
+        
+        // Se o produto ainda não está no nosso mapa, inicializa-o.
         if (!agregador.has(chaveAgregacao)) {
             agregador.set(chaveAgregacao, {
-                _id_vfor: chaveAgregacao, // Usado para o :key no v-for
-                produto_id: item.produto_id,
-                nome_produto: item.nome_produto,
-                unidade_medida: item.unidade_medida,
+                _id_vfor: chaveAgregacao,
+                produto_id: transacao.produto_id,
+                nome_produto: transacao.nome_produto,
+                unidade_medida: transacao.unidade_medida,
                 quantidade_total: 0,
-                ultima_data_recebimento_formatada: item.data_formatada,
-                ultimo_nome_usuario: item.nome_usuario,
+                picoDeEstoque: 0, // A referência para o alerta
+                ultima_data_recebimento_formatada: 'N/A',
+                ultimo_nome_usuario: 'N/A',
                 historico_detalhado: [],
             });
         }
+        
         const itemAgregado = agregador.get(chaveAgregacao);
-        const quantidade = parseFloat(item.quantidade_enviada);
-        if (!isNaN(quantidade)) {
-            itemAgregado.quantidade_total += quantidade;
+        
+        // --- LÓGICA CORRIGIDA E EXPLÍCITA ---
+        // Primeiro, aplica a transação ao saldo atual.
+        if (transacao.tipo === 'entrada') {
+            itemAgregado.quantidade_total += transacao.quantidade;
+        } else if (transacao.tipo === 'saida') {
+            itemAgregado.quantidade_total -= transacao.quantidade;
         }
-        itemAgregado.historico_detalhado.push({
-            data_formatada: item.data_formatada,
-            nome_usuario: item.nome_usuario,
-            quantidade_enviada: item.quantidade_enviada,
-            original_transferencia_id: item.original_transferencia_id,
-            item_id_original: item.item_id_original,
-            produto_id: item.produto_id
-        });
-    });
-
-        // 2. Processar SAÍDAS (novo)
-        const totaisRetiradosMap = new Map();
-        retiradasDaEscola.value.forEach(retirada => {
-        if (retirada.produto_id === undefined || retirada.produto_id === null || isNaN(retirada.produto_id)) {
-            console.warn(`Item de retirada ${retirada.nome_produto} (${retirada.unidade_medida}) não possui um 'produto_id' numérico válido. Será ignorado.`);
-            return;
+        
+        // Segundo, DEPOIS de atualizar o saldo, compara-o com o pico de estoque.
+        // Se o saldo atual for o maior que já vimos, ele se torna o novo pico.
+        if (itemAgregado.quantidade_total > itemAgregado.picoDeEstoque) {
+            itemAgregado.picoDeEstoque = itemAgregado.quantidade_total;
         }
-        // Usar a mesma chave de agregação que nas entradas
-        const chaveAgregacao = `${retirada.produto_id}|${retirada.unidade_medida}`;
-        const quantidadeRetirada = parseFloat(retirada.quantidade_retirada);
-
-        if (!isNaN(quantidadeRetirada)) {
-            totaisRetiradosMap.set(chaveAgregacao, (totaisRetiradosMap.get(chaveAgregacao) || 0) + quantidadeRetirada);
+        
+        // Adiciona informações ao histórico detalhado (apenas para entradas)
+        if (transacao.tipo === 'entrada') {
+            itemAgregado.historico_detalhado.push({
+                data_formatada: transacao.data_formatada,
+                nome_usuario: transacao.nome_usuario,
+                quantidade_enviada: transacao.quantidade,
+                original_transferencia_id: transacao.original_transferencia_id,
+                item_id_original: transacao.item_id_original,
+                produto_id: transacao.produto_id
+            });
+            itemAgregado.ultima_data_recebimento_formatada = transacao.data_formatada;
+            itemAgregado.ultimo_nome_usuario = transacao.nome_usuario;
         }
-    });
+    }
+    
+    // 4. GERAR O RESULTADO FINAL
+    const resultadoArray = Array.from(agregador.values())
+        .filter(item => item.quantidade_total >= 0);
 
-    // 3. Aplicar SAÍDAS ao saldo dos itens agregados
-    agregador.forEach((itemAgregado, chaveAgregacao) => {
-        const totalRetiradoParaEsteItem = totaisRetiradosMap.get(chaveAgregacao) || 0;
-        itemAgregado.quantidade_total -= totalRetiradoParaEsteItem;
-        // Opcional: garantir que não fique negativo se houver inconsistência de dados
-        // if (itemAgregado.quantidade_total < 0) {
-        //     console.warn(`Quantidade negativa para ${itemAgregado.nome_produto}, ajustando para 0.`);
-        //     itemAgregado.quantidade_total = 0;
-        // }
-    });
-
-    const resultadoArray = Array.from(agregador.values()) // Converte o Map para Array
-    .filter(item => item.quantidade_total >= 0);
     // Ordena o resultado final alfabeticamente pelo nome do produto
     resultadoArray.sort((a, b) => a.nome_produto.localeCompare(b.nome_produto));
-    return resultadoArray;
+    
+    // Inverte o histórico detalhado para mostrar os mais recentes primeiro na UI
+    resultadoArray.forEach(item => {
+        item.historico_detalhado.reverse();
+    });
+
+    // Mapeia para o formato final, compatível com o resto do componente
+    return resultadoArray.map(item => ({
+        ...item,
+        // *** AQUI ESTÁ A MÁGICA ***
+        // A referência para o alerta é agora o pico de estoque que o produto já atingiu na escola.
+        quantidade_referencia_alerta: item.picoDeEstoque, 
+        
+        // Alias para compatibilidade com o componente EstoqueAlertas.vue
+        quantidade: item.quantidade_total,
+        nome: item.nome_produto
+    }));
+});
+
+const itensComAlerta = computed(() => {
+  if (!itensConsolidados.value) return [];
+  
+  return itensConsolidados.value.filter(item => {
+    // Renomeado para `item.quantidade_total` para maior clareza aqui.
+    const estoqueAtual = item.quantidade_total;
+    const referencia = item.quantidade_referencia_alerta;
+
+    if (estoqueAtual === 0) {
+      return true; // Alerta de estoque zerado
+    }
+
+    if (referencia && referencia > 0 && estoqueAtual > 0 && estoqueAtual <= referencia / 2) {
+      return true; // Alerta de metade do estoque
+    }
+    
+    return false;
+  }).map(item => ({ // Garante que a prop `nome` exista, como esperado por EstoqueAlertas.vue
+      ...item,
+      nome: item.nome_produto 
+  }));
 });
 
 // --- BLOCO 5: FUNÇÕES UTILITÁRIAS E DE API ---
@@ -434,6 +514,45 @@ function formatarData(dataString) {
   } catch (e) {
       return dataString; // Retorna a string original em caso de erro na formatação
   }
+}
+
+/**
+ * Converte uma string de data 'dd/mm/yyyy hh:mm' ou 'dd/mm/yyyy hh:mm:ss' para um objeto Date válido.
+ * @param {string} dateString - A data no formato pt-BR.
+ * @returns {Date|null} Um objeto Date válido ou null se a entrada for inválida.
+ */
+ function parsePtBrDate(dateString) {
+  if (!dateString || typeof dateString !== 'string') {
+    // Se a entrada não for uma string válida, retorna null.
+    return null;
+  }
+
+  // Divide a string em partes de data e hora
+  const parts = dateString.split(' ');
+  const dateParts = parts[0].split('/');
+  const timeParts = parts[1] ? parts[1].split(':') : [0, 0, 0];
+  
+  // Verifica se temos as 3 partes da data (dia, mês, ano)
+  if (dateParts.length !== 3) {
+    console.warn(`[parsePtBrDate] Formato de data inválido, não foi possível dividir em dia/mês/ano: "${dateString}"`);
+    return new Date(dateString); // Tenta um fallback
+  }
+
+  // Reconstrói a data no formato ISO (YYYY-MM-DDTHH:MM:SS) que é universal
+  // O construtor Date(ano, mês-1, dia, ...) também é uma opção segura.
+  const [day, month, year] = dateParts;
+  const [hour, minute, second] = timeParts;
+  
+  // O mês no construtor do Date é baseado em zero (0=Janeiro, 11=Dezembro)
+  const isoDate = new Date(year, month - 1, day, hour || 0, minute || 0, second || 0);
+  
+  // Verifica se a data resultante é válida
+  if (isNaN(isoDate.getTime())) {
+    console.warn(`[parsePtBrDate] A data resultante é inválida para a string: "${dateString}"`);
+    return null; // Retorna null para indicar falha
+  }
+
+  return isoDate;
 }
 
 /**

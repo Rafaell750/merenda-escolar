@@ -23,7 +23,8 @@
               </tr>
             </thead>
             <tbody>
-              <tr v-for="retirada in historicoRetiradas" :key="retirada.id || `${retirada.data_retirada_formatada}-${retirada.produto_id}-${Math.random()}`">
+              <!-- ALTERAÇÃO: Iterar sobre 'paginatedHistorico' em vez de 'historicoRetiradas' -->
+              <tr v-for="retirada in paginatedHistorico" :key="retirada.id || `${retirada.data_retirada_formatada}-${retirada.produto_id}-${Math.random()}`">
                 <td>{{ retirada.data_retirada_formatada }}</td>
                 <td>{{ retirada.nome_produto }}</td>
                 <td>{{ retirada.unidade_medida }}</td>
@@ -34,6 +35,29 @@
           </table>
         </div>
         <footer class="modal-footer">
+          <!-- INÍCIO: Seção de Paginação Adicionada -->
+          <div v-if="totalPages > 1" class="pagination-controls">
+            <button @click="goToPage(currentPage - 1)" :disabled="currentPage === 1" class="pagination-button">
+              « Anterior
+            </button>
+            <template v-for="(page, index) in pagesToDisplay">
+            <!-- A chave para a elipse usa o índice para garantir unicidade -->
+            <span v-if="page === '...'" :key="'ellipsis-' + index" class="pagination-ellipsis">...</span>
+            <!-- A chave para o botão usa o número da página, que já é único -->
+            <button
+              v-else
+              :key="page"
+              @click="goToPage(page)"
+              :class="['pagination-button', { active: page === currentPage }]"
+            >
+              {{ page }}
+            </button>
+          </template>
+            <button @click="goToPage(currentPage + 1)" :disabled="currentPage === totalPages" class="pagination-button">
+              Próxima »
+            </button>
+          </div>
+          <!-- FIM: Seção de Paginação Adicionada -->
           <button @click="closeModal" class="btn btn-primary">Fechar</button>
         </footer>
       </div>
@@ -41,22 +65,21 @@
   </template>
   
   <script setup>
-  import { ref, watch, onMounted } from 'vue';
-  // Não precisa de axios aqui, os dados virão por prop.
+  import { ref, watch, computed } from 'vue'; // ADIÇÃO: Importar 'computed'
   
   const props = defineProps({
     show: Boolean,
-    escolaId: [String, Number], // Pode ser útil para futuras features ou logs
+    escolaId: [String, Number],
     escolaNome: String,
-    historicoRetiradas: { // Recebe o array de retiradas já processado
+    historicoRetiradas: {
       type: Array,
       default: () => []
     },
-    loading: { // Indica se o componente pai está carregando os dados
+    loading: {
       type: Boolean,
       default: false
     },
-    error: { // Mensagem de erro do componente pai
+    error: {
       type: String,
       default: null
     }
@@ -68,12 +91,68 @@
     emit('close');
   }
   
-  // Poderia adicionar lógica de ordenação ou paginação aqui se necessário no futuro.
-  // Por enquanto, assume-se que os dados já vêm ordenados de EscolaDetalhesView (via API).
+  // --- INÍCIO: Lógica de Paginação ---
+  
+  const currentPage = ref(1);
+  const itemsPerPage = 15;
+  
+  // Reseta a página para 1 sempre que o modal é aberto ou os dados mudam
+  watch(() => props.historicoRetiradas, () => {
+    currentPage.value = 1;
+  });
+  
+  // Calcula o número total de páginas
+  const totalPages = computed(() => {
+    if (!props.historicoRetiradas || props.historicoRetiradas.length === 0) {
+      return 0;
+    }
+    return Math.ceil(props.historicoRetiradas.length / itemsPerPage);
+  });
+  
+  // Retorna apenas os itens da página atual
+  const paginatedHistorico = computed(() => {
+    if (!props.historicoRetiradas || props.historicoRetiradas.length === 0) {
+      return [];
+    }
+    const startIndex = (currentPage.value - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    return props.historicoRetiradas.slice(startIndex, endIndex);
+  });
+  
+  // Gera a lista de páginas para exibição com elipses "..."
+  const pagesToDisplay = computed(() => {
+    if (totalPages.value <= 5) { // Se houver 7 ou menos páginas, mostra todas
+      return Array.from({ length: totalPages.value }, (_, i) => i + 1);
+    }
+  
+    const pages = [];
+    // Lógica para mostrar 1, 2, ..., atual-1, atual, atual+1, ..., última_página
+    if (currentPage.value < 4) {
+      // Caso: estamos no início (ex: 1, 2, 3, 4, 5, ..., 10)
+      pages.push(1, 2, 3, 4, '...', totalPages.value);
+    } else if (currentPage.value > totalPages.value - 4) {
+      // Caso: estamos no final (ex: 1, ..., 7, 8, 9, 10)
+      pages.push(1, '...', totalPages.value - 4, totalPages.value - 3, totalPages.value - 2, totalPages.value - 1, totalPages.value);
+    } else {
+      // Caso: estamos no meio (ex: 1, ..., 4, 5, 6, ..., 10)
+      pages.push(1, '...', currentPage.value - 1, currentPage.value, currentPage.value + 1, '...', totalPages.value);
+    }
+    return pages;
+  });
+  
+  // Função para mudar de página
+  function goToPage(pageNumber) {
+    if (pageNumber >= 1 && pageNumber <= totalPages.value) {
+      currentPage.value = pageNumber;
+    }
+  }
+  
+  // --- FIM: Lógica de Paginação ---
+  
   </script>
   
   <style scoped>
-  /* Estilos básicos do modal - podem ser reutilizados ou adaptados */
+  /* Estilos básicos do modal - sem alterações */
   .modal-overlay {
     position: fixed;
     top: 0;
@@ -93,7 +172,7 @@
     border-radius: 8px;
     box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
     width: 90%;
-    max-width: 800px; /* Ajuste a largura conforme necessário */
+    max-width: 800px;
     max-height: 90vh;
     display: flex;
     flex-direction: column;
@@ -128,7 +207,7 @@
   .modal-body {
     overflow-y: auto;
     padding: 10px 0;
-    flex-grow: 1; /* Faz o corpo do modal crescer para preencher o espaço */
+    flex-grow: 1;
   }
   
   .tabela-historico-retiradas {
@@ -142,7 +221,7 @@
     border: 1px solid #ddd;
     padding: 10px;
     text-align: left;
-    font-size: 0.9em; /* Fonte um pouco menor para caber mais info */
+    font-size: 0.9em;
   }
   
   .tabela-historico-retiradas th {
@@ -167,8 +246,10 @@
   }
   
   .modal-footer {
+    /* ALTERAÇÃO: Ajustar o footer para acomodar a paginação e o botão */
     display: flex;
-    justify-content: flex-end;
+    justify-content: space-between; /* Alinha a paginação à esquerda e o botão à direita */
+    align-items: center;
     border-top: 1px solid #eee;
     padding-top: 15px;
     margin-top: 20px;
@@ -181,7 +262,6 @@
     cursor: pointer;
     font-size: 1em;
     font-weight: 500;
-    margin-left: 10px;
   }
   
   .btn-primary {
@@ -191,4 +271,45 @@
   .btn-primary:hover {
     background-color: #0056b3;
   }
+  
+  /* --- INÍCIO: Estilos da Paginação --- */
+  .pagination-controls {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+  }
+  
+  .pagination-button {
+    background-color: #fff;
+    border: 1px solid #ddd;
+    color: #007bff;
+    padding: 8px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.9em;
+    transition: background-color 0.2s, color 0.2s;
+  }
+  
+  .pagination-button:hover:not(:disabled) {
+    background-color: #e9ecef;
+  }
+  
+  .pagination-button.active {
+    background-color: #007bff;
+    color: white;
+    border-color: #007bff;
+    font-weight: bold;
+  }
+  
+  .pagination-button:disabled {
+    color: #6c757d;
+    cursor: not-allowed;
+    opacity: 0.6;
+  }
+  
+  .pagination-ellipsis {
+    padding: 8px 4px;
+    color: #6c757d;
+  }
+  /* --- FIM: Estilos da Paginação --- */
   </style>

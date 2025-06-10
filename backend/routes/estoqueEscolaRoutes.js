@@ -24,7 +24,7 @@ router.get('/:escolaId/estoque/retiradas', (req, res) => {
             p.nome AS nome_produto,      -- Para facilitar a agregação no frontend se necessário
             p.unidade_medida,    -- Para facilitar a agregação no frontend se necessário
             rei.quantidade_retirada,
-            strftime('%d/%m/%Y %H:%M', rei.data_retirada, 'localtime') AS data_retirada_formatada,
+            strftime('%d/%m/%Y %H:%M:%S', rei.data_retirada, 'localtime') AS data_retirada_formatada,
             u.username AS nome_usuario_retirada
         FROM
             retiradas_escola_itens rei

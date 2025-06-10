@@ -1,15 +1,24 @@
 <!-- /frontend/src/views/Produtos/EstoqueAlertas.vue -->
 
 <template>
-    <div v-if="produtosComAlerta && produtosComAlerta.length > 0" class="stock-alerts-summary-container">
-      <div class="stock-alerts-summary-header" @mouseover="showDetails = true" @mouseleave="showDetails = false" @focusin="showDetails = true" @focusout="handleFocusOut">
+    <div 
+      v-if="produtosComAlerta && produtosComAlerta.length > 0" 
+      class="stock-alerts-summary-container"
+      ref="containerRef"
+      @mouseover="showDetails = true"
+      @mouseleave="showDetails = false"
+      @focusin="showDetails = true"
+      @focusout="handleFocusOut"
+    >
+      <!-- MUDANÇA 2: Os eventos foram REMOVIDOS do cabeçalho -->
+      <div class="stock-alerts-summary-header">
         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-exclamation-triangle-fill" viewBox="0 0 16 16">
             <path d="M8.982 1.566a1.13 1.13 0 0 0-1.96 0L.165 13.233c-.457.778.091 1.767.98 1.767h13.713c.889 0 1.438-.99.98-1.767L8.982 1.566zM8 5c.535 0 .954.462.9.995l-.35 3.507a.552.552 0 0 1-1.1 0L7.1 5.995A.905.905 0 0 1 8 5zm.002 6a1 1 0 1 1 0 2 1 1 0 0 1 0-2z"/>
         </svg>
         <span>Atenção: {{ produtosComAlerta.length }} produto(s) com estoque baixo ou zerado! (Passe o mouse para mais detalhes)</span>
       </div>
       <Transition name="fade">
-        <div v-if="showDetails" class="stock-alerts-summary-details" ref="detailsContainer">
+        <div v-if="showDetails" class="stock-alerts-summary-details">
           <ul>
             <li v-for="produto in produtosComAlerta" :key="`alert-${produto.id}`" :class="getAlertItemClass(produto)">
               <strong>{{ produto.nome }}:</strong> <span class="alert-message">{{ getAlertMessage(produto) }}</span>
@@ -18,62 +27,60 @@
         </div>
       </Transition>
     </div>
-  </template>
+</template>
   
-  <script setup>
-  import { ref } from 'vue';
-  
-  const props = defineProps({
-    produtosComAlerta: {
-      type: Array,
-      required: true,
-      default: () => []
+<script setup>
+import { ref } from 'vue';
+
+const props = defineProps({
+  produtosComAlerta: {
+    type: Array,
+    required: true,
+    default: () => []
+  }
+});
+
+const showDetails = ref(false);
+// MUDANÇA 3: A ref agora aponta para o container principal, não apenas para os detalhes.
+const containerRef = ref(null);
+
+const getAlertItemClass = (produto) => {
+  if (produto.quantidade === 0) {
+    return 'alert-item-zero';
+  }
+  const referencia = produto.quantidade_referencia_alerta;
+  if (referencia && referencia > 0 && produto.quantidade > 0 && produto.quantidade <= referencia / 2) {
+    return 'alert-item-half';
+  }
+  return '';
+};
+
+const getAlertMessage = (produto) => {
+  if (produto.quantidade === 0) {
+    return 'Estoque zerado!';
+  }
+  const referencia = produto.quantidade_referencia_alerta;
+  if (referencia && referencia > 0 && produto.quantidade <= referencia / 2) {
+    const currentQty = Number(produto.quantidade);
+    const refQty = Number(referencia);
+    if (isNaN(currentQty) || isNaN(refQty) || refQty === 0) {
+        return `Estoque baixo (Atual: ${produto.quantidade || 0})`;
     }
-  });
-  
-  const showDetails = ref(false);
-  const detailsContainer = ref(null); // Para o focusout
-  
-  const getAlertItemClass = (produto) => {
-    if (produto.quantidade === 0) {
-      return 'alert-item-zero';
-    }
-    const referencia = produto.quantidade_referencia_alerta;
-    if (referencia && referencia > 0 && produto.quantidade > 0 && produto.quantidade <= referencia / 2) {
-      return 'alert-item-half';
-    }
-    return '';
-  };
-  
-  const getAlertMessage = (produto) => {
-    if (produto.quantidade === 0) {
-      return 'Estoque zerado!';
-    }
-    const referencia = produto.quantidade_referencia_alerta;
-    if (referencia && referencia > 0 && produto.quantidade <= referencia / 2) {
-      const currentQty = Number(produto.quantidade);
-      const refQty = Number(referencia);
-      // Verifica se os valores são números válidos e se refQty não é zero para evitar divisão por zero
-      if (isNaN(currentQty) || isNaN(refQty) || refQty === 0) {
-          return `Estoque baixo (Atual: ${produto.quantidade || 0})`;
-      }
-      return `Estoque em ${((currentQty / refQty) * 100).toFixed(0)}% ou menos (Atual: ${currentQty} / Ref: ${refQty}).`;
-    }
-    return ''; // Não deve ser atingido se a prop estiver correta
-  };
-  
-  // Para acessibilidade: manter aberto se o foco estiver dentro dos detalhes
-  const handleFocusOut = (event) => {
-    // Se o foco saiu para um elemento fora do container de detalhes, fecha.
-    // O setTimeout é para dar tempo do novo elemento focado ser registrado.
-    setTimeout(() => {
-      if (detailsContainer.value && !detailsContainer.value.contains(document.activeElement)) {
-        showDetails.value = false;
-      }
-    }, 0);
-  };
-  
-  </script>
+    return `Estoque em ${((currentQty / refQty) * 100).toFixed(0)}% ou menos (Atual: ${currentQty} / Ref: ${refQty}).`;
+  }
+  return '';
+};
+
+// MUDANÇA 4: Lógica de 'focusout' simplificada e mais robusta.
+const handleFocusOut = (event) => {
+  // O 'event.relatedTarget' é o elemento que está recebendo o foco.
+  // Se o novo elemento focado NÃO estiver dentro do nosso container, nós fechamos os detalhes.
+  // Isso funciona perfeitamente para acessibilidade (navegação por Tab).
+  if (containerRef.value && !containerRef.value.contains(event.relatedTarget)) {
+    showDetails.value = false;
+  }
+};
+</script>
   
   <style scoped>
   .stock-alerts-summary-container {

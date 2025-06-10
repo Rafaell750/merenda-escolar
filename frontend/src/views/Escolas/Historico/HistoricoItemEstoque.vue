@@ -2,10 +2,12 @@
 <template>
     <!-- Usamos <template> aqui porque o componente renderizará duas <tr>, que são fragmentos -->
 
-      <tr @click="toggleExpandido" class="linha-consolidada" :class="{'expandido': expandido}">
+      <tr @click="toggleExpandido" class="linha-consolidada" :class="[{'expandido': expandido}, rowClass]">
         <td>{{ item.ultima_data_recebimento_formatada }}</td>
         <td>{{ item.ultimo_nome_usuario }}</td>
-        <td>{{ item.nome_produto }}</td>
+        <td>{{ item.nome_produto }} <span v-if="rowClass === 'row-zero-stock'" class="badge bg-danger ms-2" title="Estoque Zerado">!</span>
+          <span v-else-if="rowClass === 'row-half-stock'" class="badge bg-warning text-dark ms-2" title="Estoque Baixo">!</span>
+        </td>
         <td>{{ item.unidade_medida }}</td>
         <td class="text-right">{{ item.quantidade_total }}</td>
         <td class="text-center">
@@ -166,6 +168,22 @@ const pageNumbers = computed(() => {
   return pages;
 });
 
+const rowClass = computed(() => {
+  // Usamos props.item para acessar os dados recebidos do componente pai
+  const estoqueAtual = props.item.quantidade_total;
+  const referencia = props.item.quantidade_referencia_alerta;
+
+  if (estoqueAtual === 0) {
+    return 'row-zero-stock'; // Classe para estoque zerado
+  }
+  
+  // Verifica se a referência é válida e se o estoque está baixo
+  if (referencia && referencia > 0 && estoqueAtual > 0 && estoqueAtual <= referencia / 2) {
+    return 'row-half-stock'; // Classe para metade do estoque
+  }
+
+  return ''; // Nenhuma classe especial
+});
 
 // Função para mudar de página
 function changePage(page) {
@@ -347,4 +365,44 @@ function toggleExpandido() {
 .tabela-historico-detalhado .text-right {
   text-align: right;
 }
+
+.row-half-stock {
+    background-color: #fff3cd !important;
+}
+
+.row-zero-stock {
+    background-color: #f8d7da !important;
+}
+
+/* Sobrescreve o hover para manter a cor do alerta visível */
+.row-half-stock:hover {
+    background-color: #ffeeba !important;
+}
+.row-zero-stock:hover {
+    background-color: #f5c2c7 !important;
+}
+
+/* Opcional: Deixar a fonte um pouco mais forte na linha do alerta */
+.row-half-stock td,
+.row-zero-stock td {
+    font-weight: 500;
+}
+
+/* Estilos para o badge de bônus */
+.badge {
+    display: inline-block;
+    padding: 0.35em 0.5em;
+    font-size: .75em;
+    font-weight: 700;
+    line-height: 1;
+    text-align: center;
+    white-space: nowrap;
+    vertical-align: baseline;
+    border-radius: .25rem;
+}
+.bg-danger { background-color: #dc3545; color: white; }
+.bg-warning { background-color: #ffc107; }
+.text-dark { color: #212529; }
+.ms-2 { margin-left: 0.5rem; }
+
 </style>
