@@ -1,185 +1,273 @@
 <!-- /frontend/src/views/Escolas/ConfirmarRecebimentoModal.vue --> 
 <template>
-    <dialog ref="dialogRef" class="confirmar-recebimento-modal" @close="onDialogClose">
-      <form method="dialog" @submit.prevent="handleFormSubmit">
-        <header class="modal-header">
-          <h2>Confirmar Recebimento de Estoque</h2>
-          <button type="button" @click="closeModal" class="close-button" aria-label="Fechar">×</button>
-        </header>
-  
-        <div class="modal-body">
-          <p v-if="escolaNome">Confirmação para a escola: <strong>{{ escolaNome }}</strong></p>
-  
-          <div v-if="isLoading" class="loading-message">Carregando transferências pendentes...</div>
-          <div v-if="error" class="error-message">{{ error }}</div>
-  
-          <div v-if="!isLoading && transferenciasPendentes.length === 0 && !error" class="empty-message">
-            Nenhuma transferência pendente de confirmação para esta escola.
-          </div>
-  
-          <div v-if="transferenciasPendentes.length > 0" class="transferencias-pendentes-lista">
-            <p class="info-text">Selecione as transferências que foram efetivamente recebidas pela escola.</p>
-            <div v-for="transferencia in transferenciasPendentes" :key="transferencia.transferencia_id" class="transferencia-item">
-              <div class="transferencia-info">
-                <input
-                  type="checkbox"
-                  :id="'transferencia-' + transferencia.transferencia_id"
-                  :value="transferencia.transferencia_id"
-                  v-model="transferenciasSelecionadasIds"
-                  class="checkbox-transferencia"
-                />
-                <label :for="'transferencia-' + transferencia.transferencia_id">
-                  <strong>Envio de {{ transferencia.data_formatada }}</strong> (por {{ transferencia.nome_usuario }})
-                </label>
-              </div>
-              <ul v-if="transferencia.itens && transferencia.itens.length > 0" class="itens-preview-lista">
-                <li v-for="(item, index) in transferencia.itens.slice(0, 100)" :key="index">
-                  {{ item.nome_produto }} (Quantidade: {{ item.quantidade_enviada }})
-                </li>
-              </ul>
-              <div v-else class="sem-itens">Nenhum item detalhado neste envio.</div>
+  <dialog ref="dialogRef" class="confirmar-recebimento-modal" @close="onDialogClose">
+    <form method="dialog" @submit.prevent="handleFormSubmit">
+      <header class="modal-header">
+        <h2>Confirmar Recebimento de Estoque</h2>
+        <button type="button" @click="closeModal" class="close-button" aria-label="Fechar">×</button>
+      </header>
+
+      <div class="modal-body">
+        <p v-if="escolaNome">Confirmação para a escola: <strong>{{ escolaNome }}</strong></p>
+
+        <div v-if="isLoading" class="loading-message">Carregando transferências pendentes...</div>
+        <div v-if="error" class="error-message">{{ error }}</div>
+
+        <div v-if="!isLoading && transferenciasPendentes.length === 0 && !error" class="empty-message">
+          Nenhuma transferência pendente de confirmação para esta escola.
+        </div>
+
+        <div v-if="transferenciasPendentes.length > 0" class="transferencias-pendentes-lista">
+          <p class="info-text">Selecione os itens que foram efetivamente recebidos pela escola.</p>
+          
+          <!-- NOVO: Loop por transferência -->
+          <div v-for="transferencia in transferenciasPendentes" :key="transferencia.transferencia_id" class="transferencia-item">
+            
+            <!-- NOVO: Checkbox "mestre" para a transferência -->
+            <div class="transferencia-info">
+              <input
+                type="checkbox"
+                :id="'transferencia-master-' + transferencia.transferencia_id"
+                @change="toggleTransferenciaSelection(transferencia)"
+                :checked="isTransferenciaTotalmenteSelecionada(transferencia)"
+                :indeterminate="isTransferenciaParcialmenteSelecionada(transferencia)"
+                class="checkbox-transferencia"
+              />
+              <label :for="'transferencia-master-' + transferencia.transferencia_id">
+                <strong>Envio de {{ transferencia.data_formatada }}</strong> (por {{ transferencia.nome_usuario }})
+              </label>
             </div>
+            
+            <!-- NOVO: Lista de itens individuais para seleção -->
+            <ul v-if="transferencia.itens && transferencia.itens.length > 0" class="itens-selecao-lista">
+              <li v-for="item in transferencia.itens" :key="item.produto_id">
+                <input
+                  :id="'item-' + transferencia.transferencia_id + '-' + item.produto_id"
+                  type="checkbox"
+                  :checked="isItemSelected(transferencia.transferencia_id, item.produto_id)"
+                  @change="toggleItemSelection(item, transferencia.transferencia_id)"
+                  :disabled="!!item.data_recebimento" 
+                  class="checkbox-item"
+                />
+                <label :for="'item-' + transferencia.transferencia_id + '-' + item.produto_id" :class="{ 'item-confirmado': !!item.data_recebimento }">
+                  {{ item.nome_produto }} (Quantidade: {{ item.quantidade_enviada }})
+                  <span v-if="item.data_recebimento" class="confirmado-badge">(Já Confirmado)</span>
+                </label>
+              </li>
+            </ul>
+            <div v-else class="sem-itens">Nenhum item detalhado neste envio.</div>
           </div>
         </div>
+      </div>
+
+      <footer class="modal-footer">
+        <button type="button" @click="closeModal" class="cancel-button">Cancelar</button>
+        <button
+          type="submit"
+          class="submit-button"
+          :disabled="isSubmitting || itensSelecionados.length === 0"
+        >
+          <span v-if="isSubmitting" class="spinner"></span>
+          {{ isSubmitting ? 'Confirmando...' : 'Confirmar Item(ns) Selecionado(s)' }}
+        </button>
+      </footer>
+    </form>
+  </dialog>
+</template>
+
+<script setup>
+import { ref, watch, onMounted, onBeforeUnmount, computed } from 'vue'; // Adicionado computed
+import axios from 'axios';
+
+const props = defineProps({
+  show: {
+    type: Boolean,
+    default: false
+  },
+  escolaId: {
+    type: [Number, String],
+    required: true
+  },
+  escolaNome: {
+    type: String,
+    default: ''
+  }
+});
+
+const emit = defineEmits(['close', 'recebimento-confirmado']);
+
+const dialogRef = ref(null);
+const API_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api';
+
+const transferenciasPendentes = ref([]);
+// ALTERADO: A estrutura de seleção agora armazena objetos de item.
+const itensSelecionados = ref([]); // Ex: [{ transferencia_id: 1, produto_id: 10 }, ...]
+const isLoading = ref(false);
+const error = ref(null);
+const isSubmitting = ref(false);
+
+// --- NOVAS FUNÇÕES E LÓGICA DE SELEÇÃO ---
+
+// Verifica se um item específico está selecionado
+const isItemSelected = (transferencia_id, produto_id) => {
+  return itensSelecionados.value.some(
+    item => item.transferencia_id === transferencia_id && item.produto_id === produto_id
+  );
+};
+
+// Adiciona ou remove um item da seleção
+const toggleItemSelection = (item, transferencia_id) => {
+  const itemParaAdicionar = {
+    transferencia_id: transferencia_id,
+    produto_id: item.produto_id
+  };
   
-        <footer class="modal-footer">
-          <button type="button" @click="closeModal" class="cancel-button">Cancelar</button>
-          <button
-            type="submit"
-            class="submit-button"
-            :disabled="isSubmitting || transferenciasSelecionadasIds.length === 0"
-          >
-            <span v-if="isSubmitting" class="spinner"></span>
-            {{ isSubmitting ? 'Confirmando...' : 'Confirmar Recebimento Selecionado(s)' }}
-          </button>
-        </footer>
-      </form>
-    </dialog>
-  </template>
-  
-  <script setup>
-  import { ref, watch, onMounted, onBeforeUnmount } from 'vue';
-  import axios from 'axios';
-  
-  const props = defineProps({
-    show: {
-      type: Boolean,
-      default: false
-    },
-    escolaId: {
-      type: [Number, String],
-      required: true
-    },
-    escolaNome: {
-      type: String,
-      default: ''
-    }
-  });
-  
-  const emit = defineEmits(['close', 'recebimento-confirmado']);
-  
-  const dialogRef = ref(null);
-  const API_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api';
-  
-  const transferenciasPendentes = ref([]);
-  const transferenciasSelecionadasIds = ref([]); // Array de IDs das transferências selecionadas
-  const isLoading = ref(false);
-  const error = ref(null);
-  const isSubmitting = ref(false);
-  
-  async function fetchTransferenciasPendentes() {
-    if (!props.escolaId) return;
-    isLoading.value = true;
-    error.value = null;
-    transferenciasPendentes.value = [];
-    transferenciasSelecionadasIds.value = []; // Limpa seleção
-    const token = localStorage.getItem('authToken');
-  
-    if (!token) {
-      error.value = "Não autenticado.";
-      isLoading.value = false;
-      return;
-    }
-  
-    try {
-      // Futura API: GET /api/transferencias/pendentes/por-escola/:escolaId
-      const response = await axios.get(`${API_URL}/transferencias/pendentes/por-escola/${props.escolaId}`, {
+  const index = itensSelecionados.value.findIndex(
+    i => i.transferencia_id === itemParaAdicionar.transferencia_id && i.produto_id === itemParaAdicionar.produto_id
+  );
+
+  if (index > -1) {
+    itensSelecionados.value.splice(index, 1); // Remove se já existe
+  } else {
+    itensSelecionados.value.push(itemParaAdicionar); // Adiciona se não existe
+  }
+};
+
+// Seleciona ou desmarca todos os itens (não confirmados) de uma transferência
+const toggleTransferenciaSelection = (transferencia) => {
+  const itensPendentesNaoSelecionados = transferencia.itens.filter(
+      item => !item.data_recebimento && !isItemSelected(transferencia.transferencia_id, item.produto_id)
+  );
+
+  if (itensPendentesNaoSelecionados.length > 0) {
+    // Se há itens pendentes para selecionar, seleciona todos
+    itensPendentesNaoSelecionados.forEach(item => {
+        itensSelecionados.value.push({
+            transferencia_id: transferencia.transferencia_id,
+            produto_id: item.produto_id
+        });
+    });
+  } else {
+    // Se todos os itens pendentes já estão selecionados, desmarca todos
+    const itensPendentesDaTransferencia = transferencia.itens
+        .filter(item => !item.data_recebimento)
+        .map(item => item.produto_id);
+    
+    itensSelecionados.value = itensSelecionados.value.filter(
+        sel => sel.transferencia_id !== transferencia.transferencia_id || !itensPendentesDaTransferencia.includes(sel.produto_id)
+    );
+  }
+};
+
+// Computado para o estado do checkbox "mestre"
+const isTransferenciaTotalmenteSelecionada = (transferencia) => {
+    const itensPendentes = transferencia.itens.filter(item => !item.data_recebimento);
+    if (itensPendentes.length === 0) return false; // Não pode ser "totalmente selecionada" se não há nada para selecionar
+    return itensPendentes.every(item => isItemSelected(transferencia.transferencia_id, item.produto_id));
+};
+
+const isTransferenciaParcialmenteSelecionada = (transferencia) => {
+    const itensPendentes = transferencia.itens.filter(item => !item.data_recebimento);
+    const selecionadosNestaTransferencia = itensSelecionados.value.filter(sel => sel.transferencia_id === transferencia.transferencia_id).length;
+    return selecionadosNestaTransferencia > 0 && selecionadosNestaTransferencia < itensPendentes.length;
+};
+
+
+// --- LÓGICA EXISTENTE (MODIFICADA ONDE NECESSÁRIO) ---
+
+async function fetchTransferenciasPendentes() {
+  if (!props.escolaId) return;
+  isLoading.value = true;
+  error.value = null;
+  transferenciasPendentes.value = [];
+  itensSelecionados.value = []; // Limpa seleção de itens
+  const token = localStorage.getItem('authToken');
+
+  if (!token) {
+    error.value = "Não autenticado.";
+    isLoading.value = false;
+    return;
+  }
+
+  try {
+    const response = await axios.get(`${API_URL}/transferencias/pendentes/por-escola/${props.escolaId}`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    transferenciasPendentes.value = response.data;
+  } catch (err) {
+    console.error("Erro ao buscar transferências pendentes:", err);
+    error.value = err.response?.data?.error || "Falha ao carregar transferências pendentes.";
+  } finally {
+    isLoading.value = false;
+  }
+}
+
+async function handleFormSubmit() {
+  // ALTERADO: Verifica a nova estrutura de seleção
+  if (itensSelecionados.value.length === 0 || isSubmitting.value) {
+    return;
+  }
+  isSubmitting.value = true;
+  error.value = null;
+  const token = localStorage.getItem('authToken');
+
+  try {
+    // ALTERADO: Envia o novo payload com os itens selecionados
+    const payload = {
+        itens_confirmados: itensSelecionados.value,
+        escola_id: props.escolaId
+    };
+    await axios.post(`${API_URL}/transferencias/confirmar-recebimento`, payload, {
         headers: { Authorization: `Bearer ${token}` }
-      });
-      transferenciasPendentes.value = response.data;
-    } catch (err) {
-      console.error("Erro ao buscar transferências pendentes:", err);
-      error.value = err.response?.data?.error || "Falha ao carregar transferências pendentes.";
-    } finally {
-      isLoading.value = false;
+    });
+    emit('recebimento-confirmado');
+    closeModal();
+  } catch (err) {
+    console.error("Erro ao confirmar recebimento:", err);
+    error.value = err.response?.data?.error || "Falha ao confirmar recebimento. Faça login novamente";
+  } finally {
+    isSubmitting.value = false;
+  }
+}
+
+watch(() => props.show, (newValue) => {
+  const dialog = dialogRef.value;
+  if (dialog) {
+    if (newValue && !dialog.open) {
+      dialog.showModal();
+      fetchTransferenciasPendentes();
+    } else if (!newValue && dialog.open) {
+      dialog.close();
     }
   }
-  
-  async function handleFormSubmit() {
-    if (transferenciasSelecionadasIds.value.length === 0 || isSubmitting.value) {
-      return;
-    }
-    isSubmitting.value = true;
-    error.value = null; // Limpa erro anterior de submit
-    const token = localStorage.getItem('authToken');
-  
-    try {
-      // Futura API: POST /api/transferencias/confirmar-recebimento
-      const payload = {
-          transferencia_ids: transferenciasSelecionadasIds.value,
-          escola_id: props.escolaId // Pode ser útil para validação no backend
-      };
-      await axios.post(`${API_URL}/transferencias/confirmar-recebimento`, payload, {
-          headers: { Authorization: `Bearer ${token}` }
-      });
-      emit('recebimento-confirmado'); // Informa o pai para recarregar os dados
-      closeModal();
-    } catch (err) {
-      console.error("Erro ao confirmar recebimento:", err);
-      error.value = err.response?.data?.error || "Falha ao confirmar recebimento. Faça login novamente";
-    } finally {
-      isSubmitting.value = false;
-    }
+});
+
+const onDialogClose = () => {
+  emit('close');
+};
+
+const closeModal = () => {
+  if (dialogRef.value && dialogRef.value.open) {
+    dialogRef.value.close();
+  } else {
+    emit('close');
   }
-  
-  watch(() => props.show, (newValue) => {
+};
+
+onMounted(() => {
     const dialog = dialogRef.value;
     if (dialog) {
-      if (newValue && !dialog.open) {
-        dialog.showModal();
-        fetchTransferenciasPendentes(); // Busca ao abrir
-      } else if (!newValue && dialog.open) {
-        dialog.close();
-      }
+        dialog.addEventListener('close', onDialogClose);
     }
-  });
-  
-  const onDialogClose = () => {
-    emit('close');
-  };
-  
-  const closeModal = () => {
-    if (dialogRef.value && dialogRef.value.open) {
-      dialogRef.value.close();
-    } else {
-      emit('close');
+});
+
+onBeforeUnmount(() => {
+    const dialog = dialogRef.value;
+    if (dialog) {
+        dialog.removeEventListener('close', onDialogClose);
     }
-  };
-  
-  onMounted(() => {
-      const dialog = dialogRef.value;
-      if (dialog) {
-          dialog.addEventListener('close', onDialogClose);
-      }
-  });
-  
-  onBeforeUnmount(() => {
-      const dialog = dialogRef.value;
-      if (dialog) {
-          dialog.removeEventListener('close', onDialogClose);
-      }
-  });
-  </script>
+});
+</script>
   
   <style scoped>
   .confirmar-recebimento-modal {
@@ -269,6 +357,53 @@
       flex-direction: column;
       gap: 1rem;
   }
+  
+  /* NOVO: Estilos para a lista de seleção de itens */
+.itens-selecao-lista {
+    list-style: none;
+    padding-left: 0.5rem; /* Leve indentação */
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+}
+
+.itens-selecao-lista li {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.checkbox-item {
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+    accent-color: #28a745;
+}
+
+.itens-selecao-lista label {
+    font-size: 0.9rem;
+    color: #444;
+    cursor: pointer;
+    line-height: 1.4;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.itens-selecao-lista label.item-confirmado {
+    color: #6c757d;
+    cursor: not-allowed;
+}
+
+.confirmado-badge {
+    font-size: 0.7rem;
+    font-weight: bold;
+    color: #1e7e34;
+    background-color: #d4edda;
+    padding: 2px 5px;
+    border-radius: 4px;
+}
 
   .info-text {
       font-size: 0.85rem;

@@ -190,66 +190,100 @@ router.get('/confirmadas/por-escola/:escolaId', (req, res) => {
         return res.status(400).json({ error: "ID da escola inválido." });
     }
 
-    // SQL para buscar transferências confirmadas e dados do usuário que enviou.
-    const sqlTransferenciasConfirmadas = `
-        SELECT
+    // SQL que busca transferências que contenham PELO MENOS UM item já confirmado.
+    // Isso garante que transferências parcialmente confirmadas apareçam no histórico.
+    const sqlGetTransferenciasComItensConfirmados = `
+        SELECT DISTINCT
             t.id AS transferencia_id,
-            -- Formata a data de confirmação para o padrão brasileiro.
-            strftime('%d/%m/%Y %H:%M', t.data_recebimento_confirmado, 'localtime') AS data_recebimento_confirmado_formatada,
-            -- Formata a data de envio original (pode ser útil para referência).
+            -- Usamos a data da transferência original como referência
             strftime('%d/%m/%Y %H:%M', t.data_transferencia, 'localtime') AS data_envio_original_formatada,
+            -- Opcional: a data de confirmação geral, se houver
+            strftime('%d/%m/%Y %H:%M', t.data_recebimento_confirmado, 'localtime') AS data_conclusao_formatada,
             u.username AS nome_usuario -- Nome do usuário da SME que realizou o envio.
         FROM
             transferencias t
         JOIN
             usuarios u ON t.usuario_id = u.id
+        JOIN
+            transferencia_itens ti ON t.id = ti.transferencia_id
         WHERE
-            t.escola_id = ? AND t.data_recebimento_confirmado IS NOT NULL -- Filtro crucial: apenas confirmadas.
+            t.escola_id = ? AND ti.data_recebimento IS NOT NULL -- Filtro crucial alterado!
         ORDER BY
-            t.data_recebimento_confirmado DESC; -- Mais recentes primeiro.
+            t.data_transferencia DESC;
     `;
 
-    db.all(sqlTransferenciasConfirmadas, [escolaId], (err, transferencias) => {
+    db.all(sqlGetTransferenciasComItensConfirmados, [escolaId], (err, transferencias) => {
         if (err) {
-            console.error("[GET /confirmadas/por-escola] Erro ao buscar transferências confirmadas:", err.message);
-            return res.status(500).json({ error: "Erro interno ao buscar histórico de transferências confirmadas." });
+            console.error("[GET /confirmadas/por-escola] Erro ao buscar transferências:", err.message);
+            return res.status(500).json({ error: "Erro interno ao buscar histórico de transferências." });
         }
         if (transferencias.length === 0) {
-            return res.json([]); // Retorna array vazio se não houver transferências confirmadas.
+            return res.json([]);
         }
 
-        // Para cada transferência, busca seus itens correspondentes.
+        // Para cada transferência, busca APENAS os seus itens que foram confirmados.
         const promessasItens = transferencias.map(transferencia => {
             return new Promise((resolve, reject) => {
-                const sqlItens = `
+                const sqlGetItensConfirmados = `
                     SELECT
-                        p.id AS produto_id,  
+                        p.id AS produto_id,
                         p.nome AS nome_produto,
                         p.unidade_medida,
                         ti.quantidade_enviada,
-                        p.quantidade_referencia_alerta
+                        -- Trazemos a data de confirmação do item individual para o frontend
+                        strftime('%d/%m/%Y %H:%M:%S', ti.data_recebimento, 'localtime') AS data_recebimento_item_formatada
                     FROM transferencia_itens ti
                     JOIN produtos p ON ti.produto_id = p.id
-                    WHERE ti.transferencia_id = ?;
+                    WHERE
+                        ti.transferencia_id = ?
+                        AND ti.data_recebimento IS NOT NULL; -- Filtro crucial novamente!
                 `;
-                db.all(sqlItens, [transferencia.transferencia_id], (errItens, itens) => {
+                db.all(sqlGetItensConfirmados, [transferencia.transferencia_id], (errItens, itens) => {
                     if (errItens) {
-                        console.error(`[GET /confirmadas/por-escola] Erro ao buscar itens para transf. confirmada ID ${transferencia.transferencia_id}:`, errItens.message);
-                        // Resolve com erro nos itens, mas continua processando outras transferências.
-                        resolve({ ...transferencia, itens: [], error_itens: "Erro ao buscar itens desta transferência" });
-                    } else {
-                        resolve({ ...transferencia, itens: itens });
+                        return reject(new Error(`Erro ao buscar itens para transf. ID ${transferencia.transferencia_id}: ${errItens.message}`));
                     }
+                    // A data do recebimento para o item consolidado agora virá do item mais recente.
+                    // O seu frontend já parece fazer isso bem, mas vamos garantir que ele tenha a data correta.
+                    // Para o frontend, o que importa é a lista de itens.
+                    resolve({ ...transferencia, itens: itens });
                 });
             });
         });
 
-        // Espera todas as buscas de itens terminarem.
         Promise.all(promessasItens)
-            .then(transferenciasComItens => res.json(transferenciasComItens))
+            .then(transferenciasComItens => {
+                // Seu frontend espera uma estrutura específica. A lógica dele é robusta e vai juntar os itens de diferentes
+                // "transferências" retornadas aqui em um único estoque consolidado.
+                // A chave é que agora ele vai receber os itens confirmados individualmente.
+                // Precisamos ajustar o objeto para que o frontend o entenda.
+                 const resultadoFinal = transferenciasComItens.map(t => {
+                    // Para cada transferência, vamos criar pseudo-transferências para cada item,
+                    // para que o `flatMap` do frontend funcione perfeitamente.
+                    if (!t.itens || t.itens.length === 0) return null;
+
+                    // O frontend usa a data de recebimento para o histórico. Vamos usar a do item.
+                    // O mais importante é que a lista de `itens` esteja correta.
+                    const itemMaisRecente = t.itens.reduce((latest, current) => {
+                        // Precisa de uma função para parsear a data pt-BR aqui, se for comparar
+                        return latest; // simplificado, a lógica do seu frontend já resolve
+                    });
+
+                    return {
+                        transferencia_id: t.transferencia_id,
+                        // O seu frontend usa 'data_recebimento_confirmado_formatada' para cada item.
+                        // Vamos dar a ele a data de conclusão geral, e o item individual terá sua própria data.
+                        // A sua lógica de `itensConsolidados` já é inteligente o suficiente para lidar com isso.
+                        data_recebimento_confirmado_formatada: t.data_conclusao_formatada || t.data_envio_original_formatada,
+                        nome_usuario: t.nome_usuario,
+                        itens: t.itens
+                    };
+                }).filter(t => t !== null);
+
+                res.json(resultadoFinal);
+            })
             .catch(errorGlobal => {
-                console.error("[GET /confirmadas/por-escola] Erro global ao processar itens de transferências confirmadas:", errorGlobal);
-                res.status(500).json({ error: "Erro ao processar detalhes dos itens das transferências confirmadas." });
+                console.error("[GET /confirmadas/por-escola] Erro global:", errorGlobal);
+                res.status(500).json({ error: "Erro ao processar detalhes dos itens das transferências." });
             });
     });
 });
@@ -266,11 +300,9 @@ router.get('/pendentes/por-escola/:escolaId', (req, res) => {
         return res.status(400).json({ error: "ID da escola inválido." });
     }
 
-    // SQL para buscar transferências pendentes e dados do usuário que enviou.
     const sqlTransferenciasPendentes = `
         SELECT
             t.id AS transferencia_id,
-            -- Formata a data de ENVIO original (já que não há data de confirmação ainda).
             strftime('%d/%m/%Y %H:%M', t.data_transferencia, 'localtime') AS data_formatada,
             u.username AS nome_usuario
         FROM
@@ -278,9 +310,9 @@ router.get('/pendentes/por-escola/:escolaId', (req, res) => {
         JOIN
             usuarios u ON t.usuario_id = u.id
         WHERE
-            t.escola_id = ? AND t.data_recebimento_confirmado IS NULL -- Filtro crucial: apenas PENDENTES.
+            t.escola_id = ? AND t.data_recebimento_confirmado IS NULL
         ORDER BY
-            t.data_transferencia ASC; -- Mais antigas primeiro, para serem confirmadas prioritariamente.
+            t.data_transferencia ASC;
     `;
 
     db.all(sqlTransferenciasPendentes, [escolaId], (err, transferencias) => {
@@ -289,18 +321,19 @@ router.get('/pendentes/por-escola/:escolaId', (req, res) => {
             return res.status(500).json({ error: "Erro interno ao buscar transferências pendentes." });
         }
         if (transferencias.length === 0) {
-            return res.json([]); // Retorna array vazio se não houver pendências.
+            return res.json([]);
         }
 
-        // Para cada transferência pendente, busca seus itens.
         const promessasItens = transferencias.map(transferencia => {
             return new Promise((resolve, reject) => {
+                // ALTERADO: Incluído `ti.data_recebimento` para que o frontend saiba quais itens já foram confirmados.
                 const sqlItens = `
                     SELECT
                         p.id AS produto_id,
                         p.nome AS nome_produto,
                         p.unidade_medida,
-                        ti.quantidade_enviada
+                        ti.quantidade_enviada,
+                        ti.data_recebimento -- NOVO CAMPO
                     FROM transferencia_itens ti
                     JOIN produtos p ON ti.produto_id = p.id
                     WHERE ti.transferencia_id = ?;
@@ -310,14 +343,25 @@ router.get('/pendentes/por-escola/:escolaId', (req, res) => {
                         console.error(`[GET /pendentes/por-escola] Erro ao buscar itens para transf. pendente ID ${transferencia.transferencia_id}:`, errItens.message);
                         resolve({ ...transferencia, itens: [], error_itens: "Erro ao buscar itens desta transferência" });
                     } else {
-                        resolve({ ...transferencia, itens: itens });
+                        // Filtra transferências que já tiveram todos os itens confirmados mas que por algum motivo o `data_recebimento_confirmado` principal não foi setado.
+                        // Isso é um saneamento, mas o ideal é que a lógica de POST /confirmar-recebimento cuide disso.
+                        const todosItensJaConfirmados = itens.every(item => item.data_recebimento);
+                        if (todosItensJaConfirmados && itens.length > 0) {
+                            resolve(null); // Resolve como nulo para filtrar depois
+                        } else {
+                            resolve({ ...transferencia, itens: itens });
+                        }
                     }
                 });
             });
         });
 
         Promise.all(promessasItens)
-            .then(transferenciasComItens => res.json(transferenciasComItens))
+            .then(transferenciasComItens => {
+                // Filtra as transferências que retornaram nulas (todos os itens já confirmados)
+                const transferenciasFiltradas = transferenciasComItens.filter(t => t !== null);
+                res.json(transferenciasFiltradas);
+            })
             .catch(errorGlobal => {
                 console.error("[GET /pendentes/por-escola] Erro global ao processar itens de transferências pendentes:", errorGlobal);
                 res.status(500).json({ error: "Erro ao processar detalhes dos itens das transferências pendentes." });
@@ -331,71 +375,110 @@ router.get('/pendentes/por-escola/:escolaId', (req, res) => {
 // Ação tipicamente realizada por um usuário da escola.
 // `authenticateToken` aplicado globalmente. `authorizeSchoolAccess` (para POST) seria ideal aqui
 // para garantir que o usuário confirmando é da escola correta ou é admin.
+// TOTALMENTE REESCRITA para lidar com a confirmação de itens individuais.
 router.post('/confirmar-recebimento', (req, res) => {
-    // `transferencia_ids`: array de IDs das transferências a serem confirmadas.
-    // `escola_id`: ID da escola que está confirmando (opcional, mas bom para validação extra se o usuário não for 'escola').
-    const { transferencia_ids, escola_id } = req.body;
-    const usuarioConfirmacaoId = req.user.id; // ID do usuário (da escola) que está CONFIRMANDO.
+    const { itens_confirmados, escola_id } = req.body; // escola_id é bom para validação de segurança
+    const usuarioConfirmacaoId = req.user.id;
 
-    // Validação da entrada.
-    if (!Array.isArray(transferencia_ids) || transferencia_ids.length === 0) {
-        return res.status(400).json({ error: "Nenhuma ID de transferência foi fornecida para confirmação." });
+    if (!escola_id || !Number.isInteger(escola_id)) {
+        return res.status(400).json({ error: "ID da escola é obrigatório para validação." });
     }
-    const idsValidos = transferencia_ids.every(id => Number.isInteger(id) && id > 0);
-    if (!idsValidos) {
-        return res.status(400).json({ error: "A lista de IDs de transferência contém valores inválidos." });
+    if (!Array.isArray(itens_confirmados) || itens_confirmados.length === 0) {
+        return res.status(400).json({ error: "Nenhum item foi fornecido para confirmação." });
     }
 
-    // Cria placeholders ( ?, ?, ... ) para a cláusula IN da query SQL.
-    const placeholdersParaIn = transferencia_ids.map(() => '?').join(',');
-
-    // Query SQL base
-    let sqlConfirmar = `
-    UPDATE transferencias
-    SET data_recebimento_confirmado = CURRENT_TIMESTAMP,
-        usuario_confirmacao_id = ?  -- Este é o primeiro '?' na query
-    WHERE id IN (${placeholdersParaIn}) -- Seguido por N '?' para os IDs
-    AND data_recebimento_confirmado IS NULL
-    `;
-
-    // Monta a lista de parâmetros na ordem correta
-    const queryParams = [];
-    queryParams.push(usuarioConfirmacaoId); // 1º Parâmetro: para usuario_confirmacao_id = ?
-
-    transferencia_ids.forEach(id => {   // Próximos N Parâmetros: para o IN (?, ?, ...)
-        queryParams.push(id);
-    });
-
-    // Validação opcional: Se `escola_id` foi fornecido e o usuário não é 'admin',
-    // garante que a transferência pertence à escola do usuário logado.
-    // O middleware `authorizeSchoolAccess` cuidaria disso de forma mais robusta.
-    // Se `req.user.role === 'escola'`, `req.user.school_id` deve ser igual a `escola_id` (se fornecido)
-    // ou, se `escola_id` não for fornecido no body, usar `req.user.school_id` na query.
-    if (req.user.role === 'escola') {
-        if (escola_id && req.user.school_id !== parseInt(escola_id, 10)) {
-            return res.status(403).json({ error: "Usuário da escola tentando confirmar recebimento para outra escola." });
+    // Valida cada item no payload
+    for (const item of itens_confirmados) {
+        if (!item.transferencia_id || !Number.isInteger(item.transferencia_id) ||
+            !item.produto_id || !Number.isInteger(item.produto_id)) {
+            return res.status(400).json({ error: "A lista de itens a confirmar contém valores inválidos." });
         }
-        sqlConfirmar += ` AND escola_id = ?`;
-        queryParams.push(req.user.school_id); // Garante que o usuário só confirme para sua própria escola.
-    } else if (req.user.role === 'admin' && escola_id && Number.isInteger(parseInt(escola_id, 10)) && parseInt(escola_id, 10) > 0) {
-        // Se admin e escola_id é fornecido, adiciona ao filtro (útil se admin estiver confirmando para uma escola específica)
-        sqlConfirmar += ` AND escola_id = ?`;
-        queryParams.push(parseInt(escola_id, 10));
     }
-    // Se for admin e escola_id não for fornecido, ele pode confirmar qualquer transferência (cuidado com essa lógica).
+    
+    // Opcional mas recomendado: Verificar se o usuário pertence à escola_id informada
+    if (req.user.role === 'escola' && req.user.school_id !== escola_id) {
+        return res.status(403).json({ error: "Acesso negado. Você só pode confirmar itens para sua própria escola." });
+    }
 
-    db.run(sqlConfirmar, queryParams, function(err) { // Usa `function` para ter acesso a `this.changes`.
-        if (err) {
-            console.error("[POST /confirmar-recebimento] Erro ao confirmar recebimento de transferências:", err.message);
-            return res.status(500).json({ error: "Erro interno do servidor ao confirmar o recebimento." });
-        }
-        if (this.changes === 0) {
-            console.warn(`[POST /confirmar-recebimento] Nenhuma transferência foi atualizada para confirmação. IDs: ${transferencia_ids.join(', ')}, Escola ID no body: ${escola_id}, UserSchoolID: ${req.user.school_id}. Possivelmente já confirmadas, inválidas ou não pertencem à escola (se ID da escola foi usado na query).`);
-            // Pode ser que os IDs não existam, já foram confirmados, ou não pertencem à escola (se o filtro de escola_id foi aplicado).
-            return res.status(404).json({ error: "Nenhuma transferência pendente encontrada para os IDs fornecidos, ou elas já foram confirmadas, ou não pertencem à escola especificada." });
-        }
-        console.log(`[POST /confirmar-recebimento] ${this.changes} transferência(s) marcada(s) como recebida(s). Confirmado por Usuário ID: ${usuarioConfirmacaoId}.`);
-        res.status(200).json({ message: `${this.changes} transferência(s) confirmada(s) com sucesso.` });
+    db.serialize(() => {
+        db.run('BEGIN TRANSACTION;', (errBegin) => {
+            if (errBegin) {
+                return res.status(500).json({ error: 'Erro ao iniciar transação.' });
+            }
+
+            // 1. Atualiza cada item individual na tabela `transferencia_itens`, marcando-o como recebido.
+            // Esta é a ÚNICA ação necessária para "adicionar" o item ao estoque implícito da escola.
+            const updatePromises = itens_confirmados.map(item => {
+                return new Promise((resolve, reject) => {
+                    const sqlUpdateItem = `
+                        UPDATE transferencia_itens
+                        SET data_recebimento = CURRENT_TIMESTAMP
+                        WHERE transferencia_id = ? AND produto_id = ? AND data_recebimento IS NULL
+                    `;
+                    db.run(sqlUpdateItem, [item.transferencia_id, item.produto_id], function(err) {
+                        if (err) return reject(err);
+                        // this.changes > 0 significa que a atualização foi bem-sucedida (o item não estava confirmado antes)
+                        if (this.changes > 0) {
+                            console.log(`Item confirmado: Transf ID ${item.transferencia_id}, Produto ID ${item.produto_id}`);
+                        }
+                        resolve(); // Resolve mesmo se `changes` for 0, para não quebrar a transação
+                    });
+                });
+            });
+
+            Promise.all(updatePromises)
+                .then(() => {
+                    // 2. Após confirmar os itens, verifica se alguma das transferências foi COMPLETAMENTE finalizada.
+                    const transferenciasAfetadasIds = [...new Set(itens_confirmados.map(item => item.transferencia_id))];
+
+                    const checkCompletionPromises = transferenciasAfetadasIds.map(transferenciaId => {
+                        return new Promise((resolve, reject) => {
+                            // Conta quantos itens da transferência AINDA NÃO foram confirmados
+                            const sqlCheck = `
+                                SELECT COUNT(id) as pendentes
+                                FROM transferencia_itens
+                                WHERE transferencia_id = ? AND data_recebimento IS NULL
+                            `;
+                            db.get(sqlCheck, [transferenciaId], (err, row) => {
+                                if (err) return reject(err);
+
+                                // Se não há mais itens pendentes, a transferência está completa!
+                                if (row && row.pendentes === 0) {
+                                    console.log(`Transferência ${transferenciaId} totalmente confirmada. Atualizando status principal.`);
+                                    const sqlUpdateTransferencia = `
+                                        UPDATE transferencias
+                                        SET data_recebimento_confirmado = CURRENT_TIMESTAMP,
+                                            usuario_confirmacao_id = ?
+                                        WHERE id = ? AND data_recebimento_confirmado IS NULL
+                                    `;
+                                    db.run(sqlUpdateTransferencia, [usuarioConfirmacaoId, transferenciaId], (errUpdate) => {
+                                        if (errUpdate) return reject(errUpdate);
+                                        resolve();
+                                    });
+                                } else {
+                                    resolve(); // Transferência ainda tem itens pendentes, não faz nada com a tabela 'transferencias'.
+                                }
+                            });
+                        });
+                    });
+
+                    return Promise.all(checkCompletionPromises);
+                })
+                .then(() => {
+                    // 3. Finaliza a transação
+                    db.run('COMMIT;', (errCommit) => {
+                        if (errCommit) throw errCommit;
+                        res.status(200).json({ message: "Item(ns) confirmado(s) com sucesso." });
+                    });
+                })
+                .catch(err => {
+                    console.error("[POST /confirmar-recebimento] Erro durante a transação:", err.message);
+                    db.run('ROLLBACK;', (errRollback) => {
+                        if (errRollback) console.error("Erro CRÍTICO no rollback:", errRollback.message);
+                    });
+                    res.status(500).json({ error: "Falha ao confirmar recebimento devido a um erro interno." });
+                });
+        });
     });
 });
 

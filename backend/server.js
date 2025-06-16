@@ -223,6 +223,7 @@ async function setupDatabase() {
         transferencia_id INTEGER NOT NULL,
         produto_id INTEGER NOT NULL,
         quantidade_enviada REAL NOT NULL,
+        data_recebimento DATETIME NULL,
         FOREIGN KEY (transferencia_id) REFERENCES transferencias (id) ON DELETE CASCADE,
         -- Se uma transferência for excluída, seus itens também são.
         FOREIGN KEY (produto_id) REFERENCES produtos (id) ON DELETE RESTRICT
