@@ -260,3 +260,37 @@
       padding: 0.5rem;
       font-size: 0.9rem;
   }
+
+  /* NOVO: Estilos adicionais para a tela de confirmação */
+.confirmation-view {
+  text-align: left;
+}
+
+.confirmation-view h3 {
+  margin-top: 0;
+  margin-bottom: 10px;
+  font-weight: 600;
+  color: #333;
+}
+
+.confirmation-view p {
+  margin-bottom: 20px;
+  font-size: 1rem;
+  color: #555;
+}
+
+.confirmation-list-container {
+  max-height: 250px;
+  overflow-y: auto;
+  border: 1px solid #e0e0e0;
+  border-radius: 4px;
+  margin-top: 1rem;
+}
+
+.summary-table {
+    background-color: #f9f9f9;
+}
+
+.summary-table th {
+    background-color: #f0f0f0;
+}

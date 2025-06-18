@@ -139,19 +139,15 @@
                                 </div>
                             </div>
   
-                            <!-- Linha 3 (removida no código original, era Linha 4): Descrição -->
-                            <div class="form-row">
-                                <div class="form-group">
-                                    <label for="descricaoProduto" class="form-label optional">Descrição (Opcional):</label>
-                                    <input type="text" id="descricaoProduto" v-model="formData.descricao" class="form-input" placeholder="Detalhes adicionais..." />
-                                </div>
-                            </div>
-  
                             <!-- 3.2.3. BOTÕES DE AÇÃO DO FORMULÁRIO -->
                             <div class="form-actions">
                                 <button type="submit" class="submit-button" :disabled="isLoading">
                                     <span v-if="isLoading" class="spinner"></span> <!-- Indicador de carregamento -->
                                     <span>{{ isLoading ? (isEditing ? 'Salvando...' : 'Adicionando...') : (isEditing ? 'Salvar Alterações' : 'Adicionar Produto') }}</span>
+                                </button>
+                                <!-- NOVO BOTÃO DE LIMPAR CAMPOS -->
+                                <button type="button" @click="limparCampos" class="clear-button" :disabled="isLoading">
+                                    Limpar Campos
                                 </button>
                                 <button type="button" v-if="isEditing" @click="cancelarEdicao" class="cancel-button" :disabled="isLoading">
                                     Cancelar
@@ -847,6 +843,19 @@ const getRowClass = (produto) => {
     resetForm();
     isFormExpanded.value = false;
   };
+
+   /** Função limpar -->
+   * @function limparCampos
+   * @description Limpa os campos do formulário, mas mantém o modo de edição (se ativo).
+   * Útil para limpar os dados preenchidos sem cancelar a operação.
+   */
+  const limparCampos = () => {
+    const idAtual = formData.value.id; // Preserva o ID se estiver editando
+    // Redefine os dados do formulário para o estado inicial, mantendo o ID
+    formData.value = { ...getInitialFormData(), id: idAtual };
+    // Limpa também qualquer erro de validação que esteja sendo exibido
+    validationError.value = '';
+  };
   
   /**
    * @function resetForm
@@ -1174,7 +1183,7 @@ const handleConfirmarReabastecimento = async (payloadItens) => {
       color: white;
   }
 
-  /* NOVO: ESTILOS PARA O BOTÃO "REABASTECER ESTOQUE" */
+  /* ESTILOS PARA O BOTÃO "REABASTECER ESTOQUE" */
 .reabastecer-stock-button {
     background-color: #28a745; /* Cor de sucesso (verde) */
     border-color: #28a745;
@@ -1241,5 +1250,26 @@ const handleConfirmarReabastecimento = async (payloadItens) => {
           width: 100%; /* Título ocupa toda a largura */
           margin-bottom: 0.5rem; /* Adiciona espaço abaixo do título quando empilhado */
       }
+  }
+
+  /* <!-- ESTILO PARA O BOTÃO LIMPAR --> */
+  .clear-button {
+    background-color: #6c757d; /* Cor cinza (secundária), similar a um botão de cancelar */
+    color: white;
+    border: 1px solid #6c757d;
+    padding: 0.9rem 1.2rem;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 500;
+    font-size: 0.9rem; /* Consistência com outros botões do formulário */
+    transition: all 0.2s ease;
+  }
+  .clear-button:hover:not(:disabled) {
+    background-color: #5a6268;
+    border-color: #545b62;
+  }
+  .clear-button:disabled {
+    opacity: 0.65;
+    cursor: not-allowed;
   }
   </style>

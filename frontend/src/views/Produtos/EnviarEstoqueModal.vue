@@ -59,16 +59,17 @@
       - `method="dialog"`: Permite que botões type="submit" fechem o dialog.
       - `@submit.prevent="confirmarEnvio"`: Captura a submissão para lógica customizada.
     -->
-    <form method="dialog" @submit.prevent="confirmarEnvio">
+    <form method="dialog" @submit.prevent="iniciarConfirmacao">
       <!-- 2.1. CABEÇALHO DO MODAL -->
       <header class="modal-header">
-        <h2>Enviar Estoque para Escola</h2>
+        <h2>{{ isConfirming ? 'Confirmar Envio de Itens' : 'Enviar Estoque para Escola' }}</h2>
         <!-- Botão para fechar o modal manualmente -->
         <button type="button" @click="closeModal" class="close-button" aria-label="Fechar">×</button>
       </header>
 
       <!-- 2.2. CORPO DO MODAL -->
       <div class="modal-body">
+        <div v-if="!isConfirming">
         <!-- 2.2.1. SELEÇÃO DA ESCOLA DE DESTINO -->
         <div class="form-group">
           <label for="escolaSelect">Selecione a Escola de Destino:</label>
@@ -131,6 +132,32 @@
               </tbody>
             </table>
         </div>
+      </div>
+
+      <!-- ============================================== -->
+        <!-- Tela de confirmação do envio (v-else) -->
+        <!-- ============================================== -->
+        <div v-else class="confirmation-view">
+            <h3>Tem certeza que deseja realizar este envio?</h3>
+            <p>Os seguintes itens serão enviados para a escola selecionada:</p>
+            <div class="confirmation-list-container">
+                <table class="produtos-table summary-table">
+                    <thead>
+                        <tr>
+                            <th>Produto</th>
+                            <th class="text-right">Quantidade a Enviar</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <!-- Itera sobre a lista de itens para confirmar -->
+                        <tr v-for="(item, index) in itensParaConfirmar" :key="index">
+                            <td>{{ item.nome }} ({{ item.unidade_medida }})</td>
+                            <td class="text-right">{{ item.quantidade }}</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
 
         <!-- Mensagem de erro geral da submissão -->
         <div v-if="submitError" class="error-message submit-error">
@@ -141,12 +168,25 @@
 
       <!-- 2.3. RODAPÉ DO MODAL -->
       <footer class="modal-footer">
-        <button type="button" @click="closeModal" class="cancel-button">Cancelar</button>
-        <button type="submit" class="submit-button" :disabled="!isFormValid || isSubmitting">
-           <!-- Indicador de carregamento (spinner) -->
-           <span v-if="isSubmitting" class="spinner"></span>
-           {{ isSubmitting ? 'Enviando...' : 'Confirmar Envio' }}
-        </button>
+        <div v-if="!isConfirming">
+          <button type="button" @click="closeModal" class="cancel-button">Cancelar</button>
+          <!-- Este botão agora chama 'iniciarConfirmacao' via submit do form -->
+          <button type="submit" class="submit-button" :disabled="!isFormValid || isSubmitting">
+            <span v-if="isSubmitting" class="spinner"></span>
+            {{ isSubmitting ? 'Aguarde...' : 'Confirmar Envio' }}
+          </button>
+        </div>
+
+        <!-- Botões para a tela de confirmação -->
+        <div v-else>
+          <!-- Botão para voltar à tela de edição -->
+          <button type="button" @click="isConfirming = false" class="cancel-button">Voltar e Editar</button>
+          <!-- Botão para confirmar o envio definitivamente -->
+          <button type="button" @click="confirmarEnvioDefinitivo" class="submit-button" :disabled="isSubmitting">
+            <span v-if="isSubmitting" class="spinner"></span>
+            {{ isSubmitting ? 'Enviando...' : 'Sim, Enviar Agora' }}
+          </button>
+        </div>
       </footer>
     </form>
   </dialog>
@@ -185,6 +225,7 @@ const validationErrors = ref({});              // Objeto: { produtoId: 'Mensagem
 const isSubmitting = ref(false);               // Indica se o formulário está em processo de submissão.
 const submitError = ref('');                   // Mensagem de erro geral para a submissão.
 const isLoadingProdutos = ref(false);          // Estado de carregamento para a lista de produtos (se fosse carregada aqui).
+const isConfirming = ref(false);               // Estado para controlar a etapa de confirmação
 
 // --- BLOCO 3: WATCHERS (OBSERVADORES) ---
 
@@ -254,6 +295,22 @@ const isFormValid = computed(() => {
   return algumItemSelecionado;
 });
 
+// Bloco 4.5: Propriedade computada para gerar a lista de itens para a tela de confirmação.
+const itensParaConfirmar = computed(() => {
+  if (!isConfirming.value) return []; // Otimização: não calcula se não estiver na tela de confirmação
+
+  return Object.entries(quantidadesEnvio.value)
+    .filter(([/* productId */, quantidade]) => quantidade > 0)
+    .map(([productId, quantidade]) => {
+      const produto = props.produtos.find(p => p.id == productId);
+      return {
+        nome: produto ? produto.nome : 'Produto não encontrado',
+        unidade_medida: produto ? produto.unidade_medida : '',
+        quantidade: quantidade
+      };
+    });
+});
+
 // --- BLOCO 5: MÉTODOS ---
 
 /**
@@ -281,6 +338,7 @@ const resetModalState = () => {
     selectedEscolaId.value = null;
     submitError.value = '';
     isSubmitting.value = false;
+    isConfirming.value = false; // Reseta a etapa de confirmação ao reabrir/fechar o modal.
     // Reinicializa `quantidadesEnvio` e `validationErrors` com base nos produtos atuais
     quantidadesEnvio.value = props.produtos.reduce((acc, produto) => {
         acc[produto.id] = 0; // Zera a quantidade para cada produto
@@ -347,33 +405,26 @@ const updateQuantidade = (productId, value, maxQuantity) => {
      const roundedValue = Math.round(numValue * 100) / 100; // Exemplo para 2 casas decimais
      quantidadesEnvio.value[productId] = roundedValue;
   }
-  // Não é usualmente necessário forçar re-renderização (`quantidadesEnvio.value = { ... }`)
-  // pois o Vue deve detectar a mudança na propriedade do objeto.
 };
 
-/**
- * @function confirmarEnvio
- * @description Manipulador para a submissão do formulário.
- * Se o formulário for válido e não estiver submetendo:
- * - Define `isSubmitting` para `true`.
- * - Prepara o payload com `escola_id` e `itens` (produtos com quantidade > 0).
- * - Emite o evento `confirmar-envio` com o payload para o componente pai.
- * O componente pai é responsável por fazer a chamada API e resetar `isSubmitting`
- * (geralmente ao fechar o modal ou receber resposta da API).
- */
-const confirmarEnvio = () => {
+// NOVO: Método para iniciar a etapa de confirmação (chamado pelo submit do formulário)
+const iniciarConfirmacao = () => {
   if (!isFormValid.value || isSubmitting.value) {
-    return; // Impede submissão se inválido ou já em progresso
+    return;
   }
+  // Em vez de enviar diretamente, ativa a tela de confirmação
+  isConfirming.value = true;
+};
 
-  submitError.value = ''; // Limpa erro de submissão anterior
+// NOVO: A lógica de envio foi movida para este novo método, chamado pelo botão final "Sim, Enviar Agora"
+const confirmarEnvioDefinitivo = () => {
+  submitError.value = '';
   isSubmitting.value = true;
 
-  // Filtra e formata os itens para envio (apenas os com quantidade > 0)
   const itensParaEnvio = Object.entries(quantidadesEnvio.value)
-    .filter(([/* productId */, quantidade]) => quantidade > 0) // Filtra itens com quantidade > 0
+    .filter(([/* productId */, quantidade]) => quantidade > 0)
     .map(([productId, quantidade]) => ({
-      produto_id: parseInt(productId), // Garante que produto_id seja número
+      produto_id: parseInt(productId),
       quantidade: quantidade
     }));
 
@@ -382,10 +433,9 @@ const confirmarEnvio = () => {
     itens: itensParaEnvio
   };
 
-  emit('confirmar-envio', payload); // Devolve os dados para o componente pai
+  emit('confirmar-envio', payload);
 
-  // O reset de `isSubmitting` e o fechamento do modal são geralmente controlados pelo
-  // componente pai após a conclusão da operação assíncrona (chamada API).
+  // O componente pai irá lidar com o fechamento do modal e o reset de 'isSubmitting'.
 };
 
 // --- BLOCO 6: HOOKS DE CICLO DE VIDA ---
@@ -424,4 +474,6 @@ onBeforeUnmount(() => {
 
 <style scoped>
 @import '../CSS/EnviarEstoqueModal.css'; /* Estilos específicos do modal. */
+
+
 </style>

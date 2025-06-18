@@ -286,11 +286,6 @@ onBeforeUnmount(() => {
        Uma <dialog> com .showModal() é posicionada como 'fixed' na camada superior.
        'margin: auto' deve centralizá-la. Se foi sobrescrito, vamos tentar reforçar. */
     margin: auto;
-
-    /* O overflow (scroll) do conteúdo é gerenciado pelo .modal-body.
-       A dialog em si não deve ter scroll, apenas o .modal-body.
-       overflow: visible é o padrão, mas para garantir que não esteja impedindo algo. */
-    overflow: visible;
   }
 
   .confirmar-recebimento-modal::backdrop {
