@@ -336,6 +336,20 @@
         @confirmar-reabastecimento="handleConfirmarReabastecimento"
         />
 
+        <!-- ========================================================== -->
+        <!-- ==  MODAL DE CONFIRMAÇÃO                                == -->
+        <!-- ========================================================== -->
+        <ConfirmationModal
+          :show="confirmationState.isVisible.value"
+          :title="confirmationState.title.value"
+          :message="confirmationState.message.value"
+          :confirm-text="confirmationState.options.value.confirmText"
+          :cancel-text="confirmationState.options.value.cancelText"
+          :variant="confirmationState.options.value.variant"
+          @confirm="confirmationState.handleConfirm"
+          @close="confirmationState.handleCancel"
+        />
+
     </div> <!-- Fim da view de produtos -->
   </template>
   
@@ -348,9 +362,15 @@
   import { useEscolasStore } from '@/stores/escolas'; // Store Pinia (instanciada mas não usada diretamente neste arquivo).
   import ReabastecerEstoqueModal from './ReabastecerEstoqueModal.vue';
   import EstoqueAlertas from './EstoqueAlertas.vue';
+  import ConfirmationModal from '@/components/ConfirmationModal.vue'; 
+  import { useConfirmation } from '@/composables/useConfirmation';
   
   const toast = useToast(); // Instância do serviço de toast.
   const escolasStore = useEscolasStore(); // Instância da store de escolas (uso potencial pelo modal ou futuras features).
+
+  // Instancia o composable de confirmação
+  const confirmationState = useConfirmation();
+  const { confirm } = confirmationState;
   
   // --- BLOCO 2: ESTADO LOCAL DO COMPONENTE (REFS) ---
   // Controla a visibilidade e estado de elementos da UI e dados.
@@ -884,7 +904,7 @@ const getRowClass = (produto) => {
       await nextTick(); // Espera UI atualizar antes do `confirm`
     }
   
-    if (!confirm(`Tem certeza que deseja excluir o produto ${nomeProduto}? Esta ação não pode ser desfeita.`)) {
+    if (!confirm(`Tem certeza que deseja excluir o produto ${nomeProduto}? Ele será removido dos estoques de todas as escolas associadas. Esta ação é irreversível.`)) {
         return;
     }
     try {
@@ -913,24 +933,93 @@ const getRowClass = (produto) => {
     }
   };
   
-  /**
-   * @function executarEdicao
-   * @param {object} produto - O produto a ser editado (passado pelo menu de ações).
-   * @description Inicia a edição do produto e fecha o menu de ações.
-   */
-  const executarEdicao = (produto) => {
+/**
+ * @function executarEdicao
+ * @param {object} produto - O produto a ser editado.
+ * @description Pede confirmação e, se confirmado, inicia a edição.
+ */
+const executarEdicao = async (produto) => {
+  closeActionMenu();
+
+  // Verifica se já há algo no formulário (e não é o mesmo produto)
+  const isFormDirty = formData.value.nome || formData.value.categoria;
+  const message = isFormDirty && !isEditing.value
+    ? `Deseja editar "${produto.nome}"? O conteúdo não salvo no formulário será perdido.`
+    : `Deseja editar o produto "${produto.nome}"? As alterações feitas também serão refletidas no estoque das respectivas escolas.`;
+
+  try {
+    await confirm({
+      title: 'Confirmar Edição',
+      message: message,
+      confirmText: 'Sim, Editar',
+      cancelText: 'Não',
+      variant: 'warning' // Amarelo para avisos
+    });
+    // Se o código chegar aqui, o usuário clicou em 'Sim, Editar'
     iniciarEdicao(produto);
+  } catch (error) {
+    // Usuário clicou em 'Não' ou fechou o modal
+    console.log('Edição cancelada pelo usuário.');
+  }
+};
+
+/**
+ * @function executarExclusao
+ * @param {number|string} produtoId - O ID do produto a ser excluído.
+ * @description Pede confirmação e, se confirmado, executa a exclusão.
+ */
+const executarExclusao = async (produtoId) => {
     closeActionMenu();
-  };
-  
-  /**
-   * @function executarExclusao
-   * @param {number|string} produtoId - O ID do produto a ser excluído (passado pelo menu de ações).
-   * @description Chama `confirmarExclusao`. O menu de ações é fechado dentro de `confirmarExclusao`.
-   */
-  const executarExclusao = (produtoId) => {
-    confirmarExclusao(produtoId);
-  };
+    const produtoParaExcluir = produtos.value.find(p => p.id === produtoId);
+    if (!produtoParaExcluir) return;
+
+    const nomeProduto = `"${produtoParaExcluir.nome}"`;
+
+    if (isEditing.value && editandoProdutoId.value === produtoId) {
+        cancelarEdicao(); // Cancela edição se estiver editando o item a ser excluído
+        await nextTick(); // Espera UI atualizar antes do modal
+    }
+
+    try {
+        await confirm({
+            title: 'Confirmar Exclusão',
+            message: `Tem certeza que deseja excluir o produto ${nomeProduto}? Ele será removido dos estoques de todas as escolas associadas. Esta ação é irreversível.`,
+            confirmText: 'Excluir Permanentemente',
+            cancelText: 'Cancelar',
+            variant: 'danger' // Vermelho para ações perigosas
+        });
+
+        // Se o código chegar aqui, o usuário confirmou a exclusão.
+        // O código de exclusão que estava em 'confirmarExclusao' agora vem para cá.
+        try {
+            const token = localStorage.getItem('authToken');
+            if (!token) throw new Error("Token de autenticação não encontrado.");
+
+            const response = await fetch(`http://localhost:3000/api/produtos/${produtoId}`, {
+                method: 'DELETE',
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (response.status === 404) { throw new Error('Produto não encontrado no servidor.'); }
+            if (!response.ok && response.status !== 204) {
+                let errorMsg = `Falha ao excluir produto (Status: ${response.status})`;
+                try { const errorData = await response.json(); errorMsg = errorData.error || errorMsg; } catch(e) {}
+                throw new Error(errorMsg);
+            }
+            
+            produtos.value = produtos.value.filter(p => p.id !== produtoId);
+            toast.success(`Produto ${nomeProduto} excluído com sucesso.`);
+
+        } catch (error) {
+            console.error("Erro ao excluir produto:", error);
+            toast.error(`Erro ao excluir: ${error.message}`);
+        }
+
+    } catch (error) {
+        // Usuário cancelou a exclusão
+        console.log('Exclusão cancelada pelo usuário.');
+    }
+};
+
   
   
   // --- BLOCO 8: LÓGICA DO MODAL DE ENVIO DE ESTOQUE ---
