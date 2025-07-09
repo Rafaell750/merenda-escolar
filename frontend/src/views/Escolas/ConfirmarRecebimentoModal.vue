@@ -11,6 +11,7 @@
         <p v-if="escolaNome">Confirmação para a escola: <strong>{{ escolaNome }}</strong></p>
 
         <div v-if="isLoading" class="loading-message">Carregando transferências pendentes...</div>
+        <div v-if="successMessage" class="success-message">{{ successMessage }}</div>
         <div v-if="error" class="error-message">{{ error }}</div>
 
         <div v-if="!isLoading && transferenciasPendentes.length === 0 && !error" class="empty-message">
@@ -62,6 +63,18 @@
 
       <footer class="modal-footer">
         <button type="button" @click="closeModal" class="cancel-button">Cancelar</button>
+
+        <!-- NOVO: Botão de Devolução -->
+        <button
+          type="button"
+          @click="handleDevolucaoSubmit"
+          class="return-button"
+          :disabled="isSubmittingDevolucao || itensSelecionados.length === 0"
+        >
+          <span v-if="isSubmittingDevolucao" class="spinner"></span>
+          {{ isSubmittingDevolucao ? 'Registrando...' : 'Devolver Item(ns) Selecionado(s)' }}
+        </button>
+
         <button
           type="submit"
           class="submit-button"
@@ -78,6 +91,7 @@
 <script setup>
 import { ref, watch, onMounted, onBeforeUnmount, computed } from 'vue'; // Adicionado computed
 import axios from 'axios';
+import { useNotificationsStore } from '@/stores/notifications';
 
 const props = defineProps({
   show: {
@@ -99,12 +113,16 @@ const emit = defineEmits(['close', 'recebimento-confirmado']);
 const dialogRef = ref(null);
 const API_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api';
 
+// NOVO: Instância da store de notificações
+const notificationsStore = useNotificationsStore();
 const transferenciasPendentes = ref([]);
 // ALTERADO: A estrutura de seleção agora armazena objetos de item.
 const itensSelecionados = ref([]); // Ex: [{ transferencia_id: 1, produto_id: 10 }, ...]
 const isLoading = ref(false);
 const error = ref(null);
+const successMessage = ref(null);
 const isSubmitting = ref(false);
+const isSubmittingDevolucao = ref(false);
 
 // --- NOVAS FUNÇÕES E LÓGICA DE SELEÇÃO ---
 
@@ -179,6 +197,7 @@ async function fetchTransferenciasPendentes() {
   if (!props.escolaId) return;
   isLoading.value = true;
   error.value = null;
+  successMessage.value = null;
   transferenciasPendentes.value = [];
   itensSelecionados.value = []; // Limpa seleção de itens
   const token = localStorage.getItem('authToken');
@@ -227,6 +246,48 @@ async function handleFormSubmit() {
     error.value = err.response?.data?.error || "Falha ao confirmar recebimento. Faça login novamente";
   } finally {
     isSubmitting.value = false;
+  }
+}
+
+// Função para registrar a devolução
+async function handleDevolucaoSubmit() {
+  if (itensSelecionados.value.length === 0 || isSubmittingDevolucao.value) {
+    return;
+  }
+  isSubmittingDevolucao.value = true;
+  error.value = null;
+  successMessage.value = null;
+  const token = localStorage.getItem('authToken');
+
+  try {
+    const payload = {
+        itens_devolvidos: itensSelecionados.value,
+        escola_id: props.escolaId
+    };
+    // Esta rota precisará ser criada no backend
+    const response = await axios.post(`${API_URL}/transferencias/registrar-devolucao`, payload, {
+        headers: { Authorization: `Bearer ${token}` }
+    });
+
+    // Adiciona a notificação na store Pinia
+    // O backend deve retornar a mensagem da notificação
+    if (response.data.notification) {
+      notificationsStore.addNotificacao(response.data.notification);
+    }
+    
+    successMessage.value = response.data.message || "Devolução registrada com sucesso!";
+    emit('devolucao-registrada');
+
+    // Após 2 segundos, atualiza a lista de pendências para refletir a mudança
+    setTimeout(() => {
+        fetchTransferenciasPendentes();
+    }, 2000);
+
+  } catch (err) {
+    console.error("Erro ao registrar devolução:", err);
+    error.value = err.response?.data?.error || "Falha ao registrar devolução.";
+  } finally {
+    isSubmittingDevolucao.value = false;
   }
 }
 
@@ -530,6 +591,35 @@ onBeforeUnmount(() => {
     border-radius: 50%;
     animation: spinner-border .75s linear infinite;
     margin-right: 0.6rem;
+  }
+
+  .return-button {
+    background-color: #ffc107; /* Amarelo/Laranja */
+    color: #212529;
+    border-color: #ffc107;
+  }
+  .return-button:hover:not(:disabled) {
+    background-color: #e0a800;
+    border-color: #d39e00;
+  }
+
+  .return-button:disabled {
+    background-color: #ffeeba;
+    border-color: #ffeeba;
+    color: #6c757d;
+    cursor: not-allowed;
+  }
+
+  /* NOVO: Estilo para mensagem de sucesso */
+  .success-message {
+    text-align: center;
+    padding: 0.75rem 1rem;
+    color: #155724;
+    background-color: #d4edda;
+    border: 1px solid #c3e6cb;
+    border-radius: 4px;
+    font-style: normal;
+    margin-bottom: 1rem;
   }
 
   @keyframes spinner-border {

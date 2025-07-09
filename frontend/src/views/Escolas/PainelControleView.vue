@@ -69,6 +69,9 @@
             <path d="M8 16a2 2 0 0 0 2-2H6a2 2 0 0 0 2 2M8 1.918l-.797.161A4 4 0 0 0 4.203 6H4a4 4 0 0 0-4 4v1c0 .278.022.543.064.806l.054.266h15.764l.054-.266A6.7 6.7 0 0 0 16 11v-1a4 4 0 0 0-4-4h-.203a4 4 0 0 0-3.002-3.921zM14.22 12c.223.447.481.801.78 1H1c.299-.199.557-.553.78-1z"/>
           </svg>
           Notificações
+          <span v-if="notificationsStore.unreadCount > 0" class="notification-badge">
+            {{ notificationsStore.unreadCount }}
+        </span>
         </button>
       </nav>
     </header>
@@ -178,19 +181,40 @@
          <div class="section-placeholder-header">
           <h2>Central de Notificações</h2>
         </div>
-        <div class="section-placeholder-content">
-          <p>Esta seção exibirá notificações importantes para o administrador do sistema, como:</p>
-          <ul>
-            <li>Solicitações pendentes de escolas (se aplicável).</li>
-            <li>Alertas de estoque baixo (se implementado).</li>
-            <li>Confirmações de recebimento.</li>
-            <li>Outras mensagens relevantes para a gestão.</li>
-          </ul>
-          <p><em>(Funcionalidade em desenvolvimento)</em></p>
+        <!-- Conteúdo dinâmico -->
+        <div class="notifications-list-container">
+            <div v-if="notificationsStore.isLoading" class="loading-message">Carregando notificações...</div>
+            <div v-else-if="notificationsStore.error" class="error-message">{{ notificationsStore.error }}</div>
+            <div v-else-if="notificationsStore.notificacoes.length === 0" class="empty-list-message">
+                Nenhuma notificação nova.
+            </div>
+            <ul v-else class="notifications-list">
+                <li v-for="notificacao in notificationsStore.notificacoes" :key="notificacao.id" class="notification-item" :class="{ 'nao-lida': !notificacao.lida }">
+                    <div class="notification-icon">
+                        <!-- Ícone pode variar com o tipo de notificação -->
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" class="bi bi-arrow-counterclockwise" viewBox="0 0 16 16">
+                            <path fill-rule="evenodd" d="M8 3a5 5 0 1 1-4.546 2.914.5.5 0 0 0-.908-.417A6 6 0 1 0 8 2z"/>
+                            <path d="M8 4.466V.534a.25.25 0 0 0-.41-.192L5.23 2.308a.25.25 0 0 0 0 .384l2.36 1.966A.25.25 0 0 0 8 4.466"/>
+                        </svg>
+                    </div>
+                    <div class="notification-content">
+                        <p class="notification-message">{{ notificacao.message }}</p>
+                        <span class="notification-date">{{ new Date(notificacao.createdAt).toLocaleString('pt-BR') }}</span>
+                    </div>
+                    <div class="notification-actions">
+                        <button
+                            v-if="notificacao.tipo === 'devolucao' && !notificacao.lida"
+                            @click="notificationsStore.confirmarDevolucao(notificacao.id)"
+                            class="btn-confirm-return"
+                            title="Confirmar Recebimento da Devolução e Reabastecer Estoque">
+                            Confirmar devolução
+                        </button>
+                    </div>
+                </li>
+            </ul>
         </div>
       </div>
-    </div> <!-- Fim do .sections-container -->
-
+    </div>
   </div>
 </template>
 
@@ -199,7 +223,11 @@
 // Importações de funcionalidades do Vue, store Pinia e estilos CSS.
 import { ref, computed, onMounted, nextTick, watch } from 'vue';
 import { useEscolasStore } from '@/stores/escolas'; // Store Pinia para gerenciar dados das escolas.
+import { useNotificationsStore } from '@/stores/notifications';
 import HistoricoEnviosSME from './Historico/HistoricoEnviosSME.vue';
+
+// Instância da store de notificações
+const notificationsStore = useNotificationsStore();
 
 // --- BLOCO 2: INICIALIZAÇÃO DA STORE ---
 // Instância da store de escolas para interagir com o estado global e as actions.
@@ -214,8 +242,7 @@ const formData = ref({                  // Objeto para vincular os dados do form
     nome: '',
     endereco: '',
     responsavel: ''
-    // Campos `cidade` e `uf` foram removidos do formulário, mas a estrutura pode ser mantida aqui
-    // para fácil reintrodução se necessário.
+
 });
 const formError = ref('');              // Mensagem de erro para o formulário.
 const formSuccessMessage = ref('');     // Mensagem de sucesso para o formulário.
@@ -440,9 +467,13 @@ onMounted(() => {
     if (escolasStore.listaEscolas.length === 0 && !escolasStore.isLoading) {
         escolasStore.fetchEscolas();
     }
+    // Buscar notificações quando o componente é montado
+    if (notificationsStore.notificacoes.length === 0) {
+        notificationsStore.fetchNotificacoes();
+    }
 });
 
-// NOVO: Watcher para carregar dados da seção de escolas se ela for ativada
+// Watcher para carregar dados da seção de escolas se ela for ativada
 // e os dados ainda não tiverem sido carregados.
 watch(activeSection, (newSectionValue) => {
   if (newSectionValue === 'escolas') {
@@ -450,8 +481,13 @@ watch(activeSection, (newSectionValue) => {
       escolasStore.fetchEscolas();
     }
   }
-  // Adicionar aqui lógica para carregar dados de outras seções quando ativadas, se necessário.
-  // Ex: if (newSectionValue === 'historico' && !historicoDataLoaded.value) { fetchHistoricoData(); }
+// Lógica para carregar notificações ao clicar na aba, se necessário
+  if (newSectionValue === 'notificacoes') {
+    // Se a store estiver vazia, tenta buscar os dados
+    if (notificationsStore.notificacoes.length === 0 && !notificationsStore.isLoading) {
+        // notificationsStore.fetchNotificacoes();
+    }
+  }
 });
 
 </script>
@@ -559,5 +595,104 @@ watch(activeSection, (newSectionValue) => {
 .content-section .main-layout {
   display: flex; /* Já está no seu CSS, mas confirmando */
   /* ... outros estilos de .main-layout */
+}
+
+/* NOVO: Estilos para a lista de notificações */
+.notification-badge {
+    position: absolute;
+    top: 2px;
+    right: 2px;
+    background-color: var(--danger-color, #dc3545);
+    color: white;
+    border-radius: 50%;
+    width: 18px;
+    height: 18px;
+    font-size: 0.7rem;
+    font-weight: bold;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+}
+
+.nav-button {
+    position: relative; /* Necessário para posicionar o badge */
+}
+
+.notifications-list-container {
+    padding: 1rem;
+}
+
+.notifications-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.notification-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 1rem;
+    padding: 1rem;
+    border: 1px solid #e9ecef;
+    border-radius: 6px;
+    background-color: #fff;
+    transition: background-color 0.2s ease;
+}
+
+.notification-item.nao-lida {
+    background-color: #f8f9fa;
+    border-left: 4px solid var(--primary-color, #3b82f6);
+}
+
+.notification-icon {
+    color: #6c757d;
+}
+
+.notification-content {
+    flex-grow: 1;
+}
+
+.notification-message {
+    margin: 0 0 0.25rem 0;
+    font-size: 0.95rem;
+    color: #212529;
+    font-weight: 500;
+    white-space: pre-wrap;
+}
+
+.notification-date {
+    font-size: 0.8rem;
+    color: #6c757d;
+}
+
+.notification-actions .btn-mark-read {
+    background: none;
+    border: 1px solid #ced4da;
+    color: #495057;
+    font-size: 0.8rem;
+    padding: 0.25rem 0.6rem;
+    border-radius: 4px;
+    cursor: pointer;
+}
+.notification-actions .btn-mark-read:hover {
+    background-color: #e9ecef;
+}
+
+.btn-confirm-return {
+    background-color: #28a745; /* Verde sucesso */
+    color: white;
+    border: 1px solid #218838;
+    /* ... outros estilos de botão que você usa ... */
+    padding: 0.25rem 0.6rem;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.8rem;
+}
+.btn-confirm-return:hover {
+    background-color: #218838;
 }
 </style>

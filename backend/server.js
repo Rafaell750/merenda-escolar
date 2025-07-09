@@ -81,6 +81,7 @@ const userRoutes = require('./routes/userRoutes');
 const produtoRoutes = require('./routes/produtoRoutes');
 const escolaRoutes = require('./routes/escolaRoutes');
 const estoqueEscolaRoutes = require('./routes/estoqueEscolaRoutes');
+const notificacaoRoutes = require('./routes/notificacaoRoutes');
 
 // Importa middlewares de autenticação e autorização
 const { authenticateToken, authorizeAdmin } = require('./middleware/authMiddleware');
@@ -122,6 +123,8 @@ app.use('/api/transferencias', authenticateToken, transferenciaRoutes);
 app.use('/api/users', userRoutes);
 
 app.use('/api/escolas', authenticateToken, estoqueEscolaRoutes);
+
+app.use('/api/notificacoes', authenticateToken, notificacaoRoutes); // Montagem das rotas de notificação
 
 // Rotas de Exemplo (podem ser mantidas para testes ou removidas)
 app.get('/api/dados-protegidos', authenticateToken, (req, res) => {
@@ -224,10 +227,22 @@ async function setupDatabase() {
         produto_id INTEGER NOT NULL,
         quantidade_enviada REAL NOT NULL,
         data_recebimento DATETIME NULL,
+        status TEXT NOT NULL DEFAULT 'pendente' CHECK(status IN ('pendente', 'confirmado', 'devolvido')),
         FOREIGN KEY (transferencia_id) REFERENCES transferencias (id) ON DELETE CASCADE,
         -- Se uma transferência for excluída, seus itens também são.
         FOREIGN KEY (produto_id) REFERENCES produtos (id) ON DELETE RESTRICT
         -- Impede a exclusão de um produto se ele estiver em algum item de transferência.
+    );`;
+
+    // NOVO: SQL para criar a tabela de notificações
+    const createNotificacoesTableSql = `
+    CREATE TABLE IF NOT EXISTS notificacoes (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        message TEXT NOT NULL,
+        tipo TEXT,
+        context_data TEXT,
+        lida BOOLEAN DEFAULT 0,
+        createdAt DATETIME DEFAULT CURRENT_TIMESTAMP
     );`;
 
     const createRetiradasEscolaItensTableSql = `
@@ -315,6 +330,11 @@ async function setupDatabase() {
         db.run(createTransferenciaItensTableSql, (err) => {
             if (err) console.error('Erro ao criar/verificar tabela "transferencia_itens":', err.message);
             else console.log('Tabela "transferencia_itens" verificada/criada com sucesso.');
+        });
+
+        db.run(createNotificacoesTableSql, (err) => {
+            if (err) console.error('Erro ao criar/verificar tabela "notificacoes":', err.message);
+            else console.log('Tabela "notificacoes" verificada/criada com sucesso.');
         });
         
         db.run(createUpdateTimestampTriggerSql, (err) => {
