@@ -21,10 +21,10 @@
         <div v-if="transferenciasPendentes.length > 0" class="transferencias-pendentes-lista">
           <p class="info-text">Selecione os itens que foram efetivamente recebidos pela escola.</p>
           
-          <!-- NOVO: Loop por transferência -->
+          <!-- Loop por transferência -->
           <div v-for="transferencia in transferenciasPendentes" :key="transferencia.transferencia_id" class="transferencia-item">
             
-            <!-- NOVO: Checkbox "mestre" para a transferência -->
+            <!-- Checkbox "mestre" para a transferência -->
             <div class="transferencia-info">
               <input
                 type="checkbox"
@@ -39,21 +39,36 @@
               </label>
             </div>
             
-            <!-- NOVO: Lista de itens individuais para seleção -->
+            <!-- Lista de itens individuais para seleção -->
             <ul v-if="transferencia.itens && transferencia.itens.length > 0" class="itens-selecao-lista">
-              <li v-for="item in transferencia.itens" :key="item.produto_id">
-                <input
-                  :id="'item-' + transferencia.transferencia_id + '-' + item.produto_id"
-                  type="checkbox"
-                  :checked="isItemSelected(transferencia.transferencia_id, item.produto_id)"
-                  @change="toggleItemSelection(item, transferencia.transferencia_id)"
-                  :disabled="!!item.data_recebimento" 
-                  class="checkbox-item"
-                />
-                <label :for="'item-' + transferencia.transferencia_id + '-' + item.produto_id" :class="{ 'item-confirmado': !!item.data_recebimento }">
-                  {{ item.nome_produto }} (Quantidade: {{ item.quantidade_enviada }})
-                  <span v-if="item.data_recebimento" class="confirmado-badge">(Já Confirmado)</span>
-                </label>
+              <li v-for="item in transferencia.itens" :key="item.produto_id" class="item-selecao-container">
+                <div class="item-checkbox-label">
+                  <input
+                    :id="'item-' + transferencia.transferencia_id + '-' + item.produto_id"
+                    type="checkbox"
+                    :checked="isItemSelected(transferencia.transferencia_id, item.produto_id)"
+                    @change="toggleItemSelection(item, transferencia.transferencia_id)"
+                    class="checkbox-item"
+                  />
+                  <label :for="'item-' + transferencia.transferencia_id + '-' + item.produto_id">
+                    {{ item.nome_produto }} (Qtd. Enviado: {{ item.quantidade_enviada }} )
+                  </label>
+                </div>
+                
+                <!-- NOVO: Input de quantidade que aparece quando o item é selecionado -->
+                <div v-if="isItemSelected(transferencia.transferencia_id, item.produto_id)" class="quantidade-input-container">
+                  <label :for="'qty-' + transferencia.transferencia_id + '-' + item.produto_id">Selecione a Qtd:</label>
+                  <input
+                    :id="'qty-' + transferencia.transferencia_id + '-' + item.produto_id"
+                    type="number"
+                    v-model.number="getItemSelecionado(transferencia.transferencia_id, item.produto_id).quantidade"
+                    :max="item.quantidade_enviada"
+                    min="0.01"
+                    step="any"
+                    class="quantidade-input"
+                    @input="validarQuantidade(transferencia.transferencia_id, item.produto_id, item.quantidade_enviada)"
+                  />
+                </div>
               </li>
             </ul>
             <div v-else class="sem-itens">Nenhum item detalhado neste envio.</div>
@@ -64,7 +79,7 @@
       <footer class="modal-footer">
         <button type="button" @click="closeModal" class="cancel-button">Cancelar</button>
 
-        <!-- NOVO: Botão de Devolução -->
+        <!-- Botão de Devolução -->
         <button
           type="button"
           @click="handleDevolucaoSubmit"
@@ -108,15 +123,14 @@ const props = defineProps({
   }
 });
 
-const emit = defineEmits(['close', 'recebimento-confirmado']);
+const emit = defineEmits(['close', 'recebimento-confirmado', 'devolucao-registrada']);
 
 const dialogRef = ref(null);
 const API_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api';
 
-// NOVO: Instância da store de notificações
+// Instância da store de notificações
 const notificationsStore = useNotificationsStore();
 const transferenciasPendentes = ref([]);
-// ALTERADO: A estrutura de seleção agora armazena objetos de item.
 const itensSelecionados = ref([]); // Ex: [{ transferencia_id: 1, produto_id: 10 }, ...]
 const isLoading = ref(false);
 const error = ref(null);
@@ -124,7 +138,7 @@ const successMessage = ref(null);
 const isSubmitting = ref(false);
 const isSubmittingDevolucao = ref(false);
 
-// --- NOVAS FUNÇÕES E LÓGICA DE SELEÇÃO ---
+// --- FUNÇÕES E LÓGICA DE SELEÇÃO ---
 
 // Verifica se um item específico está selecionado
 const isItemSelected = (transferencia_id, produto_id) => {
@@ -133,46 +147,70 @@ const isItemSelected = (transferencia_id, produto_id) => {
   );
 };
 
-// Adiciona ou remove um item da seleção
+// NOVO: Função para obter o objeto do item selecionado, necessário para o v-model do input.
+const getItemSelecionado = (transferencia_id, produto_id) => {
+  return itensSelecionados.value.find(
+    item => item.transferencia_id === transferencia_id && item.produto_id === produto_id
+  );
+};
+
+// ALTERADO: toggleItemSelection agora lida com a quantidade.
 const toggleItemSelection = (item, transferencia_id) => {
-  const itemParaAdicionar = {
-    transferencia_id: transferencia_id,
-    produto_id: item.produto_id
-  };
-  
   const index = itensSelecionados.value.findIndex(
-    i => i.transferencia_id === itemParaAdicionar.transferencia_id && i.produto_id === itemParaAdicionar.produto_id
+    i => i.transferencia_id === transferencia_id && i.produto_id === item.produto_id
   );
 
   if (index > -1) {
     itensSelecionados.value.splice(index, 1); // Remove se já existe
   } else {
-    itensSelecionados.value.push(itemParaAdicionar); // Adiciona se não existe
+    // Adiciona com a quantidade total como padrão.
+    itensSelecionados.value.push({
+      transferencia_id: transferencia_id,
+      produto_id: item.produto_id,
+      quantidade: item.quantidade_enviada, // Valor inicial é a quantidade total
+    });
   }
 };
+
+// NOVO: Valida a quantidade no input para não exceder o máximo.
+const validarQuantidade = (transferencia_id, produto_id, max_quantidade) => {
+    const item = getItemSelecionado(transferencia_id, produto_id);
+    if (item) {
+        if (item.quantidade > max_quantidade) {
+            item.quantidade = max_quantidade;
+        }
+        if (item.quantidade < 0) {
+            item.quantidade = 0;
+        }
+    }
+}
+
+// NOVO: Propriedade computada para desabilitar botões se nenhum item válido (qtd > 0) for selecionado.
+const itensValidosParaSubmissao = computed(() => {
+    return itensSelecionados.value.filter(item => item.quantidade && item.quantidade > 0);
+});
 
 // Seleciona ou desmarca todos os itens (não confirmados) de uma transferência
 const toggleTransferenciaSelection = (transferencia) => {
   const itensPendentesNaoSelecionados = transferencia.itens.filter(
-      item => !item.data_recebimento && !isItemSelected(transferencia.transferencia_id, item.produto_id)
+      item => !isItemSelected(transferencia.transferencia_id, item.produto_id)
   );
 
   if (itensPendentesNaoSelecionados.length > 0) {
-    // Se há itens pendentes para selecionar, seleciona todos
     itensPendentesNaoSelecionados.forEach(item => {
+      // Garante que não está adicionando um item duplicado
+      if (!isItemSelected(transferencia.transferencia_id, item.produto_id)) {
         itensSelecionados.value.push({
             transferencia_id: transferencia.transferencia_id,
-            produto_id: item.produto_id
+            produto_id: item.produto_id,
+            quantidade: item.quantidade_enviada
         });
+      }
     });
   } else {
-    // Se todos os itens pendentes já estão selecionados, desmarca todos
-    const itensPendentesDaTransferencia = transferencia.itens
-        .filter(item => !item.data_recebimento)
-        .map(item => item.produto_id);
-    
+    const itensDaTransferencia = transferencia.itens.map(item => item.produto_id);
     itensSelecionados.value = itensSelecionados.value.filter(
-        sel => sel.transferencia_id !== transferencia.transferencia_id || !itensPendentesDaTransferencia.includes(sel.produto_id)
+        sel => sel.transferencia_id !== transferencia.transferencia_id || !itensDaTransferencia.includes(sel.produto_id)
     );
   }
 };
@@ -222,28 +260,28 @@ async function fetchTransferenciasPendentes() {
 }
 
 async function handleFormSubmit() {
-  // ALTERADO: Verifica a nova estrutura de seleção
-  if (itensSelecionados.value.length === 0 || isSubmitting.value) {
+  if (itensValidosParaSubmissao.value.length === 0 || isSubmitting.value) {
     return;
   }
   isSubmitting.value = true;
   error.value = null;
+  successMessage.value = null;
   const token = localStorage.getItem('authToken');
 
   try {
-    // ALTERADO: Envia o novo payload com os itens selecionados
     const payload = {
-        itens_confirmados: itensSelecionados.value,
+        itens_processados: itensValidosParaSubmissao.value,
         escola_id: props.escolaId
     };
     await axios.post(`${API_URL}/transferencias/confirmar-recebimento`, payload, {
         headers: { Authorization: `Bearer ${token}` }
     });
+    successMessage.value = "Itens confirmados com sucesso!";
     emit('recebimento-confirmado');
-    closeModal();
+    setTimeout(() => closeModal(), 1500); // Fecha após sucesso
   } catch (err) {
     console.error("Erro ao confirmar recebimento:", err);
-    error.value = err.response?.data?.error || "Falha ao confirmar recebimento. Faça login novamente";
+    error.value = err.response?.data?.error || "Falha ao confirmar recebimento.";
   } finally {
     isSubmitting.value = false;
   }
@@ -251,7 +289,7 @@ async function handleFormSubmit() {
 
 // Função para registrar a devolução
 async function handleDevolucaoSubmit() {
-  if (itensSelecionados.value.length === 0 || isSubmittingDevolucao.value) {
+  if (itensValidosParaSubmissao.value.length === 0 || isSubmittingDevolucao.value) {
     return;
   }
   isSubmittingDevolucao.value = true;
@@ -261,27 +299,24 @@ async function handleDevolucaoSubmit() {
 
   try {
     const payload = {
-        itens_devolvidos: itensSelecionados.value,
+        itens_processados: itensValidosParaSubmissao.value,
         escola_id: props.escolaId
     };
-    // Esta rota precisará ser criada no backend
     const response = await axios.post(`${API_URL}/transferencias/registrar-devolucao`, payload, {
         headers: { Authorization: `Bearer ${token}` }
     });
 
-    // Adiciona a notificação na store Pinia
-    // O backend deve retornar a mensagem da notificação
     if (response.data.notification) {
       notificationsStore.addNotificacao(response.data.notification);
     }
     
     successMessage.value = response.data.message || "Devolução registrada com sucesso!";
     emit('devolucao-registrada');
-
-    // Após 2 segundos, atualiza a lista de pendências para refletir a mudança
+    
+    // Atualiza a lista para remover os itens processados
     setTimeout(() => {
         fetchTransferenciasPendentes();
-    }, 2000);
+    }, 1500);
 
   } catch (err) {
     console.error("Erro ao registrar devolução:", err);
@@ -621,6 +656,52 @@ onBeforeUnmount(() => {
     font-style: normal;
     margin-bottom: 1rem;
   }
+
+  .item-selecao-container {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.5rem;
+    border-radius: 4px;
+    transition: background-color 0.2s;
+}
+
+.item-selecao-container:hover {
+    background-color: #f8f9fa;
+}
+
+.item-checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex-grow: 1;
+}
+.item-checkbox-label label {
+    cursor: pointer;
+}
+
+.quantidade-input-container {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+.quantidade-input-container label {
+    font-size: 0.85rem;
+    color: #495057;
+}
+.quantidade-input {
+    width: 80px;
+    padding: 0.3rem 0.5rem;
+    border: 1px solid #ced4da;
+    border-radius: 4px;
+    font-size: 0.9rem;
+    text-align: right;
+}
+.quantidade-input:focus {
+    outline: none;
+    border-color: #80bdff;
+    box-shadow: 0 0 0 0.2rem rgba(0,123,255,.25);
+}
 
   @keyframes spinner-border {
     to { transform: rotate(360deg); }

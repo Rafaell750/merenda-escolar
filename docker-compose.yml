@@ -1,0 +1,40 @@
+version: '3.8'
+
+services:
+  # Serviço do Backend (Node.js API)
+  backend:
+    build: ./backend
+    container_name: estoque_backend
+    restart: unless-stopped
+    ports:
+      # Mapeia a porta 5001 do HOST para a porta 5001 do CONTAINER
+      # (Host:Container). Escolhemos 5001 para evitar as portas restritas.
+      - "5001:5001"
+    environment:
+      # Você pode passar variáveis de ambiente do seu .env aqui
+      - NODE_ENV=production
+      - PORT=5001
+      # - JWT_SECRET=seu_segredo_super_secreto # Adicione outras variáveis necessárias
+    volumes:
+      # Cria um volume nomeado 'db-data' e o monta no diretório
+      # 'database' dentro do container. Isso persiste seu arquivo .db
+      - db-data:/app/database
+
+  # Serviço do Frontend (Vue.js + Nginx)
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: estoque_frontend
+    restart: unless-stopped
+    ports:
+      # Mapeia a porta 8081 do HOST para a porta 80 do CONTAINER (Nginx)
+      # (Host:Container). Escolhemos 8081 para evitar as portas restritas.
+      - "8081:80"
+    depends_on:
+      # Garante que o container do backend seja iniciado antes do frontend
+      - backend
+
+# Define os volumes nomeados
+volumes:
+  db-data:

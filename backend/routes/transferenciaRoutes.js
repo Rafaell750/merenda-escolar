@@ -369,178 +369,211 @@ router.get('/pendentes/por-escola/:escolaId', (req, res) => {
 // para garantir que o usuário confirmando é da escola correta ou é admin.
 // TOTALMENTE REESCRITA para lidar com a confirmação de itens individuais.
 router.post('/confirmar-recebimento', (req, res) => {
-    const { itens_confirmados, escola_id } = req.body; // escola_id é bom para validação de segurança
+    // ALTERADO: O payload agora é 'itens_processados' e contém a quantidade.
+    const { itens_processados, escola_id } = req.body;
     const usuarioConfirmacaoId = req.user.id;
 
     if (!escola_id || !Number.isInteger(escola_id)) {
-        return res.status(400).json({ error: "ID da escola é obrigatório para validação." });
+        return res.status(400).json({ error: "ID da escola é obrigatório." });
     }
-    if (!Array.isArray(itens_confirmados) || itens_confirmados.length === 0) {
-        return res.status(400).json({ error: "Nenhum item foi fornecido para confirmação." });
+    if (!Array.isArray(itens_processados) || itens_processados.length === 0) {
+        return res.status(400).json({ error: "Nenhum item válido foi fornecido para confirmação." });
     }
 
-    // Valida cada item no payload
-    for (const item of itens_confirmados) {
+    // Validação de cada item no payload
+    for (const item of itens_processados) {
         if (!item.transferencia_id || !Number.isInteger(item.transferencia_id) ||
-            !item.produto_id || !Number.isInteger(item.produto_id)) {
-            return res.status(400).json({ error: "A lista de itens a confirmar contém valores inválidos." });
+            !item.produto_id || !Number.isInteger(item.produto_id) ||
+            !item.quantidade || typeof item.quantidade !== 'number' || item.quantidade <= 0) {
+            return res.status(400).json({ error: `O item ${JSON.stringify(item)} é inválido. Verifique os dados.` });
         }
     }
     
-    // Opcional mas recomendado: Verificar se o usuário pertence à escola_id informada
     if (req.user.role === 'escola' && req.user.school_id !== escola_id) {
         return res.status(403).json({ error: "Acesso negado. Você só pode confirmar itens para sua própria escola." });
     }
 
-     db.serialize(() => {
-        db.run('BEGIN TRANSACTION;');
-        // MODIFICADO: A query agora atualiza o status para 'confirmado' e verifica se o status anterior era 'pendente'
-        const updatePromises = itens_confirmados.map(item => {
-            return new Promise((resolve, reject) => {
-                const sqlUpdateItem = `
-                    UPDATE transferencia_itens
-                    SET data_recebimento = CURRENT_TIMESTAMP,
-                        status = 'confirmado'
-                    WHERE transferencia_id = ? AND produto_id = ? AND status = 'pendente'
-                `;
-                db.run(sqlUpdateItem, [item.transferencia_id, item.produto_id], function(err) {
-                    if (err) return reject(err);
-                    resolve();
-                });
-            });
-        });
-
-        Promise.all(updatePromises)
-            .then(() => {
-                // MODIFICADO: A query de verificação de conclusão agora checa por status 'pendente'
-                const checkCompletionPromises = [...new Set(itens_confirmados.map(i => i.transferencia_id))].map(transferenciaId => {
-                    return new Promise((resolve, reject) => {
-                        const sqlCheck = `
-                            SELECT COUNT(id) as pendentes FROM transferencia_itens
-                            WHERE transferencia_id = ? AND status = 'pendente'
-                        `;
-                            db.get(sqlCheck, [transferenciaId], (err, row) => {
-                                if (err) return reject(err);
-
-                                // Se não há mais itens pendentes, a transferência está completa!
-                                if (row && row.pendentes === 0) {
-                                    console.log(`Transferência ${transferenciaId} totalmente confirmada. Atualizando status principal.`);
-                                    const sqlUpdateTransferencia = `
-                                        UPDATE transferencias
-                                        SET data_recebimento_confirmado = CURRENT_TIMESTAMP,
-                                            usuario_confirmacao_id = ?
-                                        WHERE id = ? AND data_recebimento_confirmado IS NULL
-                                    `;
-                                    db.run(sqlUpdateTransferencia, [usuarioConfirmacaoId, transferenciaId], (errUpdate) => {
-                                        if (errUpdate) return reject(errUpdate);
-                                        resolve();
-                                    });
-                                } else {
-                                    resolve(); // Transferência ainda tem itens pendentes, não faz nada com a tabela 'transferencias'.
-                                }
-                            });
-                        });
-                    });
-
-                    return Promise.all(checkCompletionPromises);
-                })
-                .then(() => {
-                    // 3. Finaliza a transação
-                    db.run('COMMIT;', (errCommit) => {
-                        if (errCommit) throw errCommit;
-                        res.status(200).json({ message: "Item(ns) confirmado(s) com sucesso." });
-                    });
-                })
-                .catch(err => {
-                    console.error("[POST /confirmar-recebimento] Erro durante a transação:", err.message);
-                    db.run('ROLLBACK;', (errRollback) => {
-                        if (errRollback) console.error("Erro CRÍTICO no rollback:", errRollback.message);
-                    });
-                    res.status(500).json({ error: "Falha ao confirmar recebimento devido a um erro interno." });
-                });
-        });
-    });
-
-// --- ROTA 5: POST /registrar-devolucao ---
-// Registra itens como devolvidos, devolve-os ao estoque da SME e cria uma notificação.
-router.post('/registrar-devolucao', (req, res) => {
-    const { itens_devolvidos, escola_id } = req.body;
-    const { username: usuarioNome } = req.user;
-
-    if (!escola_id || !Array.isArray(itens_devolvidos) || itens_devolvidos.length === 0) {
-        return res.status(400).json({ error: 'Dados insuficientes para registrar a devolução.' });
-    }
-    // Validação de segurança
-    if (req.user.role === 'escola' && req.user.school_id !== escola_id) {
-        return res.status(403).json({ error: "Acesso negado." });
-    }
-
     db.serialize(() => {
         db.run('BEGIN TRANSACTION;', (errBegin) => {
-            if (errBegin) return res.status(500).json({ error: 'Erro ao iniciar transação.' });
+            if (errBegin) return res.status(500).json({ error: 'Erro ao iniciar a transação.' });
 
-            // Array para guardar os detalhes dos itens para a mensagem da notificação
-            const detalhesItensParaNotificacao = [];
-
-            const processPromises = itens_devolvidos.map(item => {
+            const processPromises = itens_processados.map(item => {
                 return new Promise((resolve, reject) => {
-                    // 1. Busca os detalhes do item (nome e quantidade) com um JOIN
-                    const sqlGetItem = `
-                        SELECT
-                            p.nome AS nome_produto,
-                            ti.quantidade_enviada
-                        FROM transferencia_itens ti
-                        JOIN produtos p ON ti.produto_id = p.id
-                        WHERE ti.transferencia_id = ? AND ti.produto_id = ? AND ti.status = 'pendente'`;
+                    const sqlGetPendente = `
+                        SELECT id, quantidade_enviada 
+                        FROM transferencia_itens 
+                        WHERE transferencia_id = ? AND produto_id = ? AND status = 'pendente'`;
+                    
+                    db.get(sqlGetPendente, [item.transferencia_id, item.produto_id], (errGet, pendente) => {
+                        if (errGet) return reject(new Error(`Erro ao buscar item pendente: ${errGet.message}`));
+                        if (!pendente) return reject(new Error(`Item pendente (Transf ${item.transferencia_id}, Prod ${item.produto_id}) não encontrado ou já processado.`));
+                        if (item.quantidade > pendente.quantidade_enviada) {
+                            return reject(new Error(`Tentativa de confirmar ${item.quantidade} unidades, mas apenas ${pendente.quantidade_enviada} estão pendentes.`));
+                        }
 
-                    db.get(sqlGetItem, [item.transferencia_id, item.produto_id], (errGet, itemParaDevolver) => {
-                        if (errGet) return reject(new Error(`Erro ao buscar item a ser devolvido: ${errGet.message}`));
-                        if (!itemParaDevolver) return reject(new Error(`Item (Transf: ${item.transferencia_id}, Prod: ${item.produto_id}) não encontrado ou já processado.`));
+                        const quantidadeConfirmada = item.quantidade;
+                        const quantidadeRestante = pendente.quantidade_enviada - quantidadeConfirmada;
 
-                        // Guarda os detalhes para a mensagem
-                        detalhesItensParaNotificacao.push({
-                            nome: itemParaDevolver.nome_produto,
-                            quantidade: itemParaDevolver.quantidade_enviada
-                        });
+                        if (quantidadeRestante > 0) {
+                            // Confirmação PARCIAL: Atualiza o item pendente e cria um novo item confirmado.
+                            const sqlUpdatePendente = `UPDATE transferencia_itens SET quantidade_enviada = ? WHERE id = ?`;
+                            db.run(sqlUpdatePendente, [quantidadeRestante, pendente.id], (errUpdate) => {
+                                if (errUpdate) return reject(new Error(`Erro ao atualizar item pendente: ${errUpdate.message}`));
 
-                        // MODIFICADO: REMOVEMOS A LÓGICA DE REABASTECIMENTO DAQUI
-                        const sqlUpdateStatus = `UPDATE transferencia_itens SET status = 'devolvido' WHERE transferencia_id = ? AND produto_id = ? AND status = 'pendente'`;
-                        db.run(sqlUpdateStatus, [item.transferencia_id, item.produto_id], function (errUpdateStatus) {
-                            if (errUpdateStatus) return reject(new Error(`Erro ao atualizar status do item: ${errUpdateStatus.message}`));
-                            if (this.changes === 0) return reject(new Error(`Item (Transf: ${item.transferencia_id}, Prod: ${item.produto_id}) não pôde ser devolvido.`));
-                            resolve();
-                        });
+                                const sqlInsertConfirmado = `
+                                    INSERT INTO transferencia_itens (transferencia_id, produto_id, quantidade_enviada, data_recebimento, status) 
+                                    VALUES (?, ?, ?, CURRENT_TIMESTAMP, 'confirmado')`;
+                                db.run(sqlInsertConfirmado, [item.transferencia_id, item.produto_id, quantidadeConfirmada], (errInsert) => {
+                                    if (errInsert) return reject(new Error(`Erro ao inserir item confirmado: ${errInsert.message}`));
+                                    resolve();
+                                });
+                            });
+                        } else {
+                            // Confirmação TOTAL: Apenas atualiza o status do item pendente.
+                            const sqlUpdateTotal = `
+                                UPDATE transferencia_itens 
+                                SET data_recebimento = CURRENT_TIMESTAMP, status = 'confirmado' 
+                                WHERE id = ?`;
+                            db.run(sqlUpdateTotal, [pendente.id], (errUpdate) => {
+                                if (errUpdate) return reject(new Error(`Erro ao confirmar totalmente o item: ${errUpdate.message}`));
+                                resolve();
+                            });
+                        }
                     });
                 });
             });
 
             Promise.all(processPromises)
                 .then(() => {
+                    // Após processar todos os itens, verifica se alguma transferência foi totalmente concluída.
+                    const transferenciaIdsUnicas = [...new Set(itens_processados.map(i => i.transferencia_id))];
+                    const checkCompletionPromises = transferenciaIdsUnicas.map(transferenciaId => {
+                        return new Promise((resolve, reject) => {
+                            const sqlCheck = `SELECT COUNT(id) as pendentes FROM transferencia_itens WHERE transferencia_id = ? AND status = 'pendente'`;
+                            db.get(sqlCheck, [transferenciaId], (err, row) => {
+                                if (err) return reject(err);
+                                if (row && row.pendentes === 0) {
+                                    const sqlUpdateTransferencia = `UPDATE transferencias SET data_recebimento_confirmado = CURRENT_TIMESTAMP, usuario_confirmacao_id = ? WHERE id = ? AND data_recebimento_confirmado IS NULL`;
+                                    db.run(sqlUpdateTransferencia, [usuarioConfirmacaoId, transferenciaId], (errUpdate) => {
+                                        if (errUpdate) return reject(errUpdate);
+                                        resolve();
+                                    });
+                                } else {
+                                    resolve();
+                                }
+                            });
+                        });
+                    });
+                    return Promise.all(checkCompletionPromises);
+                })
+                .then(() => {
+                    db.run('COMMIT;', (errCommit) => {
+                        if (errCommit) throw errCommit;
+                        res.status(200).json({ message: "Item(ns) confirmado(s) com sucesso." });
+                    });
+                })
+                .catch(err => {
+                    console.error("[POST /confirmar-recebimento] Erro na transação:", err.message);
+                    db.run('ROLLBACK;');
+                    res.status(500).json({ error: err.message || 'Falha ao confirmar recebimento.' });
+                });
+        });
+    });
+});
+
+// --- ROTA 5: POST /registrar-devolucao ---
+// Registra itens como devolvidos, devolve-os ao estoque da SME e cria uma notificação.
+router.post('/registrar-devolucao', (req, res) => {
+    // ALTERADO: Payload agora é 'itens_processados' e contém a quantidade.
+    const { itens_processados, escola_id } = req.body;
+    const { username: usuarioNome, id: usuarioId } = req.user;
+
+    if (!escola_id || !Array.isArray(itens_processados) || itens_processados.length === 0) {
+        return res.status(400).json({ error: 'Dados insuficientes para registrar a devolução.' });
+    }
+    if (req.user.role === 'escola' && req.user.school_id !== escola_id) {
+        return res.status(403).json({ error: "Acesso negado." });
+    }
+
+    // Validação
+    for (const item of itens_processados) {
+        if (!item.transferencia_id || !item.produto_id || !item.quantidade || item.quantidade <= 0) {
+             return res.status(400).json({ error: `Item de devolução inválido: ${JSON.stringify(item)}.` });
+        }
+    }
+
+    db.serialize(() => {
+        db.run('BEGIN TRANSACTION;', (errBegin) => {
+            if (errBegin) return res.status(500).json({ error: 'Erro ao iniciar transação.' });
+
+            const detalhesItensParaNotificacao = [];
+            
+            const processPromises = itens_processados.map(item => {
+                return new Promise((resolve, reject) => {
+                    const sqlGetPendente = `
+                        SELECT ti.id, ti.quantidade_enviada, p.nome as nome_produto
+                        FROM transferencia_itens ti
+                        JOIN produtos p ON ti.produto_id = p.id
+                        WHERE ti.transferencia_id = ? AND ti.produto_id = ? AND ti.status = 'pendente'`;
+
+                    db.get(sqlGetPendente, [item.transferencia_id, item.produto_id], (errGet, pendente) => {
+                        if (errGet) return reject(new Error(`Erro ao buscar item para devolver: ${errGet.message}`));
+                        if (!pendente) return reject(new Error(`Item (Transf: ${item.transferencia_id}, Prod: ${item.produto_id}) não encontrado ou já processado.`));
+                        if (item.quantidade > pendente.quantidade_enviada) {
+                            return reject(new Error(`Tentativa de devolver ${item.quantidade}, mas apenas ${pendente.quantidade_enviada} estão pendentes.`));
+                        }
+
+                        detalhesItensParaNotificacao.push({ nome: pendente.nome_produto, quantidade: item.quantidade });
+
+                        const quantidadeDevolvida = item.quantidade;
+                        const quantidadeRestante = pendente.quantidade_enviada - quantidadeDevolvida;
+
+                        if (quantidadeRestante > 0) {
+                            // Devolução PARCIAL
+                            const sqlUpdatePendente = `UPDATE transferencia_itens SET quantidade_enviada = ? WHERE id = ?`;
+                            db.run(sqlUpdatePendente, [quantidadeRestante, pendente.id], function(errUpdate) {
+                                if (errUpdate) return reject(new Error(`Erro ao atualizar item pendente na devolução: ${errUpdate.message}`));
+                                const sqlInsertDevolvido = `INSERT INTO transferencia_itens (transferencia_id, produto_id, quantidade_enviada, status, data_recebimento) VALUES (?, ?, ?, 'devolvido', CURRENT_TIMESTAMP)`;
+                                db.run(sqlInsertDevolvido, [item.transferencia_id, item.produto_id, quantidadeDevolvida], (errInsert) => {
+                                    if (errInsert) return reject(new Error(`Erro ao inserir item devolvido: ${errInsert.message}`));
+                                    resolve();
+                                });
+                            });
+                        } else {
+                            // Devolução TOTAL
+                            const sqlUpdateTotal = `UPDATE transferencia_itens SET status = 'devolvido', data_recebimento = CURRENT_TIMESTAMP WHERE id = ?`;
+                            db.run(sqlUpdateTotal, [pendente.id], function(errUpdate) {
+                                if (errUpdate) return reject(new Error(`Erro ao devolver totalmente o item: ${errUpdate.message}`));
+                                if(this.changes === 0) return reject(new Error(`Nenhuma linha alterada para devolução total do item.`));
+                                resolve();
+                            });
+                        }
+                    });
+                });
+            });
+
+            Promise.all(processPromises)
+                .then(() => {
+                    // Lógica de notificação permanece, mas agora é mais precisa.
                     db.get('SELECT nome FROM escolas WHERE id = ?', [escola_id], (errEscola, escola) => {
-                        if (errEscola || !escola) throw new Error('Escola não encontrada.');
+                        if (errEscola || !escola) throw new Error('Escola não encontrada para notificação.');
 
-                        // Construção da mensagem detalhada
-                        let itensTexto = detalhesItensParaNotificacao
-                            .map(detalhe => `- ${detalhe.nome} (Qtd: ${detalhe.quantidade})`)
-                            .join('\n'); // Usa quebra de linha para formatar como lista
-
+                        let itensTexto = detalhesItensParaNotificacao.map(d => `- ${d.nome} (Qtd: ${d.quantidade})`).join('\n');
                         const message = `Devolução registrada por "${usuarioNome}" da escola "${escola.nome}":\n${itensTexto}`;
                         
-                        // MODIFICADO: Salva os dados dos itens como JSON em 'context_data'
-                        const contextData = JSON.stringify(itens_devolvidos);
+                        // O contexto agora são os itens que foram efetivamente devolvidos
+                        const contextData = JSON.stringify(itens_processados.map(i => ({ produto_id: i.produto_id, quantidade: i.quantidade })));
 
                         const stmt = db.prepare('INSERT INTO notificacoes (message, tipo, context_data) VALUES (?, ?, ?)');
                         stmt.run(message, 'devolucao', contextData, function (errInsert) {
                             if (errInsert) throw new Error('Falha ao criar notificação.');
                             
-                            const novaNotificacao = {
-                                id: this.lastID, message, tipo: 'devolucao', lida: false, createdAt: new Date().toISOString()
-                            };
+                            const novaNotificacao = { id: this.lastID, message, tipo: 'devolucao', lida: false, createdAt: new Date().toISOString() };
 
                             db.run('COMMIT;', (errCommit) => {
                                 if (errCommit) throw errCommit;
                                 res.status(201).json({ 
-                                    message: 'Devolução registrada, estoque atualizado e notificação criada com sucesso!',
+                                    message: 'Devolução registrada e notificação criada com sucesso!',
                                     notification: novaNotificacao 
                                 });
                             });
@@ -559,11 +592,8 @@ router.post('/registrar-devolucao', (req, res) => {
 
 // --- ROTA 6: GET /api/transferencias/historico-sme ---
 // Busca o histórico de todas as transferências (envios) realizadas pela SME.
-// Idealmente, adicionar middleware de autorização para garantir que apenas admin/SME possam ver tudo.
 router.get('/historico-sme', (req, res) => {
-    const { destino, dataInicio, dataFim, page = 1, limit = 10 } = req.query; // Adiciona page e limit
-
-    console.log("Backend [GET /historico-sme] - Filtros:", req.query);
+    const { destino, dataInicio, dataFim, page = 1, limit = 10 } = req.query;
 
     const pageNum = parseInt(page, 10);
     const limitNum = parseInt(limit, 10);
@@ -579,7 +609,6 @@ router.get('/historico-sme', (req, res) => {
         LEFT JOIN
             usuarios u_conf ON t.usuario_confirmacao_id = u_conf.id
     `;
-
     let sqlWhere = "";
     const paramsSQL = [];
     const conditions = [];
@@ -601,7 +630,6 @@ router.get('/historico-sme', (req, res) => {
         sqlWhere = " WHERE " + conditions.join(" AND ");
     }
 
-    // 1. Query para contar o total de itens (com os mesmos filtros)
     const sqlCount = `SELECT COUNT(DISTINCT t.id) as totalItems ${sqlBase} ${sqlWhere}`;
 
     db.get(sqlCount, paramsSQL, (errCount, countRow) => {
@@ -609,33 +637,22 @@ router.get('/historico-sme', (req, res) => {
             console.error("[GET /historico-sme] Erro ao contar itens:", errCount.message);
             return res.status(500).json({ error: "Erro interno ao processar a contagem de itens." });
         }
-
         const totalItems = countRow ? countRow.totalItems : 0;
         const totalPages = Math.ceil(totalItems / limitNum);
 
         if (totalItems === 0) {
-             return res.json({
-                 items: [],
-                 currentPage: pageNum,
-                 totalPages: 0,
-                 totalItems: 0
-             });
+             return res.json({ items: [], currentPage: pageNum, totalPages: 0, totalItems: 0 });
         }
 
-        // 2. Query para buscar os itens da página atual (com os mesmos filtros + LIMIT e OFFSET)
+        // ALTERADO: A query de itens agora busca todos os itens e seus status.
         let sqlHistoricoEnviosSME = `
             SELECT
                 t.id AS transferencia_id,
                 strftime('%d/%m/%Y %H:%M', t.data_transferencia, 'localtime') AS data_envio_formatada,
-                CASE
-                    WHEN t.data_recebimento_confirmado IS NOT NULL
-                    THEN strftime('%d/%m/%Y %H:%M', t.data_recebimento_confirmado, 'localtime')
-                    ELSE NULL
-                END AS data_recebimento_confirmado_formatada,
                 u_sme.username AS usuario_sme_nome,
                 e.nome AS nome_escola,
                 e.id AS escola_id,
-                u_conf.username AS nome_usuario_confirmacao,
+                -- Agrupamos todos os itens de uma transferência em um objeto JSON
                 COALESCE(
                   (
                     SELECT JSON_GROUP_ARRAY(
@@ -643,7 +660,9 @@ router.get('/historico-sme', (req, res) => {
                                 'produto_id', p_sub.id,
                                 'nome_produto', p_sub.nome,
                                 'unidade_medida', p_sub.unidade_medida,
-                                'quantidade_enviada', ti_sub.quantidade_enviada
+                                'quantidade_enviada', ti_sub.quantidade_enviada,
+                                'status', ti_sub.status,
+                                'data_processamento', strftime('%d/%m/%Y %H:%M', ti_sub.data_recebimento, 'localtime')
                               )
                             )
                     FROM transferencia_itens ti_sub
@@ -659,7 +678,7 @@ router.get('/historico-sme', (req, res) => {
             LIMIT ? OFFSET ?
         `;
 
-        const finalParamsSQL = [...paramsSQL, limitNum, offset]; // Adiciona limit e offset aos parâmetros
+        const finalParamsSQL = [...paramsSQL, limitNum, offset];
 
         db.all(sqlHistoricoEnviosSME, finalParamsSQL, (err, envios) => {
             if (err) {
@@ -675,7 +694,36 @@ router.get('/historico-sme', (req, res) => {
                     console.error("Erro ao parsear itens JSON:", envio.transferencia_id, e);
                     itensArray = [];
                 }
-                return { ...envio, itens: itensArray };
+                
+                // LÓGICA DE STATUS GERAL CORRIGIDA
+                const totalItens = itensArray.length;
+                const statusCounts = itensArray.reduce((acc, item) => {
+                    acc[item.status] = (acc[item.status] || 0) + 1;
+                    return acc;
+                }, {});
+
+                let statusGeral = 'Pendente'; // Começa com Pendente como padrão
+
+                const pendentes = statusCounts.pendente || 0;
+                const confirmados = statusCounts.confirmado || 0;
+                const devolvidos = statusCounts.devolvido || 0;
+
+                if (pendentes === 0) {
+                    // Se não há itens pendentes, está tudo processado.
+                    if (confirmados === totalItens) {
+                        statusGeral = 'Totalmente Confirmado';
+                    } else if (devolvidos === totalItens) {
+                        statusGeral = 'Totalmente Devolvido';
+                    } else {
+                        statusGeral = 'Concluído'; // Mix de confirmado e devolvido
+                    }
+                } else if (pendentes < totalItens) {
+                    // Se há pendentes, mas não são todos, então é parcial.
+                    statusGeral = 'Parcialmente Confirmado/Devolvido';
+                }
+                // Se pendentes === totalItens, o statusGeral permanece como 'Pendente' (o valor padrão).
+
+                return { ...envio, itens: itensArray, status_geral: statusGeral };
             });
 
             res.json({
