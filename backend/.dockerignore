@@ -1,0 +1,9 @@
+# Ignora a pasta de dependências locais. O container deve gerar a sua própria.
+node_modules
+
+# Ignora logs de debug do npm
+npm-debug.log
+
+# Opcional: Ignora o arquivo .env local, pois as variáveis de ambiente
+# devem ser passadas pelo docker-compose.yml
+.env
