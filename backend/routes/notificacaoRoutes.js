@@ -3,26 +3,72 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../database/dbConnection');
-const { authorizeAdmin } = require('../middleware/authMiddleware');
+const { authenticateToken, authorizeRole } = require('../middleware/authMiddleware');
 
-// GET /api/notificacoes - Busca todas as notificações (apenas para admin)
-router.get('/', authorizeAdmin, (req, res) => {
-    const sql = `
-        SELECT id, message, tipo, lida, createdAt 
-        FROM notificacoes 
-        ORDER BY createdAt DESC
-    `;
-    db.all(sql, [], (err, rows) => {
-        if (err) {
-            console.error("Erro ao buscar notificações:", err.message);
-            return res.status(500).json({ error: "Erro interno do servidor." });
-        }
-        res.json(rows);
+// Define um array com os papéis que podem acessar as notificações
+const rolesPermitidasParaNotificacoes = ['admin', 'user'];
+
+// GET /api/notificacoes - Busca notificações com paginação
+router.get('/', authenticateToken, authorizeRole(rolesPermitidasParaNotificacoes), (req, res) => {
+    // Define o número de itens por página. Pode vir da query ou ter um padrão.
+    const limit = parseInt(req.query.limit) || 10; // Padrão de 10 notificações por página
+    // Pega o número da página da query, com padrão 1.
+    const page = parseInt(req.query.page) || 1;
+    // Calcula o offset para a consulta SQL.
+    const offset = (page - 1) * limit;
+
+// Usamos Promise.all para executar as consultas de contagem em paralelo para mais eficiência
+    const countAllPromise = new Promise((resolve, reject) => {
+        db.get(`SELECT COUNT(*) as total FROM notificacoes`, [], (err, row) => {
+            if (err) return reject(err);
+            resolve(row.total);
+        });
     });
-});
+
+    const countUnreadPromise = new Promise((resolve, reject) => {
+        // Nova consulta para contar apenas as notificações não lidas (lida = 0 ou lida = false)
+        db.get(`SELECT COUNT(*) as total FROM notificacoes WHERE lida = 0`, [], (err, row) => {
+            if (err) return reject(err);
+            resolve(row.total);
+        });
+    });
+
+    Promise.all([countAllPromise, countUnreadPromise])
+        .then(([totalItems, totalUnread]) => {
+            const totalPages = Math.ceil(totalItems / limit);
+
+            // 2. Segunda consulta: Buscar a página específica de notificações.
+            const dataSql = `
+                SELECT id, message, tipo, lida, createdAt, context_data 
+                FROM notificacoes 
+                ORDER BY createdAt DESC
+                LIMIT ? OFFSET ?
+            `;
+            db.all(dataSql, [limit, offset], (err, rows) => {
+                if (err) {
+                    console.error("Erro ao buscar notificações paginadas:", err.message);
+                    return res.status(500).json({ error: "Erro interno do servidor ao buscar notificações." });
+                }
+                
+                // 3. Enviar a resposta com os dados e as informações de paginação.
+                res.json({
+                    data: rows, // Os itens da página atual
+                    pagination: {
+                        currentPage: page,
+                        totalPages: totalPages,
+                        totalItems: totalItems,
+                        itemsPerPage: limit
+                    },
+                    // contagem total de não lidos
+                    totalUnreadCount: totalUnread
+                });
+            });
+        });
+    });
+
 
 // Rota para confirmar uma devolução e reabastecer o estoque
-router.post('/confirmar-devolucao', authorizeAdmin, (req, res) => {
+router.post('/confirmar-devolucao', authenticateToken, authorizeRole(rolesPermitidasParaNotificacoes), (req, res) => {
     const { notificacao_id } = req.body;
 
     if (!notificacao_id) {
@@ -117,7 +163,7 @@ router.post('/confirmar-devolucao', authorizeAdmin, (req, res) => {
 });
 
 // PUT /api/notificacoes/:id/marcar-lida - Marca uma notificação como lida (apenas para admin)
-router.put('/:id/marcar-lida', authorizeAdmin, (req, res) => {
+router.put('/:id/marcar-lida', authenticateToken, authorizeRole(rolesPermitidasParaNotificacoes), (req, res) => {
     const { id } = req.params;
     const sql = `UPDATE notificacoes SET lida = 1 WHERE id = ?`;
 

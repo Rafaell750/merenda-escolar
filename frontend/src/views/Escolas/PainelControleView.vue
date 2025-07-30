@@ -181,17 +181,17 @@
          <div class="section-placeholder-header">
           <h2>Central de Notificações</h2>
         </div>
-        <!-- Conteúdo dinâmico -->
+        
         <div class="notifications-list-container">
             <div v-if="notificationsStore.isLoading" class="loading-message">Carregando notificações...</div>
             <div v-else-if="notificationsStore.error" class="error-message">{{ notificationsStore.error }}</div>
             <div v-else-if="notificationsStore.notificacoes.length === 0" class="empty-list-message">
-                Nenhuma notificação nova.
+                Nenhuma notificação encontrada.
             </div>
+            <!-- Lista de Notificações -->
             <ul v-else class="notifications-list">
                 <li v-for="notificacao in notificationsStore.notificacoes" :key="notificacao.id" class="notification-item" :class="{ 'nao-lida': !notificacao.lida }">
                     <div class="notification-icon">
-                        <!-- Ícone pode variar com o tipo de notificação -->
                         <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" class="bi bi-arrow-counterclockwise" viewBox="0 0 16 16">
                             <path fill-rule="evenodd" d="M8 3a5 5 0 1 1-4.546 2.914.5.5 0 0 0-.908-.417A6 6 0 1 0 8 2z"/>
                             <path d="M8 4.466V.534a.25.25 0 0 0-.41-.192L5.23 2.308a.25.25 0 0 0 0 .384l2.36 1.966A.25.25 0 0 0 8 4.466"/>
@@ -204,7 +204,7 @@
                     <div class="notification-actions">
                         <button
                             v-if="notificacao.tipo === 'devolucao' && !notificacao.lida"
-                            @click="notificationsStore.confirmarDevolucao(notificacao.id)"
+                            @click="confirmarDevolucaoEAtualizar(notificacao.id)"
                             class="btn-confirm-return"
                             title="Confirmar Recebimento da Devolução e Reabastecer Estoque">
                             Confirmar devolução
@@ -212,6 +212,14 @@
                     </div>
                 </li>
             </ul>
+
+            <!-- *** NOVO: ADIÇÃO DO COMPONENTE DE PAGINAÇÃO *** -->
+            <PaginationControls
+                v-if="!notificationsStore.isLoading && notificationsStore.totalPages > 1"
+                :current-page="notificationsStore.currentPage"
+                :total-pages="notificationsStore.totalPages"
+                @page-changed="handleNotificationPageChange"
+            />
         </div>
       </div>
     </div>
@@ -225,6 +233,7 @@ import { ref, computed, onMounted, nextTick, watch } from 'vue';
 import { useEscolasStore } from '@/stores/escolas'; // Store Pinia para gerenciar dados das escolas.
 import { useNotificationsStore } from '@/stores/notifications';
 import HistoricoEnviosSME from './Historico/HistoricoEnviosSME.vue';
+import PaginationControls from '@/components/PaginationControls.vue';
 
 // Instância da store de notificações
 const notificationsStore = useNotificationsStore();
@@ -450,6 +459,21 @@ const confirmDeleteEscola = async (id, nome) => {
         }
     }
 };
+
+// *** NOVO: FUNÇÃO PARA MUDAR DE PÁGINA NAS NOTIFICAÇÕES ***
+const handleNotificationPageChange = (newPage) => {
+  notificationsStore.fetchNotificacoes(newPage);
+  // Opcional: rolar para o topo da lista de notificações
+  document.querySelector('.notifications-list-container')?.scrollTo(0, 0);
+};
+
+// *** NOVO: FUNÇÃO PARA CONFIRMAR DEVOLUÇÃO E ATUALIZAR A LISTA ***
+const confirmarDevolucaoEAtualizar = async (notificacaoId) => {
+    await notificationsStore.confirmarDevolucao(notificacaoId);
+    // Após confirmar, recarrega a página atual para garantir que o estado (lida/não lida)
+    // esteja 100% sincronizado com o backend.
+    await notificationsStore.fetchNotificacoes(notificationsStore.currentPage);
+}
 
 // --- BLOCO 9: HOOKS DE CICLO DE VIDA ---
 
@@ -680,6 +704,11 @@ watch(activeSection, (newSectionValue) => {
 }
 .notification-actions .btn-mark-read:hover {
     background-color: #e9ecef;
+}
+
+.notification-actions .btn-confirm-return {
+    /* ... seus estilos existentes */
+    white-space: nowrap; /* Evita que o texto quebre em duas linhas */
 }
 
 .btn-confirm-return {

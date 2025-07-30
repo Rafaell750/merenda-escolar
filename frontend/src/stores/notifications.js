@@ -1,35 +1,42 @@
+// frontend/src/stores/notifications.js
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
-import axios from 'axios'; // Certifique-se de que o axios está importado
+import axios from 'axios';
 
 export const useNotificationsStore = defineStore('notifications', () => {
+    // --- ESTADO ---
     const notificacoes = ref([]);
     const isLoading = ref(false);
     const error = ref(null);
+    // Novas propriedades de estado para paginação
+    const currentPage = ref(1);
+    const totalPages = ref(1);
+    const itemsPerPage = ref(10); // Corresponde ao `limit` no backend
 
-    // Propriedade computada para contar apenas as notificações não lidas.
-    // Esta propriedade é reativa: ela será recalculada automaticamente sempre
-    // que o array 'notificacoes' ou a propriedade 'lida' de qualquer item mudar.
-    const unreadCount = computed(() => {
-        return notificacoes.value.filter(n => n.lida === false).length;
-    });
+    // Estado para a contagem global de não lidos
+    const totalUnreadCount = ref(0);
+
+    // --- PROPRIEDADE COMPUTADA ---
+    // Agora, unreadCount simplesmente retorna o valor que veio da API,
+    // em vez de calcular com base na lista da página atual.
+    const unreadCount = computed(() => totalUnreadCount.value);
+
+    // --- ACTIONS ---
 
     function addNotificacao(notificacao) {
-        // Verifica se a notificação já existe para evitar duplicatas
         const existe = notificacoes.value.some(n => n.id === notificacao.id);
         if (!existe) {
             notificacoes.value.unshift(notificacao);
+            // Poderia ter lógica aqui para refetch a página 1 se uma nova notificação chega
         }
     }
     
-    // Ação para chamar a nova rota de confirmação
     async function confirmarDevolucao(notificacaoId) {
-
         const notificacaoParaConfirmar = notificacoes.value.find(n => n.id === notificacaoId);
         if (!notificacaoParaConfirmar || notificacaoParaConfirmar.lida) return;
         
-        // Atualização otimista
-        notificacaoParaConfirmar.lida = true; 
+        notificacaoParaConfirmar.lida = true;
+        totalUnreadCount.value--; 
 
         const API_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api';
         const token = localStorage.getItem('authToken');
@@ -39,56 +46,64 @@ export const useNotificationsStore = defineStore('notifications', () => {
                 { notificacao_id: notificacaoId }, 
                 { headers: { Authorization: `Bearer ${token}` } }
             );
+            // Opcional: Recarregar a página atual para refletir o estado do backend
+            // await fetchNotificacoes(currentPage.value);
         } catch (err) {
             console.error("Erro ao confirmar devolução:", err);
-            notificacaoParaConfirmar.lida = false; // Rollback
+            notificacaoParaConfirmar.lida = false;
+            totalUnreadCount.value++;
         }
     }
 
-    
-    // Implementar a lógica de busca da API
-    async function fetchNotificacoes() {
+    // Ação de busca atualizada para lidar com paginação
+async function fetchNotificacoes(page = 1) {
         if (isLoading.value) return;
-
-        const API_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api';
-        const token = localStorage.getItem('authToken');
-
-        if (!token) {
-            error.value = "Usuário não autenticado para buscar notificações.";
-            return;
-        }
 
         isLoading.value = true;
         error.value = null;
         try {
+            const API_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api';
+            const token = localStorage.getItem('authToken');
             const response = await axios.get(`${API_URL}/notificacoes`, {
-                headers: { Authorization: `Bearer ${token}` }
+                headers: { Authorization: `Bearer ${token}` },
+                params: { page: page, limit: itemsPerPage.value }
             });
 
-            
-            // Normaliza os dados recebidos para garantir que 'lida' seja sempre um booleano.
-            const dadosNormalizados = response.data.map(notificacao => ({
+            // Desestrutura a resposta para pegar os novos dados
+            const { data, pagination, totalUnreadCount: unreadCountFromApi } = response.data;
+
+            const dadosNormalizados = data.map(notificacao => ({
                 ...notificacao,
-                lida: Boolean(notificacao.lida) // Converte 0 para false, 1 para true.
+                lida: Boolean(notificacao.lida)
             }));
             
             notificacoes.value = dadosNormalizados;
+            currentPage.value = pagination.currentPage;
+            totalPages.value = pagination.totalPages;
+            
+            // ATUALIZA A CONTAGEM GLOBAL
+            totalUnreadCount.value = unreadCountFromApi;
+
         } catch (err) {
             console.error("Erro ao buscar notificações:", err);
             error.value = err.response?.data?.error || "Falha ao carregar notificações.";
+            notificacoes.value = [];
+            currentPage.value = 1;
+            totalPages.value = 1;
+            totalUnreadCount.value = 0; // Zera a contagem em caso de erro
         } finally {
             isLoading.value = false;
         }
     }
     
-
-    // Função completa para marcar como lida, incluindo a chamada à API
-async function marcarComoLida(notificacaoId) {
-        // CORREÇÃO 2 (A que estava faltando)
+    async function marcarComoLida(notificacaoId) {
         const notificacaoParaMarcar = notificacoes.value.find(n => n.id === notificacaoId);
         if (!notificacaoParaMarcar || notificacaoParaMarcar.lida) return;
 
+        // Atualização otimista
         notificacaoParaMarcar.lida = true;
+        totalUnreadCount.value--; // Diminui a contagem imediatamente
+
         const API_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api';
         const token = localStorage.getItem('authToken');
         try {
@@ -97,15 +112,20 @@ async function marcarComoLida(notificacaoId) {
             });
         } catch (err) {
             console.error("Erro ao marcar notificação como lida no backend:", err);
+            // Rollback
             notificacaoParaMarcar.lida = false;
+            totalUnreadCount.value++;
         }
     }
 
+    // Exporta as novas propriedades e a ação atualizada
     return {
         notificacoes,
         isLoading,
         error,
         unreadCount,
+        currentPage,
+        totalPages,
         addNotificacao,
         fetchNotificacoes,
         confirmarDevolucao,

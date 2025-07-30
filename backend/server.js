@@ -72,7 +72,7 @@ const bcrypt = require('bcrypt'); // Biblioteca para hashing de senhas (usado no
 // const jwt = require('jsonwebtoken'); // Não diretamente usado aqui, mas nas rotas de autenticação
 
 // Importa a conexão centralizada com o banco de dados (instância do SQLite3)
-const db = require('./database/dbConnection');
+const db = require('./database/dbConnection.js');
 
 // Importa os módulos de rotas específicos para cada recurso da API
 const transferenciaRoutes = require('./routes/transferenciaRoutes');
