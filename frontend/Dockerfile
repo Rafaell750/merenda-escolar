@@ -12,6 +12,11 @@ RUN npm install
 # Copia o código-fonte do frontend
 COPY . .
 
+# Argumento que receberá a URL da API do docker-compose.yml
+ARG VITE_API_BASE_URL
+# Define a variável de ambiente para o comando de build do Vite
+ENV VITE_API_BASE_URL=${VITE_API_BASE_URL}
+
 # Executa o build de produção, usando o modo 'docker' que criaremos
 # Este comando gera a pasta /app/dist com os arquivos estáticos
 RUN npm run build:docker

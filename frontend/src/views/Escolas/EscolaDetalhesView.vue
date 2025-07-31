@@ -280,7 +280,7 @@ const temTransferenciasPendentes = ref(false);    // Indica se há transferênci
 const loadingStatusPendentes = ref(false);     // Estado de carregamento da verificação de pendências.
 
 // URL base da API (do .env ou fallback)
-const API_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api';
+const API_URL = import.meta.env.VITE_API_BASE_URL;
 
 // Estado para dados do usuário logado (para controle de permissões)
 const currentUser = ref(null);

@@ -51,12 +51,14 @@
 
 import axios from 'axios';
 
+const API_URL = import.meta.env.VITE_API_BASE_URL;
+
 // 1. CRIAÇÃO DA INSTÂNCIA DO AXIOS
 // Configura a URL base para todas as requisições e headers padrão.
 const apiClient = axios.create({
-  baseURL: 'http://localhost:3000/api', // URL base do seu backend. Certifique-se que corresponde ao seu .env ou configuração do servidor.
+  baseURL: API_URL, 
   headers: {
-    'Content-Type': 'application/json', // Define o tipo de conteúdo padrão para as requisições.
+    'Content-Type': 'application/json', // Define o tipo de conteúdo padrão.
   },
 });
 

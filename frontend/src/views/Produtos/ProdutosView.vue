@@ -364,6 +364,8 @@
   import EstoqueAlertas from './EstoqueAlertas.vue';
   import ConfirmationModal from '@/components/ConfirmationModal.vue'; 
   import { useConfirmation } from '@/composables/useConfirmation';
+
+  const API_URL = import.meta.env.VITE_API_BASE_URL;
   
   const toast = useToast(); // Instância do serviço de toast.
   const escolasStore = useEscolasStore(); // Instância da store de escolas (uso potencial pelo modal ou futuras features).
@@ -637,7 +639,7 @@ const getRowClass = (produto) => {
         return; // Interrompe a execução
     }
 
-    const response = await fetch('http://localhost:3000/api/produtos', {
+    const response = await fetch(`${API_URL}/produtos`, {
         headers: { 'Authorization': `Bearer ${token}` }
     });
 
@@ -741,7 +743,7 @@ const getRowClass = (produto) => {
       };
       delete payload.id; // ID não é enviado na criação
   
-      const response = await fetch('http://localhost:3000/api/produtos', {
+      const response = await fetch(`${API_URL}/produtos`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
           body: JSON.stringify(payload),
@@ -819,7 +821,7 @@ const getRowClass = (produto) => {
           data_vencimento: formData.value.data_vencimento === '' ? null : formData.value.data_vencimento
         };
   
-        const response = await fetch(`http://localhost:3000/api/produtos/${editandoProdutoId.value}`, {
+        const response = await fetch(`${API_URL}/produtos/${editandoProdutoId.value}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
             body: JSON.stringify(payload),
@@ -995,7 +997,7 @@ const executarExclusao = async (produtoId) => {
             const token = localStorage.getItem('authToken');
             if (!token) throw new Error("Token de autenticação não encontrado.");
 
-            const response = await fetch(`http://localhost:3000/api/produtos/${produtoId}`, {
+            const response = await fetch(`${API_URL}/produtos/${produtoId}`, {
                 method: 'DELETE',
                 headers: { 'Authorization': `Bearer ${token}` }
             });
@@ -1050,7 +1052,7 @@ const executarExclusao = async (produtoId) => {
       }
   
       // Presume-se um endpoint POST /api/transferencias no backend
-      const response = await fetch('http://localhost:3000/api/transferencias', {
+      const response = await fetch(`${API_URL}/transferencias`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
           body: JSON.stringify(payload),
@@ -1119,7 +1121,7 @@ const handleConfirmarReabastecimento = async (payloadItens) => {
 
     // Endpoint do backend para reabastecer múltiplos produtos
     // Este endpoint precisa ser criado no backend!
-    const response = await fetch('http://localhost:3000/api/produtos/reabastecer-multiplos', {
+    const response = await fetch(`${API_URL}/produtos/reabastecer-multiplos`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify({ itens: payloadItens }), // Backend espera um objeto com uma chave 'itens'

@@ -7,34 +7,45 @@ services:
     container_name: estoque_backend
     restart: unless-stopped
     ports:
-      # Mapeia a porta 5001 do HOST para a porta 5001 do CONTAINER
-      # (Host:Container). Escolhemos 5001 para evitar as portas restritas.
-      - "5001:5001"
+      # ALTERADO: Usa variáveis do arquivo .env
+      # Mapeia a porta do host para a porta do contêiner dinamicamente
+      - "${BACKEND_PORT_HOST}:${BACKEND_PORT_CONTAINER}"
     environment:
-      # Você pode passar variáveis de ambiente do seu .env aqui
-      - NODE_ENV=production
-      - PORT=5001
-      # - JWT_SECRET=seu_segredo_super_secreto # Adicione outras variáveis necessárias
+      # ALTERADO: Usa variáveis do arquivo .env
+      - NODE_ENV=${NODE_ENV}
+      - PORT=${BACKEND_PORT_CONTAINER} # O Node.js usará a porta definida no .env
+      # - JWT_SECRET=${JWT_SECRET} # Exemplo de como usar outros segredos
     volumes:
-      # Cria um volume nomeado 'db-data' e o monta no diretório
-      # 'database' dentro do container. Isso persiste seu arquivo .db
+      # Mantido: Persiste o banco de dados.
+      # ATENÇÃO: Verifique se o WORKDIR no seu backend/Dockerfile é /app. Se for /usr/src/app, mude aqui também.
       - db-data:/app/database
+    networks: # NOVO: Adiciona o serviço a uma rede customizada
+      - estoque-net
 
   # Serviço do Frontend (Vue.js + Nginx)
   frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+      # NOVO: Injeta a URL da API durante o build do frontend
+      args:
+        - VITE_API_BASE_URL=${API_URL_FOR_FRONTEND}
     container_name: estoque_frontend
     restart: unless-stopped
     ports:
-      # Mapeia a porta 8081 do HOST para a porta 80 do CONTAINER (Nginx)
-      # (Host:Container). Escolhemos 8081 para evitar as portas restritas.
-      - "8081:80"
+      # ALTERADO: Usa variáveis do arquivo .env
+      # Mapeia a porta do host para a porta 80 do Nginx no contêiner
+      - "${FRONTEND_PORT_HOST}:80"
     depends_on:
-      # Garante que o container do backend seja iniciado antes do frontend
       - backend
+    networks: # NOVO: Adiciona o serviço a uma rede customizada
+      - estoque-net
 
 # Define os volumes nomeados
 volumes:
   db-data:
+
+# NOVO: Define a rede customizada para os serviços se comunicarem
+networks:
+  estoque-net:
+    driver: bridge

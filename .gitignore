@@ -28,3 +28,10 @@ coverage
 *.sw?
 
 *.tsbuildinfo
+
+# Arquivos de ambiente locais
+backend/.env
+frontend/.env.local
+frontend/.env.development
+frontend/.env.production.local
+*.env

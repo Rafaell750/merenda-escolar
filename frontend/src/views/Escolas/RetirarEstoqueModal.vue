@@ -70,7 +70,7 @@
   
   const emit = defineEmits(['close', 'retirada-confirmada']);
   const toast = useToast();
-  const API_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api';
+  const API_URL = import.meta.env.VITE_API_BASE_URL;
   
   const itensParaRetirar = ref([]);
   const processandoRetirada = ref(false);

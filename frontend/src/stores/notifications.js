@@ -3,6 +3,8 @@ import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
 import axios from 'axios';
 
+const API_URL = import.meta.env.VITE_API_BASE_URL;
+
 export const useNotificationsStore = defineStore('notifications', () => {
     // --- ESTADO ---
     const notificacoes = ref([]);
@@ -38,7 +40,7 @@ export const useNotificationsStore = defineStore('notifications', () => {
         notificacaoParaConfirmar.lida = true;
         totalUnreadCount.value--; 
 
-        const API_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api';
+        
         const token = localStorage.getItem('authToken');
 
         try {
@@ -62,7 +64,6 @@ async function fetchNotificacoes(page = 1) {
         isLoading.value = true;
         error.value = null;
         try {
-            const API_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api';
             const token = localStorage.getItem('authToken');
             const response = await axios.get(`${API_URL}/notificacoes`, {
                 headers: { Authorization: `Bearer ${token}` },
@@ -104,7 +105,6 @@ async function fetchNotificacoes(page = 1) {
         notificacaoParaMarcar.lida = true;
         totalUnreadCount.value--; // Diminui a contagem imediatamente
 
-        const API_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api';
         const token = localStorage.getItem('authToken');
         try {
             await axios.put(`${API_URL}/notificacoes/${notificacaoId}/marcar-lida`, {}, {

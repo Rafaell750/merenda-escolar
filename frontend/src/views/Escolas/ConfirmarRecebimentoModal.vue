@@ -126,7 +126,7 @@ const props = defineProps({
 const emit = defineEmits(['close', 'recebimento-confirmado', 'devolucao-registrada']);
 
 const dialogRef = ref(null);
-const API_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api';
+const API_URL = import.meta.env.VITE_API_BASE_URL;
 
 // Instância da store de notificações
 const notificationsStore = useNotificationsStore();

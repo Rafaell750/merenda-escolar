@@ -2,6 +2,8 @@
 import { defineStore } from 'pinia';
 import { useToast } from 'vue-toastification';
 
+const API_URL = import.meta.env.VITE_API_BASE_URL;
+
 const toast = useToast();
 const ITEMS_PER_PAGE = 10; // Defina quantos itens por página
 
@@ -61,7 +63,7 @@ export const useHistoricoStore = defineStore('historico', {
 
         const queryString = params.toString();
         // Sua URL base. Adiciona a queryString se ela existir.
-        const apiUrl = `http://localhost:3000/api/transferencias/historico-sme${queryString ? `?${queryString}` : ''}`;
+        const apiUrl = `${API_URL}/transferencias/historico-sme${queryString ? `?${queryString}` : ''}`;
         
         const response = await fetch(apiUrl, { // URL modificada para incluir filtros
           headers: {
