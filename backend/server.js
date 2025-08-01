@@ -89,7 +89,8 @@ const { authenticateToken, authorizeAdmin } = require('./middleware/authMiddlewa
 
 // --- BLOCO 2: INICIALIZAÇÃO DA APLICAÇÃO EXPRESS ---
 const app = express(); // Cria uma instância da aplicação Express
-const PORT = process.env.PORT || 3000; // Define a porta do servidor, priorizando a variável de ambiente
+const HOST = process.env.HOST || '0.0.0.0';
+const PORT = process.env.PORT || 3000;
 
 // --- BLOCO 3: MIDDLEWARES GLOBAIS DA APLICAÇÃO ---
 app.use(cors()); // Habilita CORS para permitir requisições de diferentes origens (ex: frontend em outra porta)
@@ -141,10 +142,18 @@ app.use('/api/escolas', authenticateToken, escolaRoutes); // Rotas de escolas ex
 app.use('/api/escolas', authenticateToken, estoqueEscolaRoutes); // Adiciona as novas rotas de estoque da escola
 
 
-// --- BLOCO 6: INÍCIO DO SERVIDOR ---
-// O servidor começa a escutar por requisições HTTP na porta definida.
-app.listen(PORT, () => {
-    console.log(`Servidor backend rodando em http://localhost:${PORT}`);
+// --- BLOCO 6: INÍCIO DO SERVIDOR (MODIFICADO) ---
+// O servidor agora usa tanto o HOST quanto a PORT para iniciar.
+app.listen(PORT, HOST, () => {
+    // A mensagem de log agora é mais informativa e útil para ambos os ambientes.
+    console.log(`Servidor backend iniciado.`);
+    console.log(`Ambiente: ${process.env.NODE_ENV || 'development'}`);
+    console.log(`Acessível em:`);
+    console.log(`  - Local (dentro do contêiner/máquina): http://localhost:${PORT}`);
+    
+    // Mostra o endereço de rede, que é como você acessará de fora do contêiner.
+    // Em um contêiner, isso mostrará 0.0.0.0, indicando que está aberto para conexões externas.
+    console.log(`  - Rede (acesso externo): http://${HOST}:${PORT}`);
 });
 
 // --- BLOCO 7: FUNÇÃO AUXILIAR PARA CONFIGURAÇÃO DO BANCO DE DADOS ---

@@ -99,6 +99,9 @@
             <path fill-rule="evenodd" d="M0 10a8 8 0 1 1 15.547 2.661c-.442 1.253-1.845 1.602-2.932 1.25C11.309 13.488 9.475 13 8 13c-1.474 0-3.31.488-4.615.911-1.087.352-2.49.003-2.932-1.25A8 8 0 0 1 0 10m8-7a7 7 0 0 0-6.603 9.329c.203.575.923.876 1.68.63C4.397 12.533 6.358 12 8 12s3.604.532 4.923.96c.757.245 1.477-.056 1.68-.631A7 7 0 0 0 8 3"/>
           </svg>
           <span class="menu-item-text">Painel</span>
+          <span v-if="notificationsStore.unreadCount > 0" class="notification-badge-sidebar">
+              {{ notificationsStore.unreadCount }}
+          </span>
         </router-link>
 
         <!-- Link para Produtos -->
@@ -258,18 +261,21 @@
 
 <script setup>
 // --- BLOCO 1: IMPORTAÇÕES E INICIALIZAÇÕES ---
-import { ref, computed, onMounted, watch, toRaw } from 'vue';
+import { ref, computed, onMounted, watch, onUnmounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router'; // Para interagir com o sistema de rotas.
 import { useEscolasStore } from '@/stores/escolas'; // Store Pinia para dados das escolas.
+import { useNotificationsStore } from '@/stores/notifications';
 
 const route = useRoute(); // Informações sobre a rota atual.
 const router = useRouter(); // Instância do roteador Vue.
 const escolasStore = useEscolasStore(); // Instância da store de escolas.
+const notificationsStore = useNotificationsStore();
 
 // --- BLOCO 2: ESTADO LOCAL DO COMPONENTE (REFS) ---
 const isSidebarCollapsed = ref(false); // Controla se a sidebar está recolhida ou expandida.
 const currentUser = ref(null);         // Armazena os dados do usuário logado (obtidos do localStorage).
 const escolasListaVisivel = ref(true);
+let notificationPollingInterval = null;
 
 // --- BLOCO 3: PROPRIEDADES COMPUTADAS PARA CONTROLE DE UI E PERMISSÕES ---
 
@@ -371,7 +377,32 @@ onMounted(() => {
             // Situação anômala: usuário do tipo 'escola' sem um ID de escola associado.
             console.warn("Usuário 'escola' logado sem 'school_id' associado.");
         }
+    // 1. Busca a contagem de notificações assim que o app é carregado.
+        notificationsStore.fetchUnreadCount();
+
+        // 2. Inicia um intervalo que verifica por novas notificações a cada 30 segundos.
+        notificationPollingInterval = setInterval(() => {
+            // Só verifica se o usuário ainda estiver logado
+            if (localStorage.getItem('authToken')) {
+                notificationsStore.fetchUnreadCount();
+            }
+        }, 30000); // 30000ms = 30 segundos
+        // *** FIM DA MODIFICAÇÃO PARA POLLING ***
     }
+});
+
+// *** NOVO HOOK: onUnmounted ***
+// Limpa o intervalo quando o componente é destruído (usuário fecha a aba/navegador).
+// Isso é crucial para evitar memory leaks.
+onUnmounted(() => {
+    if (notificationPollingInterval) {
+        clearInterval(notificationPollingInterval);
+    }
+});
+
+
+watch(() => route.fullPath, () => {
+    loadUserFromStorage();
 });
 
 /**
@@ -509,6 +540,7 @@ body {
 .menu::-webkit-scrollbar-thumb { background-color: #4b5563; border-radius: 3px; }
 
 .menu-item {
+  position: relative;
   display: flex;
   align-items: center;
   padding: 0.8rem 1.5rem; /* Espaçamento interno do item */
@@ -794,6 +826,42 @@ body {
 .sidebar-footer {
   padding-top: 0.5rem; /* Reduzir um pouco o padding superior do footer */
   padding-bottom: 0.5rem; /* Reduzir um pouco o padding inferior do footer */
+}
+
+/* Estilo para o novo badge na sidebar */
+.notification-badge-sidebar {
+  position: absolute;
+  top: 10px; /* Distância do topo */
+  right: 15px; /* Distância da direita */
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  min-width: 20px;
+  height: 20px;
+  padding: 0 5px; /* Padding horizontal para números com mais de 1 dígito */
+  
+  background-color: #dc3545; /* Vermelho forte para chamar atenção */
+  color: white;
+  border-radius: 10px; /* Borda arredondada */
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1;
+
+  /* Animação para o badge aparecer suavemente */
+  animation: fade-in-scale 0.3s ease-in-out;
+}
+
+/* Quando a sidebar está recolhida, o badge se ajusta */
+.sidebar.collapsed .notification-badge-sidebar {
+    top: 5px;
+    right: 5px;
+    min-width: 10px;
+    height: 10px;
+    font-size: 0; /* Esconde o número, mostrando apenas o ponto vermelho */
+    padding: 0;
+    border-radius: 50%;
 }
 
 

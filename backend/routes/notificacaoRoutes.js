@@ -66,6 +66,23 @@ router.get('/', authenticateToken, authorizeRole(rolesPermitidasParaNotificacoes
         });
     });
 
+// *** INÍCIO DA NOVA ROTA ADICIONADA ***
+// GET /api/notificacoes/unread-count - Rota leve para buscar apenas a contagem de não lidas
+router.get('/unread-count', authenticateToken, authorizeRole(rolesPermitidasParaNotificacoes), (req, res) => {
+    // SQL para contar apenas as notificações com lida = 0 (ou false)
+    const sql = `SELECT COUNT(*) as count FROM notificacoes WHERE lida = 0`;
+
+    db.get(sql, [], (err, row) => {
+        if (err) {
+            console.error("Erro ao buscar contagem de notificações não lidas:", err.message);
+            return res.status(500).json({ error: "Erro interno do servidor." });
+        }
+
+        // Retorna a contagem em um formato JSON simples, como esperado pelo frontend
+        res.status(200).json({ unreadCount: row.count || 0 });
+    });
+});
+
 
 // Rota para confirmar uma devolução e reabastecer o estoque
 router.post('/confirmar-devolucao', authenticateToken, authorizeRole(rolesPermitidasParaNotificacoes), (req, res) => {

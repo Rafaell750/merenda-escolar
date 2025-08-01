@@ -25,6 +25,26 @@ export const useNotificationsStore = defineStore('notifications', () => {
 
     // --- ACTIONS ---
 
+
+    async function fetchUnreadCount() {
+        try {
+            const token = localStorage.getItem('authToken');
+            
+            
+            const response = await axios.get(`${API_URL}/notificacoes/unread-count`, {
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            
+            if (response.data && typeof response.data.unreadCount === 'number') {
+                totalUnreadCount.value = response.data.unreadCount;
+            }
+        } catch (err) {
+            // Silenciosamente loga o erro, pois é uma verificação de fundo.
+            
+            console.error('Falha ao verificar contagem de notificações:', err);
+        }
+    }
+
     function addNotificacao(notificacao) {
         const existe = notificacoes.value.some(n => n.id === notificacao.id);
         if (!existe) {
@@ -129,6 +149,7 @@ async function fetchNotificacoes(page = 1) {
         addNotificacao,
         fetchNotificacoes,
         confirmarDevolucao,
-        marcarComoLida
+        marcarComoLida,
+        fetchUnreadCount
     };
 });

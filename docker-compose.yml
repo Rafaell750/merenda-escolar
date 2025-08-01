@@ -14,7 +14,7 @@ services:
       # ALTERADO: Usa variáveis do arquivo .env
       - NODE_ENV=${NODE_ENV}
       - PORT=${BACKEND_PORT_CONTAINER} # O Node.js usará a porta definida no .env
-      # - JWT_SECRET=${JWT_SECRET} # Exemplo de como usar outros segredos
+      - JWT_SECRET=${JWT_SECRET}
     volumes:
       # Mantido: Persiste o banco de dados.
       # ATENÇÃO: Verifique se o WORKDIR no seu backend/Dockerfile é /app. Se for /usr/src/app, mude aqui também.

@@ -198,8 +198,33 @@
                         </svg>
                     </div>
                     <div class="notification-content">
-                        <p class="notification-message">{{ notificacao.message }}</p>
-                        <span class="notification-date">{{ new Date(notificacao.createdAt).toLocaleString('pt-BR') }}</span>
+                      <p class="notification-message">
+                          {{ getNotificationTitle(notificacao.message) }}
+                      </p>
+                      <span class="notification-date">{{ new Date(notificacao.createdAt).toLocaleString('pt-BR') }}</span>
+
+                      <!-- *** MODIFICADO: Bloco expansível redesenhado para corresponder ao modelo *** -->
+                      <div v-if="getNotificationDetails(notificacao.message)" class="details-expander">
+                          <!-- Cabeçalho Clicável -->
+                          <div class="expander-header" @click="toggleNotificationDetails(notificacao.id)">
+                              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-box-seam" viewBox="0 0 16 16">
+                                  <path d="M8.186 1.113a.5.5 0 0 0-.372 0L1.846 3.5l2.404.961L10.404 2l-2.218-.887zM3.56 3.597l2.218.887L8 5.268l2.218-.884L12.44 3.6l-2.404-.961z"/>
+                                  <path d="M13.846 3.5 8 5.961 2.154 3.5 1 3.961 8 6.887l7-2.926zM1.5 4.468 8 7.387l6.5-2.92V11.5a.5.5 0 0 1-.5.5h-11a.5.5 0 0 1-.5-.5zM8 8.431l-6-2.4V11h12V6.031z"/>
+                              </svg>
+                              <span>Detalhes dos Itens ({{ getNotificationDetails(notificacao.message).trim().split('\n').length }})</span>
+                              <div class="expander-chevron" :class="{ 'expanded': expandedNotifications[notificacao.id] }">
+                                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-chevron-down" viewBox="0 0 16 16">
+                                      <path fill-rule="evenodd" d="M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708"/>
+                                  </svg>
+                              </div>
+                          </div>
+                          <!-- Conteúdo que expande/recolhe -->
+                          <div v-show="expandedNotifications[notificacao.id]" class="expander-content">
+                              <p class="notification-details">
+                                  {{ getNotificationDetails(notificacao.message) }}
+                              </p>
+                          </div>
+                      </div>
                     </div>
                     <div class="notification-actions">
                         <button
@@ -244,6 +269,7 @@ const escolasStore = useEscolasStore();
 
 // --- BLOCO 3: ESTADO LOCAL DO COMPONENTE (REFS) ---
 // Variáveis reativas para controlar o comportamento e a interface do componente.
+const expandedNotifications = ref({});
 const isFormExpanded = ref(false);      // Controla a visibilidade do painel do formulário.
 const isEditing = ref(false);           // Indica se o formulário está em modo de edição (true) ou cadastro (false).
 const editingEscolaId = ref(null);      // Armazena o ID da escola que está sendo editada.
@@ -460,6 +486,26 @@ const confirmDeleteEscola = async (id, nome) => {
     }
 };
 
+// --- BLOCO 9: LÓGICA DE NOTIFICAÇÕES ---
+
+// *** NOVO: Funções para separar título e detalhes da notificação ***
+const getNotificationTitle = (message) => {
+  if (!message) return '';
+  const newlineIndex = message.indexOf('\n');
+  return newlineIndex !== -1 ? message.substring(0, newlineIndex) : message;
+};
+
+const getNotificationDetails = (message) => {
+  if (!message) return null;
+  const newlineIndex = message.indexOf('\n');
+  return newlineIndex !== -1 ? message.substring(newlineIndex + 1) : null;
+};
+
+// *** NOVO: Função para alternar a visibilidade dos detalhes ***
+const toggleNotificationDetails = (id) => {
+  expandedNotifications.value[id] = !expandedNotifications.value[id];
+};
+
 // *** NOVO: FUNÇÃO PARA MUDAR DE PÁGINA NAS NOTIFICAÇÕES ***
 const handleNotificationPageChange = (newPage) => {
   notificationsStore.fetchNotificacoes(newPage);
@@ -475,7 +521,7 @@ const confirmarDevolucaoEAtualizar = async (notificacaoId) => {
     await notificationsStore.fetchNotificacoes(notificationsStore.currentPage);
 }
 
-// --- BLOCO 9: HOOKS DE CICLO DE VIDA ---
+// --- BLOCO 10: HOOKS DE CICLO DE VIDA ---
 
 /**
  * @hook onMounted
@@ -565,25 +611,6 @@ watch(activeSection, (newSectionValue) => {
   width: 18px;
   height: 18px;
 }
-
-/* --- ESTILOS PARA O CONTAINER DAS SEÇÕES E SEÇÕES INDIVIDUAIS --- */
-.sections-container {
-  /* Pode não precisar de estilos específicos se as seções internas cuidarem disso */
-}
-
-.content-section {
-  /* Estilo base para todas as seções de conteúdo.
-     A classe 'card' já está sendo aplicada, o que é bom.
-     Este .content-section pode ser usado para espaçamentos ou transições.
-  */
-  /* display: none; /* Seções são ocultadas por v-if */
-  /* Se for usar transições, precisaria de uma abordagem diferente (v-show e classes de transição) */
-}
-
-/* .content-section.active-section { */
-  /* display: block; /* Mostra a seção ativa (já tratado pelo v-if) */
-/* } */
-
 
 /* Estilos para os placeholders das novas seções */
 .section-placeholder-header {
@@ -685,12 +712,110 @@ watch(activeSection, (newSectionValue) => {
     font-size: 0.95rem;
     color: #212529;
     font-weight: 500;
-    white-space: pre-wrap;
 }
 
+/* Estilo para o texto dos produtos devolvidos */
+.notification-details {
+  margin: 0;
+  color: #495057;
+  font-weight: 400;
+  font-size: 0.9rem;
+  line-height: 1.6;
+  white-space: pre-wrap; /* Mantém as quebras de linha */
+}
+
+/* Botão "Ver Detalhes" completamente reestilizado */
+.btn-toggle-details {
+  /* Layout interno do botão (ícone + texto) */
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+
+  /* Aparência do botão */
+  background-color: #f8f9fa; /* Fundo cinza bem claro */
+  border: 1px solid #dee2e6; /* Borda sutil */
+  color: #495057; /* Cor do texto */
+  font-size: 0.8rem;
+  font-weight: 500;
+  padding: 0.25rem 0.6rem;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background-color 0.2s, border-color 0.2s;
+
+  /* Remove estilos antigos de link */
+  text-decoration: none;
+  text-align: center;
+}
+
+.btn-toggle-details:hover {
+  background-color: #e9ecef; /* Fundo um pouco mais escuro no hover */
+  border-color: #ced4da;
+}
+
+/* Estilo para o ícone dentro do botão */
+.btn-toggle-details svg {
+  width: 14px;
+  height: 14px;
+}
+
+/* Container para a data e o botão */
+.notification-footer {
+  margin-top: 0.75rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+/* A data agora fica diretamente no conteúdo */
 .notification-date {
+    display: block; /* Garante que ocupe sua própria linha */
     font-size: 0.8rem;
     color: #6c757d;
+    margin-top: 0.25rem; /* Pequeno espaço após a mensagem principal */
+}
+
+/* Container principal do bloco expansível */
+.details-expander {
+  margin-top: 1rem;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  overflow: hidden; /* Garante que os cantos arredondados sejam aplicados aos filhos */
+}
+
+/* O cabeçalho clicável */
+.expander-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  background-color: #f9fafb; /* Cinza muito claro, como no modelo */
+  cursor: pointer;
+  font-weight: 500;
+  color: #374151; /* Cor de texto mais escura e sóbria */
+  transition: background-color 0.2s;
+}
+
+.expander-header:hover {
+  background-color: #f3f4f6; /* Efeito hover sutil */
+}
+
+/* O ícone de seta/chevron na direita */
+.expander-chevron {
+  margin-left: auto; /* Empurra a seta para a direita */
+  transition: transform 0.2s ease-in-out;
+  color: #6b7280;
+}
+
+/* Classe aplicada quando o conteúdo está visível para girar a seta */
+.expander-chevron.expanded {
+  transform: rotate(180deg);
+}
+
+/* O container do conteúdo que é mostrado/oculto */
+.expander-content {
+  padding: 0.5rem 1rem 1rem 1rem; /* Espaçamento interno */
+  background-color: #fff;
+  border-top: 1px solid #e5e7eb; /* Linha sutil separando do header */
 }
 
 .notification-actions .btn-mark-read {
