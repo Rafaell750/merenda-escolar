@@ -231,14 +231,18 @@
                             v-if="notificacao.tipo === 'devolucao' && !notificacao.lida"
                             @click="confirmarDevolucaoEAtualizar(notificacao.id)"
                             class="btn-confirm-return"
+                            :disabled="isLoadingModalData && pendingNotificacaoId === notificacao.id"
                             title="Confirmar Recebimento da Devolução e Reabastecer Estoque">
-                            Confirmar devolução
+                            
+                            <!-- Spinner de carregamento -->
+                            <span v-if="isLoadingModalData && pendingNotificacaoId === notificacao.id" class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                            <span v-else>Confirmar devolução</span>
                         </button>
                     </div>
                 </li>
             </ul>
 
-            <!-- *** NOVO: ADIÇÃO DO COMPONENTE DE PAGINAÇÃO *** -->
+            <!-- *** ADIÇÃO DO COMPONENTE DE PAGINAÇÃO *** -->
             <PaginationControls
                 v-if="!notificationsStore.isLoading && notificationsStore.totalPages > 1"
                 :current-page="notificationsStore.currentPage"
@@ -248,6 +252,41 @@
         </div>
       </div>
     </div>
+    <ConfirmationModal
+  :show="isConfirmationModalVisible"
+  title="Confirmar Devolução e Reabastecimento"
+  confirm-text="Sim, Reabastecer"
+  cancel-text="Cancelar"
+  variant="primary"
+  @confirm="handleDevolucaoConfirm"
+  @close="closeConfirmationModal"
+>
+  <!-- Este é o conteúdo que será injetado no <slot> do modal -->
+  <div class="confirm-body-content">
+    <p>A ação a seguir irá reabastecer os itens abaixo no estoque da SME. Por favor, verifique os detalhes:</p>
+    
+    <table class="confirm-table">
+      <thead>
+        <tr>
+          <th>Item Devolvido</th>
+          <th>Estoque Atual</th>
+          <th>Estoque Futuro</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr v-for="item in itensParaConfirmacao" :key="item.nome">
+          <td>{{ item.nome }} <strong class="text-success">(+{{ item.quantidadeDevolvida }})</strong></td>
+          <td>{{ item.estoqueAtual }}</td>
+          <td class="future-stock">
+            {{ item.estoqueFuturo }}
+          </td>
+        </tr>
+      </tbody>
+    </table>
+    
+    <p class="confirm-footer-message">Você tem certeza que deseja prosseguir?</p>
+  </div>
+</ConfirmationModal>
   </div>
 </template>
 
@@ -259,9 +298,20 @@ import { useEscolasStore } from '@/stores/escolas'; // Store Pinia para gerencia
 import { useNotificationsStore } from '@/stores/notifications';
 import HistoricoEnviosSME from './Historico/HistoricoEnviosSME.vue';
 import PaginationControls from '@/components/PaginationControls.vue';
+import ConfirmationModal from '@/components/ConfirmationModal.vue';
+import { useEstoqueStore } from '@/stores/estoque';
+import { useToast } from "vue-toastification";
+
+const toast = useToast();
+const isConfirmationModalVisible = ref(false);
+const pendingNotificacaoId = ref(null); // Guarda o ID da notificação a ser confirmada
 
 // Instância da store de notificações
 const notificationsStore = useNotificationsStore();
+
+const estoqueStore = useEstoqueStore(); // <-- Instancia a store
+const itensParaConfirmacao = ref([]); // <-- Novo: Armazena os dados para a tabela do modal
+const isLoadingModalData = ref(false); // <-- Novo: Estado de loading para o botão
 
 // --- BLOCO 2: INICIALIZAÇÃO DA STORE ---
 // Instância da store de escolas para interagir com o estado global e as actions.
@@ -513,13 +563,95 @@ const handleNotificationPageChange = (newPage) => {
   document.querySelector('.notifications-list-container')?.scrollTo(0, 0);
 };
 
-// *** NOVO: FUNÇÃO PARA CONFIRMAR DEVOLUÇÃO E ATUALIZAR A LISTA ***
 const confirmarDevolucaoEAtualizar = async (notificacaoId) => {
-    await notificationsStore.confirmarDevolucao(notificacaoId);
-    // Após confirmar, recarrega a página atual para garantir que o estado (lida/não lida)
-    // esteja 100% sincronizado com o backend.
+  isLoadingModalData.value = true;
+  pendingNotificacaoId.value = notificacaoId;
+
+  try {
+    await estoqueStore.fetchEstoqueSME();
+    
+    const notificacao = notificationsStore.notificacoes.find(n => n.id === notificacaoId);
+    if (!notificacao) throw new Error("Notificação não encontrada!");
+
+    const detalhes = getNotificationDetails(notificacao.message);
+    if (!detalhes) throw new Error("Detalhes da devolução não encontrados na notificação!");
+
+    // --- NOVA LÓGICA DE PARSING COM EXPRESSÃO REGULAR ---
+    const itensDevolvidos = detalhes.trim().split('\n').map(linha => {
+      // Esta expressão regular procura por:
+      // 1. Um nome de produto (qualquer caractere até encontrar " (Qtd: ")
+      // 2. Um número (um ou mais dígitos) dentro dos parênteses
+      const regex = /-\s*(.+?)\s*\(Qtd:\s*(\d+)\)/;
+      const match = linha.match(regex);
+
+      // Se a linha não corresponder ao padrão, 'match' será null.
+      if (!match) {
+        console.warn(`Linha ignorada (formato regex não corresponde): "${linha}"`);
+        return null;
+      }
+      
+      // match[1] captura o primeiro grupo (o nome do produto)
+      // match[2] captura o segundo grupo (a quantidade)
+      const nomeProdutoNotificacao = match[1].trim();
+      const quantidadeDevolvida = parseInt(match[2], 10);
+
+      if (!nomeProdutoNotificacao || isNaN(quantidadeDevolvida)) return null;
+
+      // Busca no estoque pelo nome limpo
+      const produtoNoEstoque = estoqueStore.produtos.find(p => p.nome.trim().toLowerCase() === nomeProdutoNotificacao.toLowerCase());
+      
+      if (!produtoNoEstoque) {
+        console.error(`FALHA: Produto com nome "${nomeProdutoNotificacao}" NÃO ENCONTRADO no estoque da SME.`);
+      }
+      
+      const estoqueAtual = produtoNoEstoque ? Number(produtoNoEstoque.quantidade) : 0;
+      
+      return {
+        nome: nomeProdutoNotificacao,
+        quantidadeDevolvida,
+        estoqueAtual,
+        estoqueFuturo: estoqueAtual + quantidadeDevolvida,
+      };
+    }).filter(Boolean); // Remove os nulos de linhas que não corresponderam
+
+    if (itensDevolvidos.length === 0) {
+      throw new Error("Não foi possível processar nenhum item da devolução. O formato das linhas pode estar incorreto.");
+    }
+
+    itensParaConfirmacao.value = itensDevolvidos;
+    isConfirmationModalVisible.value = true;
+
+  } catch (error) {
+    console.error("Erro ao preparar dados para confirmação:", error);
+    toast.error(error.message || "Não foi possível carregar os detalhes da devolução.");
+  } finally {
+    isLoadingModalData.value = false;
+  }
+};
+
+// 4. ADICIONE/ATUALIZE AS FUNÇÕES PARA LIDAR COM O MODAL
+const handleDevolucaoConfirm = async () => {
+  if (!pendingNotificacaoId.value) return;
+
+  try {
+    await notificationsStore.confirmarDevolucao(pendingNotificacaoId.value);
     await notificationsStore.fetchNotificacoes(notificationsStore.currentPage);
-}
+    // IMPORTANTE: Forçar a store de estoque a recarregar na próxima vez,
+    // pois os dados dela estão desatualizados agora.
+    estoqueStore.produtos = []; 
+  } catch (error) {
+    console.error("Erro ao confirmar a devolução:", error);
+    toast.error("Ocorreu um erro ao confirmar a devolução.");
+  } finally {
+    closeConfirmationModal();
+  }
+};
+
+const closeConfirmationModal = () => {
+  isConfirmationModalVisible.value = false;
+  pendingNotificacaoId.value = null;
+  itensParaConfirmacao.value = []; // Limpa os dados do modal
+};
 
 // --- BLOCO 10: HOOKS DE CICLO DE VIDA ---
 
@@ -849,4 +981,61 @@ watch(activeSection, (newSectionValue) => {
 .btn-confirm-return:hover {
     background-color: #218838;
 }
+
+.confirm-body-content p {
+  margin-bottom: 1.5rem;
+  line-height: 1.6;
+}
+
+.confirm-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 1.5rem;
+  font-size: 0.95rem;
+}
+
+.confirm-table th, .confirm-table td {
+  border: 1px solid #dee2e6;
+  padding: 0.75rem;
+  text-align: left;
+  vertical-align: middle;
+}
+
+.confirm-table th {
+  background-color: #f8f9fa;
+  font-weight: 600;
+}
+
+.confirm-table td {
+  text-align: center;
+}
+.confirm-table td:first-child {
+  text-align: left;
+  font-weight: 500;
+}
+.confirm-table .text-success {
+  color: #28a745;
+  font-weight: bold;
+}
+
+.future-stock {
+  font-weight: bold;
+  font-size: 1.1em;
+  color: var(--primary-color, #007bff);
+  background-color: #e7f1ff;
+}
+
+.future-stock svg {
+  vertical-align: -0.125em; /* Alinha melhor a seta com o texto */
+  margin-left: 0.25rem;
+}
+
+.confirm-footer-message {
+  margin-top: 1rem;
+  font-weight: 500;
+  text-align: center;
+  margin-bottom: 0;
+}
+
+
 </style>

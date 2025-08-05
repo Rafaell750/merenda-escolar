@@ -11,7 +11,11 @@
         </header>
 
         <section class="modal-body">
-          <p>{{ message }}</p>
+          <slot>
+            <!-- Fallback: Se nenhum conteúdo for passado para o slot, mostra um parágrafo vazio.
+                O ideal é sempre passar conteúdo. -->
+            <p>Ação requer confirmação.</p>
+          </slot>
         </section>
 
         <footer class="modal-footer">
@@ -41,7 +45,7 @@ const props = defineProps({
   },
   message: {
     type: String,
-    required: true,
+    // required: true, // REMOVA OU COMENTE ESTA LINHA
   },
   confirmText: {
     type: String,
