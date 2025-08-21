@@ -600,7 +600,7 @@ async function fetchDetalhesEscola() {
   detalhesEscola.value = null;
   escolaNome.value = ''; // Reseta nome enquanto carrega
   const token = localStorage.getItem('authToken');
-  if (!token) { error.value = 'Não autenticado.'; loading.value = false; return; }
+  if (!token) { error.value = 'Sessão expirada. Faça Login novamente.'; loading.value = false; return; }
   try {
       const response = await axios.get(`${API_URL}/escolas/${escolaId.value}`, {
           headers: { Authorization: `Bearer ${token}` }

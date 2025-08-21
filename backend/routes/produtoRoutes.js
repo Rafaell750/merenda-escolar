@@ -44,7 +44,21 @@ const db = require('../database/dbConnection'); // Importa a conexão com o banc
 // mas pode ser reafirmado aqui para clareza ou se houver necessidade de lógica específica
 // antes dele em alguma rota futura dentro deste arquivo (atualmente não é o caso).
 const { authorizeRole } = require('../middleware/authMiddleware');
+const { registrarAcaoProduto } = require('../services/historicoService');
 const router = express.Router(); // Cria uma nova instância do roteador do Express
+
+// NOVO: Defina o mapa de categorias no topo do arquivo para fácil acesso e manutenção.
+const categoriasMap = {
+    graos_cereais: 'Grãos/Cereais',
+    laticinios: 'Laticínios',
+    carnes_ovos: 'Carnes/Ovos',
+    frutas: 'Frutas',
+    verduras_legumes: 'Verduras/Legumes', // A chave que queremos traduzir
+    nao_pereciveis: 'Não Perecíveis',
+    congelados: 'Congelados',
+    limpeza: 'Limpeza',
+    outros: 'Outros'
+};
 
 // --- ROTA POST /api/produtos - Cadastrar Novo Produto ---
 // Protegida por `authenticateToken` aplicado globalmente em server.js.
@@ -80,6 +94,7 @@ router.post('/', (req, res) => { // `authenticateToken` já foi aplicado em serv
 
     // 2. Define a data de modificação atual para o novo produto.
     // Esta dataModificacaoAtual é usada no INSERT. O SELECT de retorno usará strftime.
+    const parsedValor = (valor === '' || valor === undefined || valor === null) ? null : parseFloat(valor);
     const dataModificacaoAtualParaInsert = new Date().toISOString(); // Formato ISO8601 (YYYY-MM-DDTHH:mm:ss.sssZ)
 
     // 3. Prepara a query SQL para inserção.
@@ -114,6 +129,45 @@ router.post('/', (req, res) => { // `authenticateToken` já foi aplicado em serv
 
         // 5. Produto inserido com sucesso. Busca o produto recém-inserido para retorná-lo completo.
         const newProductId = this.lastID;
+
+        // Busca o nome legível da categoria no mapa. Se não encontrar, usa a própria chave.
+        const categoriaLegivel = categoriasMap[categoria] || categoria;
+
+        const detalhesCriacao = [
+                `Produto criado.`,
+                `Nome: ${nome}.`,
+                `Categoria: ${categoriaLegivel}.`,
+                `Unidade: ${unidade_medida}.`,
+                `Qtd: ${parsedQuantidade}.`
+            ];
+
+            // Adiciona valor e vencimento apenas se foram fornecidos.
+            if (parsedValor !== null) {
+                detalhesCriacao.push(`Valor: R$ ${parsedValor.toFixed(2).replace('.', ',')}.`);
+            }
+            if (data_vencimento) {
+                // Formata a data para DD/MM/YYYY para ser mais legível no log
+                try {
+                    const [ano, mes, dia] = data_vencimento.split('-');
+                    detalhesCriacao.push(`Vencimento: ${dia}/${mes}/${ano}.`);
+                } catch (e) {
+                    detalhesCriacao.push(`Vencimento: ${data_vencimento}.`);
+                }
+            }
+            
+            // Junta tudo em uma única string.
+            const detalhesCompletos = detalhesCriacao.join(' ');
+
+            // Chama o serviço de histórico com os novos detalhes.
+            registrarAcaoProduto(
+                newProductId,
+                nome,
+                'CRIACAO',
+                detalhesCompletos,
+                req.user.id,
+                req.user.username
+            );      
+
         // MODIFICAÇÃO: Formatar APENAS data_modificacao
         const selectSql = `
             SELECT
@@ -184,6 +238,17 @@ router.put('/:id', (req, res) => { // `authenticateToken` já foi aplicado
         return res.status(400).json({ error: 'Valor inválido. Deve ser um número não negativo.' });
     }
 
+    // NOVO: Precisamos buscar o estado atual do produto ANTES de atualizá-lo para registrar as mudanças.
+    const getProdutoAtualSql = "SELECT * FROM produtos WHERE id = ?";
+    db.get(getProdutoAtualSql, [id], (getErr, produtoAntigo) => {
+        if (getErr) {
+            console.error(`[PUT /api/produtos/:id] Erro ao buscar produto antigo ID ${id}:`, getErr.message);
+            return res.status(500).json({ error: 'Erro interno ao preparar a atualização do produto.' });
+        }
+        if (!produtoAntigo) {
+            return res.status(404).json({ error: 'Produto não encontrado para atualização.' });
+        }
+
         // VERIFICAÇÃO DE NOME DUPLICADO (CASE-INSENSITIVE), EXCLUINDO O PRÓPRIO PRODUTO ATUAL
         const checkNameSql = "SELECT id FROM produtos WHERE LOWER(nome) = LOWER(?) AND id != ?";
         db.get(checkNameSql, [nome, id], (err, row) => {
@@ -233,6 +298,60 @@ router.put('/:id', (req, res) => { // `authenticateToken` já foi aplicado
             return res.status(500).json({ error: 'Erro interno do servidor ao atualizar o produto.' });
         }
 
+        // NOVO: Se a atualização teve efeito, registra no histórico.
+                if (this.changes > 0) {
+const detalhes = [];
+                    const novoValorParsed = (valor === '' || valor === undefined || valor === null) ? null : parseFloat(valor);
+                    const novaDataVencimento = (data_vencimento === '' || data_vencimento === undefined || data_vencimento === null) ? null : data_vencimento;
+
+                    // 1. Compara Nome
+                    if (produtoAntigo.nome !== nome) {
+                        detalhes.push(`Nome alterado de "${produtoAntigo.nome}" para "${nome}".`);
+                    }
+                    // 2. Compara Descrição (tratando nulos e vazios)
+                    if ((produtoAntigo.descricao || '') !== (descricao || '')) {
+                        detalhes.push(`Descrição alterada.`); // Mensagem simples para não poluir o log
+                    }
+                    // 3. Compara Unidade de Medida
+                    if (produtoAntigo.unidade_medida !== unidade_medida) {
+                        detalhes.push(`Unidade alterada de "${produtoAntigo.unidade_medida}" para "${unidade_medida}".`);
+                    }
+                    // 4. Compara Categoria (usando o mapa para nomes legíveis)
+                    if (produtoAntigo.categoria !== categoria) {
+                        const categoriaAntigaLegivel = categoriasMap[produtoAntigo.categoria] || produtoAntigo.categoria;
+                        const categoriaNovaLegivel = categoriasMap[categoria] || categoria;
+                        detalhes.push(`Categoria alterada de "${categoriaAntigaLegivel}" para "${categoriaNovaLegivel}".`);
+                    }
+                    // 5. Compara Quantidade
+                    if (produtoAntigo.quantidade != quantidade) { // Usar != para comparar número com string 'número'
+                        detalhes.push(`Quantidade alterada de ${produtoAntigo.quantidade} para ${quantidade}.`);
+                    }
+                    // 6. Compara Valor
+                    if (produtoAntigo.valor !== novoValorParsed) {
+                        const valorAntigoStr = produtoAntigo.valor !== null ? `R$ ${Number(produtoAntigo.valor).toFixed(2).replace('.', ',')}` : 'N/A';
+                        const valorNovoStr = novoValorParsed !== null ? `R$ ${novoValorParsed.toFixed(2).replace('.', ',')}` : 'N/A';
+                        detalhes.push(`Valor alterado de ${valorAntigoStr} para ${valorNovoStr}.`);
+                    }
+                    // 7. Compara Data de Vencimento
+                    if (produtoAntigo.data_vencimento !== novaDataVencimento) {
+                        const dataAntigaStr = produtoAntigo.data_vencimento ? produtoAntigo.data_vencimento.split('-').reverse().join('/') : 'N/A';
+                        const dataNovaStr = novaDataVencimento ? novaDataVencimento.split('-').reverse().join('/') : 'N/A';
+                        detalhes.push(`Vencimento alterado de ${dataAntigaStr} para ${dataNovaStr}.`);
+                    }
+
+                    // Só registra se houve alguma mudança detectada.
+                    if (detalhes.length > 0) {
+                        registrarAcaoProduto(
+                            id,
+                            nome, // Usa o novo nome como snapshot
+                            'EDICAO',
+                            detalhes.join(' '), // Junta todas as mudanças em uma única string
+                            req.user.id,
+                            req.user.username
+                        );
+                    }
+                }
+
         // SQL para buscar o produto (seja após alteração ou para o caso de "dados idênticos")
         // MODIFICAÇÃO: Formatar APENAS data_modificacao
         const selectProdutoSql = `
@@ -270,10 +389,11 @@ router.put('/:id', (req, res) => { // `authenticateToken` já foi aplicado
                 }
                 console.log(`[PUT /api/produtos/:id] Produto "${updatedProductRow.nome}" (ID: ${id}) atualizado por ${req.user?.username || 'usuário'}.`);
                 res.status(200).json(updatedProductRow);
-            });
-       }
-   });
-});
+                });
+            }
+        });
+    });
+  });
 });
 
 
@@ -281,27 +401,44 @@ router.put('/:id', (req, res) => { // `authenticateToken` já foi aplicado
 // Protegida por `authenticateToken` aplicado globalmente.
 router.delete('/:id', (req, res) => { // `authenticateToken` já foi aplicado
     const { id } = req.params; // ID do produto a ser excluído.
-    const sql = "DELETE FROM produtos WHERE id = ?";
-
-    db.run(sql, id, function(err) { // Usa `function` para `this.changes`.
-        if (err) {
-            console.error(`[DELETE /api/produtos/:id] Erro ao excluir produto ID ${id}:`, err.message);
-            // TODO: Verificar se o erro é por FOREIGN KEY constraint (produto usado em transferência_itens)
-            // e retornar um 409 Conflict com mensagem apropriada.
-            // Ex: if (err.message.includes('FOREIGN KEY constraint failed')) {
-            //         return res.status(409).json({ error: 'Este produto não pode ser excluído pois está associado a transferências.' });
-            //     }
-            return res.status(500).json({ error: 'Erro interno do servidor ao excluir o produto.' });
+    // NOVO: Buscar os dados do produto ANTES de excluí-lo para termos o nome para o log.
+    const getProdutoSql = "SELECT nome FROM produtos WHERE id = ?";
+    db.get(getProdutoSql, [id], (getErr, produtoParaExcluir) => {
+        if (getErr) {
+            console.error(`[DELETE /api/produtos/:id] Erro ao buscar produto para exclusão ID ${id}:`, getErr.message);
+            return res.status(500).json({ error: 'Erro interno ao preparar a exclusão do produto.' });
         }
-        if (this.changes === 0) { // Nenhuma linha afetada.
+        if (!produtoParaExcluir) {
             return res.status(404).json({ error: 'Produto não encontrado para exclusão.' });
         }
-        console.log(`[DELETE /api/produtos/:id] Produto ID ${id} excluído por ${req.user?.username || 'usuário'}.`);
-        res.status(204).send(); // 204 No Content (resposta padrão para DELETE bem-sucedido sem corpo).
+
+        const deleteSql = "DELETE FROM produtos WHERE id = ?";
+        db.run(deleteSql, id, function(err) {
+            if (err) {
+                // ... (tratamento de erro existente)
+                return res.status(500).json({ error: 'Erro interno do servidor ao excluir o produto.' });
+            }
+
+            // NOVO: Se a exclusão teve sucesso, registra no histórico.
+            if (this.changes > 0) {
+                registrarAcaoProduto(
+                    id,
+                    produtoParaExcluir.nome, // Usamos o nome que buscamos antes de deletar
+                    'EXCLUSAO',
+                    `Produto "${produtoParaExcluir.nome}" foi permanentemente excluído.`,
+                    req.user.id,
+                    req.user.username
+                );
+                res.status(204).send();
+            } else {
+                // Este caso é redundante por causa da verificação anterior, mas é bom manter por segurança.
+                return res.status(404).json({ error: 'Produto não encontrado para exclusão.' });
+            }
+        });
     });
 });
 
-// --- NOVA SEÇÃO: ROTA POST /api/produtos/reabastecer-multiplos - Reabastecer Estoque de Múltiplos Produtos ---
+// --- ROTA POST /api/produtos/reabastecer-multiplos - Reabastecer Estoque de Múltiplos Produtos ---
 // Protegida por `authenticateToken` (global) e `authorizeRole` (específico)
 router.post('/reabastecer-multiplos', authorizeRole(['admin', 'user']), async (req, res) => {
     const { itens } = req.body; // Espera um array [{ produto_id, quantidade_adicionada }]
@@ -369,6 +506,16 @@ router.post('/reabastecer-multiplos', authorizeRole(['admin', 'user']), async (r
             await runQuery(
                 "UPDATE produtos SET quantidade = ?, quantidade_referencia_alerta = ?, data_modificacao = ? WHERE id = ?",
                 [novaQuantidadeTotal, novaQuantidadeTotal, dataModificacaoAtual, item.produto_id]
+            );
+
+            // NOVO: Registrar a ação de reabastecimento no histórico para cada item.
+            registrarAcaoProduto(
+                item.produto_id,
+                produtoExistente.nome,
+                'REABASTECIMENTO',
+                `Estoque reabastecido com ${item.quantidade_adicionada} unidade(s). Quantidade anterior: ${produtoExistente.quantidade}. Nova quantidade: ${novaQuantidadeTotal}.`,
+                userId,
+                username
             );
 
 // Buscar o produto totalmente atualizado para retornar

@@ -82,6 +82,9 @@ const produtoRoutes = require('./routes/produtoRoutes');
 const escolaRoutes = require('./routes/escolaRoutes');
 const estoqueEscolaRoutes = require('./routes/estoqueEscolaRoutes');
 const notificacaoRoutes = require('./routes/notificacaoRoutes');
+const historicoRoutes = require('./routes/historicoRoutes');
+
+
 
 // Importa middlewares de autenticação e autorização
 const { authenticateToken, authorizeAdmin } = require('./middleware/authMiddleware');
@@ -140,6 +143,8 @@ app.get('/api/admin/painel', authenticateToken, authorizeAdmin, (req, res) => {
 // SEM BLOCO NO Momento
 app.use('/api/escolas', authenticateToken, escolaRoutes); // Rotas de escolas existentes
 app.use('/api/escolas', authenticateToken, estoqueEscolaRoutes); // Adiciona as novas rotas de estoque da escola
+
+app.use('/api/historico', authenticateToken, historicoRoutes);
 
 
 // --- BLOCO 6: INÍCIO DO SERVIDOR (MODIFICADO) ---
@@ -279,6 +284,21 @@ async function setupDatabase() {
         UPDATE produtos SET data_modificacao = CURRENT_TIMESTAMP WHERE id = OLD.id;
     END;`;
 
+    // NOVO: Tabela para o histórico de auditoria dos produtos
+    const createProdutoHistoricoTableSql = `
+    CREATE TABLE IF NOT EXISTS produto_historico (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        produto_id INTEGER NOT NULL,
+        produto_nome_snapshot TEXT NOT NULL, -- Guarda o nome do produto no momento da ação, útil se o produto for excluído
+        acao TEXT NOT NULL CHECK(acao IN ('CRIACAO', 'EDICAO', 'EXCLUSAO', 'REABASTECIMENTO')),
+        detalhes TEXT, -- JSON ou texto com detalhes (ex: "De '10kg' para '15kg'")
+        usuario_id INTEGER,
+        usuario_username_snapshot TEXT, -- Guarda o nome do usuário no momento da ação
+        data_acao DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE SET NULL
+        -- Não usamos FOREIGN KEY para produto_id para manter o histórico mesmo se o produto for deletado
+    );`;
+
     // Utiliza a instância 'db' importada de dbConnection.js para executar os comandos SQL.
     // `db.serialize` garante que os comandos sejam executados em sequência.
     db.serialize(() => {
@@ -353,6 +373,10 @@ async function setupDatabase() {
         db.run(createRetiradasEscolaItensTableSql, (err) => {
             if (err) console.error('Erro ao criar/verificar tabela "retiradas_escola_itens":', err.message);
             else console.log('Tabela "retiradas_escola_itens" verificada/criada com sucesso.');
+        });
+        db.run(createProdutoHistoricoTableSql, (err) => {
+            if (err) console.error('Erro ao criar/verificar tabela "produto_historico":', err.message);
+            else console.log('Tabela "produto_historico" verificada/criada com sucesso.');
         });
     });
      console.log("Setup do banco de dados (verificação/criação de tabelas) concluído.");

@@ -143,7 +143,7 @@
     const finalPages = [];
     let lastPage = null;
     for (const page of pages) {
-        if (page.disabled) { // É '...'
+        if (page.disabled) { 
             if (!lastPage || !lastPage.disabled) { // Só adiciona se a anterior não for '...'
                 finalPages.push(page);
             }

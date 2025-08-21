@@ -197,7 +197,21 @@
                                 </svg>
                                 <span>Reabastecer Estoque</span>
                             </button>
-                            <!-- FIM DO NOVO BOTÃO -->
+                            
+                            <!-- NOVO BOTÃO DE HISTÓRICO GERAL -->
+                            <button
+                                type="button"
+                                @click="openHistoricoGeralModal"
+                                class="action-button history-button"
+                                title="Ver Histórico Geral de Produtos"
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-clock-history" viewBox="0 0 16 16">
+                                    <path d="M8.515 1.019A7 7 0 0 0 8 1V0a8 8 0 0 1 .589.022zm2.004.45a7 7 0 0 0-.985-.299l.219-.976c.383.086.76.2 1.126.342zM13.5 2.344a7 7 0 0 0-.642-.339l.361-.92c.317.12.63.251.938.399l-.73.73zm1.368 1.368a7 7 0 0 0-.4-.935l.73-.73c.15.305.283.617.399.938l-.92.36zM8.5 7.5a.5.5 0 0 1 .5.5v2a.5.5 0 0 1-.5.5H6a.5.5 0 0 1 0-1h2.5z"/>
+                                    <path d="M8 3.25a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0m0 1.5a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0m0 1.5a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0"/>
+                                    <path d="M16 8A8 8 0 1 1 0 8a8 8 0 0 1 16 0M8 2a6 6 0 1 0 0 12A6 6 0 0 0 8 2"/>
+                                </svg>
+                                <span>Histórico Geral</span>
+                            </button>
 
                              <!-- Botão para mostrar/ocultar filtros -->
                              <button
@@ -350,6 +364,12 @@
           @close="confirmationState.handleCancel"
         />
 
+        <!-- MODAL DE HISTÓRICO GERAL ATUALIZADO -->
+        <HistoricoGeralModal
+          :show="showHistoricoGeralModal"
+          @close="showHistoricoGeralModal = false"
+        />
+
     </div> <!-- Fim da view de produtos -->
   </template>
   
@@ -364,6 +384,7 @@
   import EstoqueAlertas from './EstoqueAlertas.vue';
   import ConfirmationModal from '@/components/ConfirmationModal.vue'; 
   import { useConfirmation } from '@/composables/useConfirmation';
+  import HistoricoGeralModal from './HistoricoGeralModal.vue'; 
 
   const API_URL = import.meta.env.VITE_API_BASE_URL;
   
@@ -383,6 +404,7 @@
   const isFilterExpanded = ref(false);    // Controla se o painel de filtros está expandido.
   const showEnviarModal = ref(false);     // Controla a visibilidade do modal de envio de estoque.
   const showReabastecerModal = ref(false); // Adicione esta linha
+  const showHistoricoGeralModal = ref(false);
   const reabastecerModalRef = ref(null); // Para controlar o loading do modal filho
   
   // Estrutura inicial para o `formData` (usado para v-model no formulário).
@@ -1190,6 +1212,11 @@ const handleConfirmarReabastecimento = async (payloadItens) => {
     }
   }
 };
+
+// abrir o modal geral
+const openHistoricoGeralModal = () => {
+    showHistoricoGeralModal.value = true;
+};
   
   // --- BLOCO 10: HOOK DE CICLO DE VIDA ---
   
@@ -1363,4 +1390,15 @@ const handleConfirmarReabastecimento = async (payloadItens) => {
     opacity: 0.65;
     cursor: not-allowed;
   }
+
+  /* Estilo para o botão de histórico geral (pode customizar) */
+.history-button {
+    background-color: #6c757d; /* Cor secundária (cinza) */
+    border-color: #6c757d;
+    color: white;
+}
+.history-button:hover:not(:disabled) {
+    background-color: #5a6268;
+    border-color: #545b62;
+}
   </style>

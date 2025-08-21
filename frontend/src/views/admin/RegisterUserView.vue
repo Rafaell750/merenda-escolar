@@ -62,7 +62,7 @@
 <template>
     <!-- 1. CONTAINER PRINCIPAL DA VIEW DE REGISTRO -->
     <!-- `register-container` pode adicionar estilos específicos para este layout que inclui a lista. -->
-    <div class="auth-view-container register-container">
+    <div class="auth-view-container register-container register-page-theme">
   
       <!-- TÍTULO PRINCIPAL DA PÁGINA (nível mais alto) -->
       <h1 class="page-main-title">Autenticação de Usuários</h1>
@@ -182,7 +182,6 @@
   // --- BLOCO 1: IMPORTAÇÕES ---
   import { ref, reactive, onMounted, watch } from 'vue'; // Funções do Vue para reatividade e ciclo de vida.
   import apiService from '@/services/apiService'; // Serviço para chamadas à API.
-  import '@/styles/auth-styles.css'; // Estilos compartilhados com a tela de login.
   import '@/styles/register-view.css'; // Estilos específicos para esta view (ex: layout da lista).
   
   // --- BLOCO 2: ESTADO DO FORMULÁRIO DE NOVO USUÁRIO (REACTIVE) ---
@@ -395,11 +394,96 @@ const getRoleDisplayName = (role) => {
 
   </script>
 
-  <style scoped>
+<style scoped>
 
+@import '@/styles/auth-styles.css';
 
+.register-page-theme {
+    /* --- Variáveis do Tema de Admin/Registro (Claro) --- */
+    --auth-primary-color: #4f46e5;
+    --auth-primary-color-dark: #4338ca;
+    --auth-text-color: #1f2937;
+    --auth-text-muted-color: #6b7280;
+    --auth-border-color: #e5e7eb;
+    --auth-input-bg: #ffffff;
+    --auth-card-bg: #ffffff;
+    --auth-body-bg: #f9fafb;
+    --auth-error-color: #dc2626;
+    --auth-error-bg: #fee2e2;
+    --auth-success-color: #16a34a;
+    --auth-success-bg: #dcfce7;
+    --auth-border-radius-lg: 12px;
+    --auth-border-radius-md: 8px;
+    --auth-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.07), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
+    --auth-font-family: system-ui, -apple-system, sans-serif;
+}
 
+/* Estilos gerais da página de registro */
+.auth-view-container {
+    background-color: var(--auth-body-bg);
+    font-family: var(--auth-font-family);
+    min-height: 100vh;
+    padding: 3rem 1rem;
+}
 
+.page-main-title {
+    font-size: 2.5rem;
+    font-weight: 700;
+    color: var(--auth-text-color);
+    margin-bottom: 2.5rem;
+    text-align: center;
+}
 
+/* Estilos do formulário e do card */
+.auth-card {
+    background-color: var(--auth-card-bg);
+    padding: 2.5rem;
+    border-radius: var(--auth-border-radius-lg);
+    box-shadow: var(--auth-shadow);
+    border: 1px solid var(--auth-border-color);
+}
+
+.auth-title {
+    font-size: 1.8rem;
+    font-weight: 700;
+    color: var(--auth-text-color);
+    margin-bottom: 2rem;
+    text-align: left;
+}
+
+.auth-form { display: flex; flex-direction: column; gap: 1.25rem; }
+.form-group { text-align: left; }
+.form-label {
+    margin-bottom: 0.5rem;
+    font-weight: 600;
+    color: var(--auth-text-muted-color);
+}
+.form-input, .form-select {
+    padding: 0.8rem 1rem;
+    border: 1px solid var(--auth-border-color);
+    border-radius: var(--auth-border-radius-md);
+    color: var(--auth-text-color);
+    background-color: var(--auth-input-bg);
+    width: 100%;
+    box-sizing: border-box;
+}
+.form-input:focus, .form-select:focus {
+    outline: none;
+    border-color: var(--auth-primary-color);
+    box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.2);
+}
+
+.submit-button {
+    background-color: var(--auth-primary-color);
+    color: white;
+    padding: 0.9rem 1.5rem;
+    border: none;
+    border-radius: var(--auth-border-radius-md);
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    margin-top: 1rem;
+}
+.submit-button:disabled { opacity: 0.5; cursor: not-allowed; }
 
 </style>
