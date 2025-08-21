@@ -14,7 +14,7 @@
           <slot>
             <!-- Fallback: Se nenhum conteúdo for passado para o slot, mostra um parágrafo vazio.
                 O ideal é sempre passar conteúdo. -->
-            <p>Ação requer confirmação.</p>
+            <p>Atenção: ao Editar ou Excluir, o produto será alterado também nas escolas. Essa ação (EDITAR/EXCLUIR) é irreversível. Tem certeza de que deseja continuar?</p>
           </slot>
         </section>
 
