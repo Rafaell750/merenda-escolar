@@ -863,7 +863,25 @@ body {
     padding: 0;
     border-radius: 50%;
 }
+/* --- Estilos para Sub-itens do Menu (Escolas) --- */
+.menu-item.sub-item {
+    /* Alinha o ícone com o topo do bloco de texto, o que fica melhor para nomes com múltiplas linhas. */
+    align-items: flex-start;
+    /* Um pequeno ajuste no padding para acomodar a altura extra sem parecer muito espaçado. */
+    padding-top: 0.7rem;
+    padding-bottom: 0.7rem;
+}
 
+.menu-item.sub-item .menu-item-text {
+    /* 1. PERMITE A QUEBRA DE LINHA: Esta é a correção principal. */
+    white-space: normal;
+
+    /* 2. QUEBRA PALAVRAS LONGAS: Garante que uma palavra sem espaços não vai estourar o container. */
+    word-break: break-word;
+    
+    /* Melhora a legibilidade do texto em múltiplas linhas */
+    line-height: 1.4;
+}
 
 /* --- Media Queries para Responsividade --- */
 /* Em telas menores (ex: tablets), força a sidebar a estar recolhida se visível (não na tela de login) */
