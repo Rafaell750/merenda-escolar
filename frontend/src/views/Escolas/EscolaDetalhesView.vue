@@ -882,5 +882,5 @@ watch(escolaId, (newId, oldId) => {
   font-weight: bold;
   box-shadow: 0 0 5px rgba(0,0,0,0.5);
 }
-/* ... (o restante do CSS já está no arquivo EscolaDetalhesView.css importado) ... */
+
 </style>

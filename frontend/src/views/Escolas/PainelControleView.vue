@@ -68,7 +68,7 @@
           <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-bell" viewBox="0 0 16 16">
             <path d="M8 16a2 2 0 0 0 2-2H6a2 2 0 0 0 2 2M8 1.918l-.797.161A4 4 0 0 0 4.203 6H4a4 4 0 0 0-4 4v1c0 .278.022.543.064.806l.054.266h15.764l.054-.266A6.7 6.7 0 0 0 16 11v-1a4 4 0 0 0-4-4h-.203a4 4 0 0 0-3.002-3.921zM14.22 12c.223.447.481.801.78 1H1c.299-.199.557-.553.78-1z"/>
           </svg>
-          Notificações
+          Notificações de Produtos Devolvidos
           <span v-if="notificationsStore.unreadCount > 0" class="notification-badge">
             {{ notificationsStore.unreadCount }}
         </span>

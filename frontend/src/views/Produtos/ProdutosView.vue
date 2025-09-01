@@ -274,7 +274,8 @@
   import EstoqueAlertas from './EstoqueAlertas.vue';
   import ConfirmationModal from '@/components/ConfirmationModal.vue'; 
   import { useConfirmation } from '@/composables/useConfirmation';
-  import HistoricoGeralModal from './HistoricoGeralModal.vue'; 
+  import HistoricoGeralModal from './HistoricoGeralModal.vue';
+  import { gerarPdfComprovanteEnvio } from '@/utils/pdfGenerator.js'; 
 
   const API_URL = import.meta.env.VITE_API_BASE_URL;
   
@@ -878,11 +879,15 @@ const executarExclusao = async (produtoId) => {
         showEnviarModal.value = false;
         return;
       }
+      const apiPayload = {
+        escola_id: payload.escola_id,
+        itens: payload.itens
+      };
   
       const response = await fetch(`${API_URL}/transferencias`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-          body: JSON.stringify(payload),
+          body: JSON.stringify(apiPayload), // Enviamos o payload sem a flag 'gerarPdf'
       });
       const responseData = await response.json();
       if (!response.ok) {
@@ -902,6 +907,17 @@ const executarExclusao = async (produtoId) => {
               };
           }
       });
+      if (payload.gerarPdf && responseData.transferencia) {
+        try {
+          // Passamos os dados da transferência retornados pela API para a função do PDF
+          gerarPdfComprovanteEnvio(responseData.transferencia);
+        } catch (pdfError) {
+          console.error("O envio foi bem-sucedido, mas houve um erro ao gerar o PDF:", pdfError);
+          toast.warning("Envio concluído, mas falha ao gerar o PDF.");
+        }
+      }
+
+
       showEnviarModal.value = false;
     } catch (error) {
         console.error("Erro ao enviar estoque:", error);

@@ -157,6 +157,11 @@
                     </tbody>
                 </table>
             </div>
+            <!-- Opção para gerar PDF -->
+            <div class="form-group checkbox-group">
+              <input type="checkbox" id="gerarPdfCheckbox" v-model="gerarPdf">
+              <label for="gerarPdfCheckbox">Gerar comprovante em PDF após o envio</label>
+            </div>
         </div>
 
         <!-- Mensagem de erro geral da submissão -->
@@ -226,6 +231,7 @@ const isSubmitting = ref(false);               // Indica se o formulário está 
 const submitError = ref('');                   // Mensagem de erro geral para a submissão.
 const isLoadingProdutos = ref(false);          // Estado de carregamento para a lista de produtos (se fosse carregada aqui).
 const isConfirming = ref(false);               // Estado para controlar a etapa de confirmação
+const gerarPdf = ref(true);
 
 // --- BLOCO 3: WATCHERS (OBSERVADORES) ---
 
@@ -339,6 +345,11 @@ const resetModalState = () => {
     submitError.value = '';
     isSubmitting.value = false;
     isConfirming.value = false; // Reseta a etapa de confirmação ao reabrir/fechar o modal.
+
+    const savedPdfPreference = localStorage.getItem('preferenciaGerarPdf');
+    // Se houver uma preferência salva, usa ela. Senão, mantém o default (true).
+    gerarPdf.value = savedPdfPreference !== null ? JSON.parse(savedPdfPreference) : true;
+
     // Reinicializa `quantidadesEnvio` e `validationErrors` com base nos produtos atuais
     quantidadesEnvio.value = props.produtos.reduce((acc, produto) => {
         acc[produto.id] = 0; // Zera a quantidade para cada produto
@@ -407,7 +418,7 @@ const updateQuantidade = (productId, value, maxQuantity) => {
   }
 };
 
-// NOVO: Método para iniciar a etapa de confirmação (chamado pelo submit do formulário)
+// Método para iniciar a etapa de confirmação (chamado pelo submit do formulário)
 const iniciarConfirmacao = () => {
   if (!isFormValid.value || isSubmitting.value) {
     return;
@@ -416,10 +427,12 @@ const iniciarConfirmacao = () => {
   isConfirming.value = true;
 };
 
-// NOVO: A lógica de envio foi movida para este novo método, chamado pelo botão final "Sim, Enviar Agora"
+// A lógica de envio foi movida para este novo método, chamado pelo botão final "Sim, Enviar Agora"
 const confirmarEnvioDefinitivo = () => {
   submitError.value = '';
   isSubmitting.value = true;
+
+  localStorage.setItem('preferenciaGerarPdf', JSON.stringify(gerarPdf.value));
 
   const itensParaEnvio = Object.entries(quantidadesEnvio.value)
     .filter(([/* productId */, quantidade]) => quantidade > 0)
@@ -428,9 +441,10 @@ const confirmarEnvioDefinitivo = () => {
       quantidade: quantidade
     }));
 
-  const payload = {
+const payload = {
     escola_id: selectedEscolaId.value,
-    itens: itensParaEnvio
+    itens: itensParaEnvio,
+    gerarPdf: gerarPdf.value 
   };
 
   emit('confirmar-envio', payload);
@@ -475,5 +489,27 @@ onBeforeUnmount(() => {
 <style scoped>
 @import '../CSS/EnviarEstoqueModal.css'; /* Estilos específicos do modal. */
 
+.checkbox-group {
+  display: flex;
+  align-items: center;
+  margin-top: 20px;
+  padding: 10px;
+  background-color: #f8f9fa;
+  border-radius: 6px;
+  border: 1px solid #e9ecef;
+}
 
+.checkbox-group input[type="checkbox"] {
+  margin-right: 10px;
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+}
+
+.checkbox-group label {
+  font-size: 0.95rem;
+  color: #495057;
+  cursor: pointer;
+  margin-bottom: 0; /* Reseta margem padrão do label */
+}
 </style>

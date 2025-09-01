@@ -155,27 +155,87 @@ router.post('/', (req, res) => {
                         });
 
                         // Executa as atualizações de produto e inserções de itens.
-                        return Promise.all(updateAndInsertPromises)
+                        Promise.all(updateAndInsertPromises)
                             .then(() => {
-                                // Todas as operações foram bem-sucedidas, commita a transação.
+                                // SUCESSO: Commita e busca dados para resposta
                                 db.run('COMMIT;', (errCommit) => {
-                                    if (errCommit) throw errCommit; // Aciona o .catch()
-                                    console.log(`[POST /api/transferencias] Transferência ID ${transferenciaId} ENVIADA para escola ID ${escola_id} por usuário ID ${userId}.`);
-                                    res.status(201).json({ message: 'Transferência de estoque registrada com sucesso!', transferenciaId: transferenciaId });
+                                    if (errCommit) {
+                                        db.run('ROLLBACK;');
+                                        return res.status(500).json({ error: 'Erro crítico ao finalizar a transação.' });
+                                    }
+
+                                    // Query SQL completa para buscar os dados (corrigida)
+                                    const sqlBuscaCompleta = `
+                                        SELECT
+                                            t.id AS transferencia_id,
+                                            strftime('%d/%m/%Y %H:%M', t.data_transferencia, 'localtime') AS data_envio_formatada,
+                                            u_sme.username AS usuario_sme_nome,
+                                            e.nome AS nome_escola,
+                                            e.id AS escola_id,
+                                            COALESCE(
+                                                (
+                                                    SELECT JSON_GROUP_ARRAY(
+                                                        JSON_OBJECT(
+                                                            'produto_id', p_sub.id,
+                                                            'nome_produto', p_sub.nome,
+                                                            'unidade_medida', p_sub.unidade_medida,
+                                                            'quantidade_enviada', ti_sub.quantidade_enviada,
+                                                            'status', ti_sub.status,
+                                                            'data_processamento', strftime('%d/%m/%Y %H:%M', ti_sub.data_recebimento, 'localtime')
+                                                        )
+                                                    )
+                                                    FROM transferencia_itens ti_sub
+                                                    JOIN produtos p_sub ON ti_sub.produto_id = p_sub.id
+                                                    WHERE ti_sub.transferencia_id = t.id
+                                                ),
+                                                '[]'
+                                            ) as itens
+                                        FROM
+                                            transferencias t
+                                        JOIN
+                                            usuarios u_sme ON t.usuario_id = u_sme.id
+                                        JOIN
+                                            escolas e ON t.escola_id = e.id
+                                        WHERE
+                                            t.id = ?
+                                    `;
+
+                                    db.get(sqlBuscaCompleta, [transferenciaId], (errBusca, transferenciaCompleta) => {
+                                        if (errBusca || !transferenciaCompleta) {
+                                            console.error("[POST /api/transferencias] Sucesso, mas falha ao buscar dados:", errBusca ? errBusca.message : "Não encontrado");
+                                            return res.status(201).json({
+                                                message: 'Transferência registrada com sucesso!',
+                                                transferenciaId: transferenciaId
+                                            });
+                                        }
+
+                                        transferenciaCompleta.itens = JSON.parse(transferenciaCompleta.itens || '[]');
+                                        transferenciaCompleta.status_geral = 'Pendente';
+
+                                        res.status(201).json({
+                                            message: 'Transferência de estoque registrada com sucesso!',
+                                            transferenciaId: transferenciaId,
+                                            transferencia: transferenciaCompleta
+                                        });
+                                    });
                                 });
+                            })
+                            .catch(errItens => {
+                                // ERRO: Falha ao atualizar/inserir itens
+                                console.error("[POST /api/transferencias] Erro ao processar itens:", errItens.message);
+                                db.run('ROLLBACK;');
+                                res.status(500).json({ error: 'Falha ao processar os itens da transferência.' });
                             });
-                    }); // Fim do db.run para inserir transferência principal
-                })
-                .catch(transactionError => { // Captura erros de qualquer parte da cadeia de promessas.
-                    console.error("[POST /api/transferencias] Erro durante a transação:", transactionError.message);
-                    db.run('ROLLBACK;', (errRollback) => { // Tenta reverter a transação.
-                        if (errRollback) console.error("[POST /api/transferencias] Erro CRÍTICO no rollback:", errRollback.message);
                     });
-                    // Retorna o erro mais específico (se `detailedError` foi setado) ou um erro genérico.
-                    res.status(detailedError ? 400 : 500).json({ error: detailedError || 'Falha ao processar a transferência devido a um erro interno.' });
+                })
+                .catch(errEstoque => {
+                    // ERRO: Falha na verificação de estoque
+                    console.error("[POST /api/transferencias] Erro de verificação de estoque:", errEstoque.message);
+                    db.run('ROLLBACK;');
+                    res.status(detailedError ? 400 : 500).json({ error: detailedError || 'Falha ao verificar o estoque.' });
                 });
-        }); // Fim do db.serialize -> BEGIN TRANSACTION
-    }); // Fim do db.serialize
+        });
+    });
 });
 
 
