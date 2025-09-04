@@ -357,6 +357,24 @@ function loadUserFromStorage() {
     }
 }
 
+/**
+ * @function handleVisibilityChange
+ * @description Pausa e retoma o polling das escolas com base na visibilidade da aba do navegador.
+ * Isso economiza recursos quando o usuário não está ativamente usando a aplicação.
+ */
+const handleVisibilityChange = () => {
+  // O polling só deve rodar para admin ou user padrão
+  if (!isUserAdminOrStandard.value) return;
+
+  if (document.hidden) {
+    // Se o usuário mudar de aba, pare o polling
+    escolasStore.stopPolling();
+  } else {
+    // Se o usuário voltar para a aba da aplicação, reinicie
+    escolasStore.startPolling();
+  }
+};
+
 // --- BLOCO 5: HOOKS DE CICLO DE VIDA E WATCHERS ---
 
 /**
@@ -369,12 +387,14 @@ function loadUserFromStorage() {
 onMounted(() => {
     loadUserFromStorage();
     if (!isLoginPage.value) {
-        // Usuários admin e padrão (SME) precisam da lista completa de escolas para o menu.
-        // Usuários do tipo 'escola' têm um link direto "Minha Escola" baseado no `userSchoolId`.
+        // A busca inicial de escolas para o menu da sidebar continua aqui
         if (isAdminUser.value || isStandardUser.value) {
-          escolasStore.fetchEscolas();
+          // MODIFICADO: Em vez de chamar fetchEscolas, iniciamos o polling.
+          // O próprio startPolling já faz uma busca imediata.
+          escolasStore.startPolling();
+          // Adiciona o listener de visibilidade para pausar/retomar o polling
+          document.addEventListener('visibilitychange', handleVisibilityChange);
         } else if (isEscolaUser.value && !userSchoolId.value) {
-            // Situação anômala: usuário do tipo 'escola' sem um ID de escola associado.
             console.warn("Usuário 'escola' logado sem 'school_id' associado.");
         }
     // 1. Busca a contagem de notificações assim que o app é carregado.
@@ -395,9 +415,14 @@ onMounted(() => {
 // Limpa o intervalo quando o componente é destruído (usuário fecha a aba/navegador).
 // Isso é crucial para evitar memory leaks.
 onUnmounted(() => {
+    // Limpa o polling de notificações
     if (notificationPollingInterval) {
         clearInterval(notificationPollingInterval);
     }
+
+    // ADICIONADO: Limpa o polling de escolas e o listener de visibilidade
+    escolasStore.stopPolling();
+    document.removeEventListener('visibilitychange', handleVisibilityChange);
 });
 
 

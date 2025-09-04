@@ -4,23 +4,25 @@ import axios from 'axios';
 
 const API_URL = import.meta.env.VITE_API_BASE_URL;
 
+let pollingInterval = null;
+
 export const useEscolasStore = defineStore('escolas', {
     state: () => ({
         escolas: [],
         loading: false,
-        error: null, // Erro geral do store
+        error: null,
+        isPollingActive: false,
     }),
     getters: {
         listaEscolas: (state) => state.escolas,
         isLoading: (state) => state.loading,
     },
     actions: {
-        // --- Limpar Erro ---
         clearError() {
             this.error = null;
         },
 
-        // --- Buscar todas as escolas ---
+        // --- Buscar todas as escolas (COM STATUS DE ESTOQUE) ---
         async fetchEscolas() {
             this.loading = true;
             this.error = null;
@@ -32,26 +34,45 @@ export const useEscolasStore = defineStore('escolas', {
             }
 
             try {
-                const response = await axios.get(`${API_URL}/escolas`, {
+                // MODIFICAÇÃO PRINCIPAL: Alterar a URL para o novo endpoint que inclui o status do estoque.
+                const response = await axios.get(`${API_URL}/escolas/com-status-estoque`, {
                     headers: { Authorization: `Bearer ${token}` }
                 });
-                // Garante que sempre seja um array
                 this.escolas = response.data || [];
             } catch (err) {
-                console.error('Erro ao buscar escolas:', err.response?.data || err.message);
-                // Usa uma mensagem mais específica para falha na busca
+                console.error('Erro ao buscar escolas com status:', err.response?.data || err.message);
                 this.error = err.response?.data?.message || 'Falha ao buscar escolas.';
-                 // Se for 401, pode adicionar uma mensagem específica
                  if (err.response?.status === 401) {
                     this.error = 'Sessão inválida ou expirada. Faça login novamente.';
-                    // Opcional: Limpar token local se for inválido
-                    // localStorage.removeItem('authToken');
-                    // localStorage.removeItem('authUser');
-                    // Idealmente, o guardião de rotas deve pegar isso e redirecionar
                  }
             } finally {
                 this.loading = false;
             }
+        },
+
+        startPolling() {
+            // Se o polling já estiver rodando, não faça nada.
+            if (this.isPollingActive) return;
+
+            console.log("🍍 Iniciando polling global de escolas na store...");
+            this.isPollingActive = true;
+            
+            // Busca os dados imediatamente ao iniciar
+            this.fetchEscolas(); 
+            
+            pollingInterval = setInterval(() => {
+                console.log("🍍 Polling: buscando atualizações de escolas...");
+                this.fetchEscolas();
+            }, 30000); // Podemos aumentar o intervalo para 30s para economizar recursos
+        },
+
+        stopPolling() {
+            if (!this.isPollingActive) return;
+            
+            console.log("🍍 Parando polling global de escolas.");
+            clearInterval(pollingInterval);
+            pollingInterval = null;
+            this.isPollingActive = false;
         },
 
         // --- Adicionar uma nova escola ---
@@ -69,9 +90,12 @@ export const useEscolasStore = defineStore('escolas', {
                 const response = await axios.post(`${API_URL}/escolas`, escolaData, {
                      headers: { Authorization: `Bearer ${token}` }
                 });
-                 this.escolas.push(response.data);
-                 this.escolas.sort((a, b) => a.nome.localeCompare(b.nome));
-                 return response.data;
+                
+                 // MODIFICAÇÃO DE CONSISTÊNCIA: Em vez de adicionar localmente, recarregamos a lista inteira.
+                 // Isso garante que a nova escola também tenha seu status de estoque calculado e exibido.
+                 await this.fetchEscolas();
+
+                 return response.data; // Retorna a nova escola como confirmação para o componente.
              } catch (err) {
                  console.error('Erro ao adicionar escola:', err.response?.data || err.message);
                  this.error = err.response?.data?.message || 'Falha ao cadastrar escola.';
@@ -96,6 +120,7 @@ export const useEscolasStore = defineStore('escolas', {
                 await axios.delete(`${API_URL}/escolas/${id}`, {
                     headers: { Authorization: `Bearer ${token}` }
                 });
+                // A remoção local é segura, pois não precisamos mais dos dados do item removido.
                 this.escolas = this.escolas.filter(escola => escola.id !== id);
             } catch (err) {
                 console.error('Erro ao excluir escola:', err.response?.data || err.message);
@@ -106,8 +131,7 @@ export const useEscolasStore = defineStore('escolas', {
             }
         },
 
-         // --- Ação para Atualizar Escola ---
-         // *** IMPLEMENTADO/REFINADO ***
+         // --- Atualizar Escola ---
          async updateEscola(id, escolaData) {
              this.loading = true;
              this.error = null;
@@ -119,7 +143,6 @@ export const useEscolasStore = defineStore('escolas', {
               }
 
              try {
-                 // Cria uma cópia para não enviar o ID no corpo se não for necessário pela API
                  const dataToSend = {
                      nome: escolaData.nome,
                      endereco: escolaData.endereco,
@@ -130,16 +153,12 @@ export const useEscolasStore = defineStore('escolas', {
                      headers: { Authorization: `Bearer ${token}` }
                  });
 
-                 // Atualizar a escola na lista local
-                 const index = this.escolas.findIndex(e => e.id === id);
-                 if (index !== -1) {
-                     this.escolas[index] = response.data; // Usa a resposta da API
-                     this.escolas.sort((a, b) => a.nome.localeCompare(b.nome));
-                 } else {
-                     console.warn(`Escola ID ${id} não encontrada localmente após update. Refetching.`);
-                     await this.fetchEscolas(); // Fallback: recarrega tudo
-                 }
-                 return response.data; // Retorna para o componente
+                 // MODIFICAÇÃO DE CONSISTÊNCIA: Recarregamos a lista em vez de atualizar localmente.
+                 // Isso garante que a lista seja reordenada corretamente se o nome mudar e
+                 // que o status do estoque permaneça visível.
+                 await this.fetchEscolas();
+                 
+                 return response.data;
 
              } catch (err) {
                  console.error('Erro ao atualizar escola:', err.response?.data || err.message);

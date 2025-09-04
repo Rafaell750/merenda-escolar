@@ -111,6 +111,103 @@ router.get('/', (req, res) => {
     });
 });
 
+// --- NOVA ROTA GET /api/escolas/com-status-estoque ---
+// ## COLOCADA AQUI, ANTES DA ROTA /:id ##
+router.get('/com-status-estoque', (req, res) => {
+    const sqlEscolas = `SELECT id, nome, endereco, responsavel FROM escolas ORDER BY nome ASC`;
+    const sqlTransacoes = `
+        SELECT
+            t.escola_id,
+            ti.produto_id,
+            ti.quantidade_enviada AS quantidade,
+            t.data_recebimento_confirmado AS data_transacao,
+            'entrada' as tipo
+        FROM transferencia_itens ti
+        JOIN transferencias t ON ti.transferencia_id = t.id
+        -- CORREÇÃO AQUI: Garante que o produto da transação ainda existe.
+        INNER JOIN produtos p ON ti.produto_id = p.id
+        WHERE ti.status = 'confirmado' AND t.data_recebimento_confirmado IS NOT NULL
+
+        UNION ALL
+
+        SELECT
+            rei.escola_id,
+            rei.produto_id,
+            rei.quantidade_retirada AS quantidade,
+            rei.data_retirada AS data_transacao,
+            'saida' as tipo
+        FROM retiradas_escola_itens rei
+        -- CORREÇÃO AQUI: Garante que o produto da transação ainda existe.
+        INNER JOIN produtos p ON rei.produto_id = p.id;
+    `;
+
+    db.all(sqlEscolas, [], (errEscolas, escolas) => {
+        if (errEscolas) {
+            console.error("[GET /com-status-estoque] Erro ao buscar escolas:", errEscolas.message);
+            return res.status(500).json({ error: "Erro ao buscar escolas." });
+        }
+
+        db.all(sqlTransacoes, [], (errTransacoes, transacoes) => {
+            if (errTransacoes) {
+                console.error("[GET /com-status-estoque] Erro ao buscar transações de estoque:", errTransacoes.message);
+                return res.status(500).json({ error: "Erro ao processar estoque." });
+            }
+
+            // O restante da lógica JavaScript permanece exatamente o mesmo.
+            // A mágica acontece na filtragem feita pela nova query SQL.
+            const transacoesPorEscola = transacoes.reduce((acc, t) => {
+                (acc[t.escola_id] = acc[t.escola_id] || []).push(t);
+                return acc;
+            }, {});
+
+            const escolasComStatus = escolas.map(escola => {
+                const suasTransacoes = transacoesPorEscola[escola.id] || [];
+                let statusEstoque = 'ok';
+
+                if (suasTransacoes.length > 0) {
+                    const transacoesPorProduto = suasTransacoes.reduce((acc, t) => {
+                        (acc[t.produto_id] = acc[t.produto_id] || []).push(t);
+                        return acc;
+                    }, {});
+
+                    let temEstoqueZerado = false;
+                    let temEstoqueBaixo = false;
+
+                    for (const produtoId in transacoesPorProduto) {
+                        const transacoesDoProduto = transacoesPorProduto[produtoId]
+                            .sort((a, b) => new Date(a.data_transacao) - new Date(b.data_transacao));
+
+                        let estoqueAtual = 0;
+                        let picoDeEstoque = 0;
+
+                        transacoesDoProduto.forEach(t => {
+                            estoqueAtual += (t.tipo === 'entrada' ? t.quantidade : -t.quantidade);
+                            if (estoqueAtual > picoDeEstoque) {
+                                picoDeEstoque = estoqueAtual;
+                            }
+                        });
+                        
+                        if (estoqueAtual <= 0) {
+                            temEstoqueZerado = true;
+                        } else if (picoDeEstoque > 0 && estoqueAtual <= picoDeEstoque / 2) {
+                            temEstoqueBaixo = true;
+                        }
+                    }
+
+                    if (temEstoqueZerado) {
+                        statusEstoque = 'zerado';
+                    } else if (temEstoqueBaixo) {
+                        statusEstoque = 'baixo';
+                    }
+                }
+                return { ...escola, statusEstoque };
+            });
+
+            res.json(escolasComStatus);
+        });
+    });
+});
+
 // --- ROTA GET /api/escolas/:id - Obter detalhes de uma escola específica ---
 // Requer autenticação (global) e autorização específica via `authorizeSchoolAccess`.
 // `authorizeSchoolAccess` verifica se:

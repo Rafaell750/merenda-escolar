@@ -106,20 +106,49 @@
               Nenhuma escola cadastrada ainda. Clique em "Nova Escola" para adicionar a primeira.
             </div>
             <ul v-else class="escolas-list">
-              <li v-for="escola in escolasStore.listaEscolas" :key="escola.id" class="escola-item">
+              <li v-for="escola in escolasStore.listaEscolas" :key="escola.id" 
+                  class="escola-item" 
+                  :class="{ 'item-baixo-estoque': escola.statusEstoque === 'baixo', 'item-zerado-estoque': escola.statusEstoque === 'zerado' }">
+                
                 <div class="escola-info">
-                    <span class="escola-nome">{{ escola.nome }}</span>
+                  <div class="escola-header">
+                    <!-- Ícone de Alerta (agora ao lado do nome) -->
+                    <span 
+                      v-if="escola.statusEstoque && escola.statusEstoque !== 'ok'"
+                      class="stock-alert-icon"
+                      :class="{ 
+                        'alert-baixo': escola.statusEstoque === 'baixo', 
+                        'alert-zerado': escola.statusEstoque === 'zerado' 
+                      }"
+                      :title="getAlertTitle(escola.statusEstoque)"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-exclamation-triangle-fill" viewBox="0 0 16 16">
+                        <path d="M8.982 1.566a1.13 1.13 0 0 0-1.96 0L.165 13.233c-.457.778.091 1.767.98 1.767h13.713c.889 0 1.438-.99.98-1.767zM8 5c.535 0 .954.462.9.995l-.35 3.507a.552.552 0 0 1-1.1 0L7.1 5.995A.905.905 0 0 1 8 5m.002 6a1 1 0 1 1 0 2 1 1 0 0 1 0-2"/>
+                      </svg>
+                    </span>
+                    <!-- Nome da Escola (com mais destaque) -->
+                    <h3 class="escola-nome">{{ escola.nome }}</h3>
+                  </div>
+                  <!-- Detalhes Secundários -->
+                  <div class="escola-details">
                     <span class="escola-detalhe" v-if="escola.endereco">{{ escola.endereco }}</span>
                     <span class="escola-detalhe" v-if="escola.responsavel">Responsável: {{ escola.responsavel }}</span>
+                  </div>
                 </div>
+
+                <!-- Botões de Ação com novo estilo -->
                 <div class="action-buttons">
-                  <button @click="startEdit(escola)" class="btn-edit" title="Editar Escola" :disabled="isFormExpanded && editingEscolaId !== escola.id">
+                  <router-link :to="{ name: 'EscolaDetalhes', params: { id: escola.id } }" class="btn-action btn-view" title="Ver Detalhes e Estoque">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-box-arrow-in-right" viewBox="0 0 16 16"><path fill-rule="evenodd" d="M6 3.5a.5.5 0 0 1 .5-.5h8a.5.5 0 0 1 .5.5v9a.5.5 0 0 1-.5-.5h-8a.5.5 0 0 1-.5-.5v-2a.5.5 0 0 0-1 0v2A1.5 1.5 0 0 0 6.5 14h8a1.5 1.5 0 0 0 1.5-1.5v-9A1.5 1.5 0 0 0 14.5 2h-8A1.5 1.5 0 0 0 5 3.5v2a.5.5 0 0 0 1 0z"/><path fill-rule="evenodd" d="M11.854 8.354a.5.5 0 0 0 0-.708l-3-3a.5.5 0 1 0-.708.708L10.293 7.5H1.5a.5.5 0 0 0 0 1h8.793l-2.147 2.146a.5.5 0 0 0 .708.708z"/></svg>
+                    <span>Ver Estoque</span>
+                  </router-link>
+                  <button @click="startEdit(escola)" class="btn-action btn-edit" title="Editar Escola" :disabled="isFormExpanded && editingEscolaId !== escola.id">
                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-pencil-square" viewBox="0 0 16 16"> <path d="M15.502 1.94a.5.5 0 0 1 0 .706L14.459 3.69l-2-2L13.502.646a.5.5 0 0 1 .707 0l1.293 1.293zm-1.75 2.456-2-2L4.939 9.21a.5.5 0 0 0-.121.196l-.805 2.414a.25.25 0 0 0 .316.316l2.414-.805a.5.5 0 0 0 .196-.12l6.813-6.814z"/> <path fill-rule="evenodd" d="M1 13.5A1.5 1.5 0 0 0 2.5 15h11a1.5 1.5 0 0 0 1.5-1.5v-6a.5.5 0 0 0-1 0v6a.5.5 0 0 1-.5.5h-11a.5.5 0 0 1-.5-.5v-11a.5.5 0 0 1 .5-.5H9a.5.5 0 0 0 0-1H2.5A1.5 1.5 0 0 0 1 2.5z"/> </svg>
-                    Editar
+                    <span>Editar</span>
                   </button>
-                  <button @click="confirmDeleteEscola(escola.id, escola.nome)" class="btn-delete" title="Excluir Escola" :disabled="isFormExpanded">
+                  <button @click="confirmDeleteEscola(escola.id, escola.nome)" class="btn-action btn-delete" title="Excluir Escola" :disabled="isFormExpanded">
                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-trash3-fill" viewBox="0 0 16 16"> <path d="M11 1.5v1h3.5a.5.5 0 0 1 0 1h-.538l-.853 10.66A2 2 0 0 1 11.115 16h-6.23a2 2 0 0 1-1.994-1.84L2.038 3.5H1.5a.5.5 0 0 1 0-1h3.5v-1A1.5 1.5 0 0 1 6.5 0h3A1.5 1.5 0 0 1 11 1.5m-5 0v1h4v-1a.5.5 0 0 0-.5-.5h-3a.5.5 0 0 0-.5.5M4.5 5.029l.5 8.5a.5.5 0 1 0 .998-.06l-.5-8.5a.5.5 0 1 0-.998.06m6.53-.528a.5.5 0 0 0-.528.47l-.5 8.5a.5.5 0 0 0 .998.058l.5-8.5a.5.5 0 0 0-.47-.528M8 4.5a.5.5 0 0 0-.5.5v8.5a.5.5 0 0 0 1 0V5a.5.5 0 0 0-.5-.5"/> </svg>
-                    Excluir
+                    <span>Excluir</span>
                   </button>
                 </div>
               </li>
@@ -301,6 +330,7 @@ import PaginationControls from '@/components/PaginationControls.vue';
 import ConfirmationModal from '@/components/ConfirmationModal.vue';
 import { useEstoqueStore } from '@/stores/estoque';
 import { useToast } from "vue-toastification";
+import { RouterLink } from 'vue-router';
 
 const toast = useToast();
 const isConfirmationModalVisible = ref(false);
@@ -651,6 +681,16 @@ const closeConfirmationModal = () => {
   isConfirmationModalVisible.value = false;
   pendingNotificacaoId.value = null;
   itensParaConfirmacao.value = []; // Limpa os dados do modal
+};
+
+const getAlertTitle = (status) => {
+  if (status === 'baixo') {
+    return 'Alerta: A escola possui um ou mais produtos com estoque baixo (igual ou inferior a 50% do pico de estoque).';
+  }
+  if (status === 'zerado') {
+    return 'Atenção: A escola possui um ou mais produtos com estoque zerado!';
+  }
+  return '';
 };
 
 // --- BLOCO 10: HOOKS DE CICLO DE VIDA ---
@@ -1037,5 +1077,152 @@ watch(activeSection, (newSectionValue) => {
   margin-bottom: 0;
 }
 
+.escolas-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+/* O container de cada item da lista */
+.escola-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1.25rem 1rem; /* Mais espaçamento vertical */
+  border-bottom: 1px solid #e9ecef; /* Linha divisória sutil */
+  transition: background-color 0.2s ease-in-out;
+}
+
+/* Efeito hover suave para cada item */
+.escola-item:hover {
+  background-color: #f8f9fa;
+}
+
+.escola-item:last-child {
+  border-bottom: none; /* Remove a linha do último item */
+}
+
+.escola-info {
+  display: flex;
+  flex-direction: column;
+}
+
+/* Container do cabeçalho (ícone + nome) */
+.escola-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem; /* Espaço entre ícone e nome */
+  margin-bottom: 0.25rem;
+}
+
+/* Ícone de alerta de estoque */
+.stock-alert-icon {
+  display: inline-flex;
+}
+
+.stock-alert-icon.alert-baixo {
+  color: #ffc107; /* Amarelo (warning) */
+}
+
+.stock-alert-icon.alert-zerado {
+  color: #dc3545; /* Vermelho (danger) */
+}
+
+/* Nome da escola com mais destaque */
+.escola-nome {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #212529;
+  margin: 0;
+}
+
+/* Detalhes secundários (endereço, responsável) */
+.escola-details {
+  display: flex;
+  flex-direction: column;
+  padding-left: 24px; /* Alinha os detalhes com o nome da escola */
+}
+
+.escola-detalhe {
+  font-size: 0.9rem;
+  color: #6c757d; /* Cinza para informações secundárias */
+  line-height: 1.5;
+}
+
+/* Container dos botões de ação */
+.action-buttons {
+  display: flex;
+  gap: 0.5rem; /* Espaço entre os botões */
+}
+
+/* Estilo base para todos os botões de ação */
+.btn-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.4rem 0.8rem;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  text-decoration: none;
+  transition: all 0.2s ease-in-out;
+}
+
+.btn-action:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Estilo específico para o botão "Ver Estoque" */
+.btn-view {
+  background-color: #e9ecef;
+  color: #343a40;
+}
+.btn-view:hover:not(:disabled) {
+  background-color: #ced4da;
+}
+
+/* Estilo específico para o botão "Editar" */
+.btn-edit {
+  background-color: #e7f1ff; /* Azul claro */
+  color: #0056b3;
+}
+.btn-edit:hover:not(:disabled) {
+  background-color: #cce0ff;
+}
+
+/* Estilo específico para o botão "Excluir" */
+.btn-delete {
+  background-color: #ffebeB; /* Vermelho claro */
+  color: #c82333;
+}
+.btn-delete:hover:not(:disabled) {
+  background-color: #ffdddd;
+  color: #a51c2a;
+}
+
+/* Estilo para item com estoque BAIXO */
+.escola-item.item-baixo-estoque {
+  background-color: #fff9e6; /* Fundo amarelo muito claro */
+  border-left: 4px solid #ffc107; /* Borda de alerta amarela */
+}
+
+/* Efeito hover para o item com estoque BAIXO */
+.escola-item.item-baixo-estoque:hover {
+  background-color: #fff3cd; /* Amarelo um pouco mais escuro no hover */
+}
+
+/* Estilo para item com estoque ZERADO */
+.escola-item.item-zerado-estoque {
+  background-color: #ffebeb; /* Fundo vermelho muito claro */
+  border-left: 4px solid #dc3545; /* Borda de perigo vermelha */
+}
+
+/* Efeito hover para o item com estoque ZERADO */
+.escola-item.item-zerado-estoque:hover {
+  background-color: #f8d7da; /* Vermelho um pouco mais escuro no hover */
+}
 
 </style>
