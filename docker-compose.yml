@@ -7,19 +7,16 @@ services:
     container_name: estoque_backend
     restart: unless-stopped
     ports:
-      # ALTERADO: Usa variáveis do arquivo .env
-      # Mapeia a porta do host para a porta do contêiner dinamicamente
       - "${BACKEND_PORT_HOST}:${BACKEND_PORT_CONTAINER}"
     environment:
-      # ALTERADO: Usa variáveis do arquivo .env
+      # ADICIONADO: Define o fuso horário para o container do backend
+      - TZ=America/Sao_Paulo
       - NODE_ENV=${NODE_ENV}
-      - PORT=${BACKEND_PORT_CONTAINER} # O Node.js usará a porta definida no .env
+      - PORT=${BACKEND_PORT_CONTAINER}
       - JWT_SECRET=${JWT_SECRET}
     volumes:
-      # Mantido: Persiste o banco de dados.
-      # ATENÇÃO: Verifique se o WORKDIR no seu backend/Dockerfile é /app. Se for /usr/src/app, mude aqui também.
       - db-data:/app/database
-    networks: # NOVO: Adiciona o serviço a uma rede customizada
+    networks:
       - estoque-net
 
   # Serviço do Frontend (Vue.js + Nginx)
@@ -27,25 +24,26 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
-      # NOVO: Injeta a URL da API durante o build do frontend
       args:
         - VITE_API_BASE_URL=${API_URL_FOR_FRONTEND}
     container_name: estoque_frontend
     restart: unless-stopped
     ports:
-      # ALTERADO: Usa variáveis do arquivo .env
-      # Mapeia a porta do host para a porta 80 do Nginx no contêiner
       - "${FRONTEND_PORT_HOST}:80"
+    # ADICIONADO: Define o fuso horário também para o container do Nginx
+    # Isso garante que os logs de acesso do servidor web fiquem no horário correto.
+    environment:
+      - TZ=America/Sao_Paulo
     depends_on:
       - backend
-    networks: # NOVO: Adiciona o serviço a uma rede customizada
+    networks:
       - estoque-net
 
 # Define os volumes nomeados
 volumes:
   db-data:
 
-# NOVO: Define a rede customizada para os serviços se comunicarem
+# Define a rede customizada para os serviços se comunicarem
 networks:
   estoque-net:
     driver: bridge
