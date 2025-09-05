@@ -62,7 +62,7 @@
                         {{ item.nome_produto }} ({{ item.unidade_medida }}) - Qtd: {{ item.quantidade_enviada }}
                     </span>
                     <span v-if="item.data_processamento" class="item-data-processamento">
-                       - {{ item.status === 'confirmado' ? 'Confirmado' : 'Devolvido' }} em: {{ item.data_processamento }}
+                       - {{ item.status === 'confirmado' ? 'Confirmado' : 'Devolvido' }} em: {{ formatarDataParaBrasilia(item.data_processamento) }}
                     </span>
                   </li>
                 </ul>
@@ -112,6 +112,28 @@
     dataInicio: '',
     dataFim: '',
   });
+
+  const formatarDataParaBrasilia = (dataStringUTC) => {
+  if (!dataStringUTC) return null; // Retorna nulo se a data for vazia
+  try {
+    const dataUTC = new Date(dataStringUTC + 'Z');
+    if (isNaN(dataUTC.getTime())) {
+      console.warn("Data inválida recebida:", dataStringUTC);
+      return dataStringUTC;
+    }
+    return dataUTC.toLocaleString('pt-BR', {
+      timeZone: 'America/Sao_Paulo',
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  } catch (e) {
+    console.error("Erro ao formatar data:", dataStringUTC, e);
+    return dataStringUTC;
+  }
+};
 
   // Propriedade computada para verificar se algum filtro está ativo
   const hasActiveFilters = computed(() => {

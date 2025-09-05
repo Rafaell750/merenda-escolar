@@ -230,7 +230,7 @@
                       <p class="notification-message">
                           {{ getNotificationTitle(notificacao.message) }}
                       </p>
-                      <span class="notification-date">{{ new Date(notificacao.createdAt).toLocaleString('pt-BR') }}</span>
+                      <span class="notification-date">{{ formatarDataParaBrasilia(notificacao.createdAt) }}</span>
 
                       <!-- *** MODIFICADO: Bloco expansível redesenhado para corresponder ao modelo *** -->
                       <div v-if="getNotificationDetails(notificacao.message)" class="details-expander">
@@ -342,6 +342,30 @@ const notificationsStore = useNotificationsStore();
 const estoqueStore = useEstoqueStore(); // <-- Instancia a store
 const itensParaConfirmacao = ref([]); // <-- Novo: Armazena os dados para a tabela do modal
 const isLoadingModalData = ref(false); // <-- Novo: Estado de loading para o botão
+
+const formatarDataParaBrasilia = (dataStringUTC) => {
+  if (!dataStringUTC) return null;
+  try {
+    // Adiciona 'Z' para garantir que a data seja interpretada como UTC
+    const dataUTC = new Date(dataStringUTC.includes('Z') ? dataStringUTC : dataStringUTC + 'Z');
+    if (isNaN(dataUTC.getTime())) {
+      console.warn("Data inválida para notificação:", dataStringUTC);
+      return dataStringUTC;
+    }
+    // Formata para o fuso horário de Brasília
+    return dataUTC.toLocaleString('pt-BR', {
+      timeZone: 'America/Sao_Paulo',
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit' // Adicionei segundos para ser mais completo
+    });
+  } catch (e) {
+    return dataStringUTC;
+  }
+};
 
 // --- BLOCO 2: INICIALIZAÇÃO DA STORE ---
 // Instância da store de escolas para interagir com o estado global e as actions.

@@ -19,7 +19,7 @@ router.get('/produtos', (req, res) => {
         SELECT 
             id, produto_id, produto_nome_snapshot, acao,
             detalhes, usuario_username_snapshot,
-            strftime('%Y-%m-%dT%H:%M:%SZ', data_acao) AS data_acao
+            data_acao 
         FROM produto_historico
         ORDER BY data_acao DESC
         LIMIT ? 
@@ -68,7 +68,7 @@ router.get('/produtos/:produtoId', (req, res) => {
             acao,
             detalhes,
             usuario_username_snapshot,
-            strftime('%Y-%m-%dT%H:%M:%SZ', data_acao) AS data_acao
+            data_acao 
         FROM produto_historico
         WHERE produto_id = ?
         ORDER BY data_acao DESC

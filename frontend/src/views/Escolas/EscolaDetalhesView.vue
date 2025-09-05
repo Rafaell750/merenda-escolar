@@ -285,6 +285,28 @@ const API_URL = import.meta.env.VITE_API_BASE_URL;
 // Estado para dados do usuário logado (para controle de permissões)
 const currentUser = ref(null);
 
+const formatarDataParaBrasilia = (dataStringUTC) => {
+  if (!dataStringUTC) return null;
+  try {
+    const dataUTC = new Date(dataStringUTC + 'Z');
+    if (isNaN(dataUTC.getTime())) {
+      console.warn("Data inválida recebida:", dataStringUTC);
+      return dataStringUTC;
+    }
+    return dataUTC.toLocaleString('pt-BR', {
+      timeZone: 'America/Sao_Paulo',
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  } catch (e) {
+    console.error("Erro ao formatar data:", dataStringUTC, e);
+    return dataStringUTC;
+  }
+};
+
 // --- BLOCO 3: LÓGICA DE PERMISSÕES ---
 /**
  * @function loadCurrentUser
@@ -333,33 +355,34 @@ const podeInteragirComEstoque = computed(() => {
  * @returns {Array<object>} Lista de itens de estoque consolidados.
  */
  const itensConsolidados = computed(() => {
-    // 1. UNIFICAR TRANSAÇÕES
     const entradas = transferenciasConfirmadas.value.flatMap(transferencia => {
-        // A propriedade correta para a data da transação confirmada
-        const dataString = transferencia.data_recebimento_confirmado_formatada;
-        
+        // Usa os nomes de campo NOVOS (sem _formatada)
+        const dataStringCrua = transferencia.data_conclusao || transferencia.data_envio_original;
+
         return (transferencia.itens || []).map(item => ({
             tipo: 'entrada',
-            data: parsePtBrDate(dataString),
+            // Usa a função de formatação para exibir a data corretamente
+            data_formatada: formatarDataParaBrasilia(dataStringCrua),
+            data: parsePtBrDate(formatarDataParaBrasilia(dataStringCrua)), // Parseia a data JÁ FORMATADA para ordenação
             produto_id: parseInt(item.produto_id, 10),
             nome_produto: item.nome_produto,
             unidade_medida: item.unidade_medida,
             quantidade: parseFloat(item.quantidade_enviada),
-            data_formatada: dataString, // Mantemos a string original para exibição
             nome_usuario: transferencia.nome_usuario,
             original_transferencia_id: transferencia.transferencia_id,
             item_id_original: item.id || item.item_id
         }));
     });
 
-const saidas = retiradasDaEscola.value.map(retirada => {
-        // A propriedade correta para a data da retirada
-        const dataString = retirada.data_retirada_formatada;
-        
+    const saidas = retiradasDaEscola.value.map(retirada => {
+        // A API de retiradas já enviava data_retirada_formatada, mas vamos padronizar
+        // Supondo que a API agora envie `data_retirada` crua
+        const dataStringCrua = retirada.data_retirada; 
+        const dataFormatada = formatarDataParaBrasilia(dataStringCrua);
+
         return {
             tipo: 'saida',
-            data: parsePtBrDate(dataString), // Usando a função robusta
-            // ... resto das propriedades ...
+            data: parsePtBrDate(dataFormatada),
             produto_id: parseInt(retirada.produto_id, 10),
             nome_produto: retirada.nome_produto,
             unidade_medida: retirada.unidade_medida,
@@ -523,33 +546,30 @@ function formatarData(dataString) {
  */
  function parsePtBrDate(dateString) {
   if (!dateString || typeof dateString !== 'string') {
-    // Se a entrada não for uma string válida, retorna null.
     return null;
   }
 
-  // Divide a string em partes de data e hora
-  const parts = dateString.split(' ');
-  const dateParts = parts[0].split('/');
-  const timeParts = parts[1] ? parts[1].split(':') : [0, 0, 0];
-  
-  // Verifica se temos as 3 partes da data (dia, mês, ano)
-  if (dateParts.length !== 3) {
-    console.warn(`[parsePtBrDate] Formato de data inválido, não foi possível dividir em dia/mês/ano: "${dateString}"`);
-    return new Date(dateString); // Tenta um fallback
+  // Usamos uma expressão regular para capturar os números da data e da hora,
+  // ignorando os separadores (/, :, vírgula, espaço).
+  // \d{1,2} = um ou dois dígitos. \d{4} = quatro dígitos.
+  const match = dateString.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})[,\s]+(\d{1,2}):(\d{1,2})/);
+
+  if (!match) {
+    console.warn(`[parsePtBrDate] Formato de data inválido, não correspondeu ao padrão: "${dateString}"`);
+    // Tenta um fallback para o caso de a data vir em outro formato
+    const fallbackDate = new Date(dateString);
+    return isNaN(fallbackDate.getTime()) ? null : fallbackDate;
   }
 
-  // Reconstrói a data no formato ISO (YYYY-MM-DDTHH:MM:SS) que é universal
-  // O construtor Date(ano, mês-1, dia, ...) também é uma opção segura.
-  const [day, month, year] = dateParts;
-  const [hour, minute, second] = timeParts;
+  // match[0] é a string completa, os grupos capturados começam em match[1]
+  const [, day, month, year, hour, minute] = match;
   
   // O mês no construtor do Date é baseado em zero (0=Janeiro, 11=Dezembro)
-  const isoDate = new Date(year, month - 1, day, hour || 0, minute || 0, second || 0);
+  const isoDate = new Date(year, month - 1, day, hour, minute);
   
-  // Verifica se a data resultante é válida
   if (isNaN(isoDate.getTime())) {
     console.warn(`[parsePtBrDate] A data resultante é inválida para a string: "${dateString}"`);
-    return null; // Retorna null para indicar falha
+    return null;
   }
 
   return isoDate;

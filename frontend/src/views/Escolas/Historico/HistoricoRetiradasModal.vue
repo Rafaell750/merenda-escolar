@@ -25,7 +25,7 @@
             <tbody>
               <!-- ALTERAÇÃO: Iterar sobre 'paginatedHistorico' em vez de 'historicoRetiradas' -->
               <tr v-for="retirada in paginatedHistorico" :key="retirada.id || `${retirada.data_retirada_formatada}-${retirada.produto_id}-${Math.random()}`">
-                <td>{{ retirada.data_retirada_formatada }}</td>
+                <td>{{ formatarDataParaBrasilia(retirada.data_retirada) }}</td>
                 <td>{{ retirada.nome_produto }}</td>
                 <td>{{ retirada.unidade_medida }}</td>
                 <td class="text-right">{{ retirada.quantidade_retirada }}</td>
@@ -86,6 +86,28 @@
   });
   
   const emit = defineEmits(['close']);
+
+  const formatarDataParaBrasilia = (dataStringUTC) => {
+  if (!dataStringUTC) return 'Data Indisponível';
+  try {
+    const dataUTC = new Date(dataStringUTC + 'Z');
+    if (isNaN(dataUTC.getTime())) {
+      console.warn("Data inválida recebida:", dataStringUTC);
+      return dataStringUTC;
+    }
+    return dataUTC.toLocaleString('pt-BR', {
+      timeZone: 'America/Sao_Paulo',
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  } catch (e) {
+    console.error("Erro ao formatar data:", dataStringUTC, e);
+    return dataStringUTC;
+  }
+};
   
   function closeModal() {
     emit('close');

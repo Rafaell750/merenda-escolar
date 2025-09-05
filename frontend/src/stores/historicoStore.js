@@ -1,42 +1,69 @@
-// frontend/src/stores/historicoStore.js
 import { defineStore } from 'pinia';
 import { useToast } from 'vue-toastification';
 
 const API_URL = import.meta.env.VITE_API_BASE_URL;
 
 const toast = useToast();
-const ITEMS_PER_PAGE = 10; // Defina quantos itens por página
+const ITEMS_PER_PAGE = 10;
+
+// FUNÇÃO AUXILIAR PARA FORMATAR A DATA
+/**
+ * Formata uma string de data/hora (que vem da API em UTC) para o horário de Brasília.
+ * @param {string | null} dataStringUTC - A data como string, ex: "2024-05-16 18:30:00".
+ * @returns {string | null} A data formatada como "DD/MM/AAAA, HH:mm" ou null.
+ */
+const formatarDataParaBrasilia = (dataStringUTC) => {
+  // Se a data for nula ou vazia, retorna null.
+  if (!dataStringUTC) return null;
+
+  try {
+    // Passo A: Adiciona 'Z' ao final para garantir que o JavaScript interprete a data como UTC.
+    // Isso transforma "2024-05-16 18:30:00" em "2024-05-16 18:30:00Z".
+    const dataUTC = new Date(dataStringUTC + 'Z');
+
+    // Passo B: Verifica se a data criada é válida.
+    if (isNaN(dataUTC.getTime())) {
+      console.warn("Data inválida recebida da API:", dataStringUTC);
+      return 'Data Inválida';
+    }
+
+    // Passo C: Formata a data para o padrão pt-BR e fuso horário de São Paulo.
+    return dataUTC.toLocaleString('pt-BR', {
+      timeZone: 'America/Sao_Paulo',
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  } catch (e) {
+    console.error("Erro ao formatar a data:", dataStringUTC, e);
+    return 'Erro na Data'; // Retorna uma mensagem de erro se algo falhar.
+  }
+};
+
 
 export const useHistoricoStore = defineStore('historico', {
   state: () => ({
     historicoEnviosSME: [],
     isLoading: false,
     error: null,
-    // Novas propriedades para paginação
     currentPage: 1,
     totalPages: 0,
     totalItems: 0,
   }),
   actions: {
-    // Modificado para aceitar filtros, mantendo a lógica original o máximo possível
-    async fetchHistoricoEnviosSME(filters = {}, page = 1) { // Adicionado parâmetro filters
-      // Lógica para evitar chamadas duplicadas:
-      // Se é um refresh simples (sem filtros explícitos) E já está carregando, não faz nada.
-      // Se filtros são passados (mesmo que vazios, indicando intenção de (re)filtrar), a chamada prossegue.
+    async fetchHistoricoEnviosSME(filters = {}, page = 1) {
       if (Object.keys(filters).length === 0 && this.isLoading) {
         return;
       }
-
       this.isLoading = true;
       this.error = null;
       this.currentPage = page;
-
-      // Se filtros estão sendo aplicados, limpar o histórico atual para uma melhor UX
       const hasActiveFilters = Object.values(filters).some(value => !!value);
       if (hasActiveFilters) {
         this.historicoEnviosSME = [];
       }
-
       try {
         const token = localStorage.getItem('authToken');
         if (!token) {
@@ -45,30 +72,17 @@ export const useHistoricoStore = defineStore('historico', {
           this.isLoading = false;
           return;
         }
-
-        // Construir query params para a API
         const params = new URLSearchParams();
-        if (filters.destino) {
-          params.append('destino', filters.destino);
-        }
-        if (filters.dataInicio) {
-          params.append('dataInicio', filters.dataInicio);
-        }
-        if (filters.dataFim) {
-          params.append('dataFim', filters.dataFim);
-        }
-
-        params.append('page', this.currentPage); // Envia a página atual
-        params.append('limit', ITEMS_PER_PAGE);  // Envia o limite de itens por página
-
+        if (filters.destino) params.append('destino', filters.destino);
+        if (filters.dataInicio) params.append('dataInicio', filters.dataInicio);
+        if (filters.dataFim) params.append('dataFim', filters.dataFim);
+        params.append('page', this.currentPage);
+        params.append('limit', ITEMS_PER_PAGE);
         const queryString = params.toString();
-        // Sua URL base. Adiciona a queryString se ela existir.
         const apiUrl = `${API_URL}/transferencias/historico-sme${queryString ? `?${queryString}` : ''}`;
         
-        const response = await fetch(apiUrl, { // URL modificada para incluir filtros
-          headers: {
-            'Authorization': `Bearer ${token}`,
-          },
+        const response = await fetch(apiUrl, {
+          headers: { 'Authorization': `Bearer ${token}` },
         });
 
         if (response.status === 401 || response.status === 403) {
@@ -79,63 +93,42 @@ export const useHistoricoStore = defineStore('historico', {
           this.isLoading = false;
           return;
         }
-
         if (!response.ok) {
           const errorData = await response.json().catch(() => ({ error: `Falha ao buscar histórico (Status: ${response.status})` }));
           throw new Error(errorData.error || `Erro HTTP: ${response.status}`);
         }
-
         const data = await response.json();
 
-        // Processamento dos dados para garantir o formato esperado pelo componente:
-        // O componente HistoricoEnviosSME.vue espera:
-        // - envio.data_envio_formatada
-        // - envio.data_recebimento_confirmado_formatada
-        // - envio.itens (como um array)
-        // Se o seu backend já retorna os dados exatamente neste formato, o .map pode ser mais simples
-        // ou até removido se o 'rawData' já for perfeito.
-        // A lógica abaixo tenta garantir esses campos.
+        // FUNÇÃO PARA PROCESSAR OS DADOS DA API
         this.historicoEnviosSME = data.items.map(envio => {
+          
           let parsedItens = [];
           if (Array.isArray(envio.itens)) {
             parsedItens = envio.itens;
-          } else if (envio.itens && typeof envio.itens === 'string') {
+          } else if (typeof envio.itens === 'string') {
             try {
-              const itemsString = envio.itens.trim();
-              if (itemsString.startsWith('[') && itemsString.endsWith(']')) {
-                parsedItens = JSON.parse(itemsString);
-              } else if (itemsString.startsWith('{') && itemsString.endsWith('}')) {
-                parsedItens = JSON.parse(`[${itemsString.replace(/}\s*{/g, '},{')}]`);
-              } else if (itemsString) { // Se for uma string não vazia, não JSON de array/objeto
-                console.warn("Campo 'itens' é uma string não JSON array/object:", envio.itens);
-                // Você pode decidir como tratar isso, ex: atribuir a uma propriedade de erro_itens
-                // ou deixar como array vazio.
-              }
+              parsedItens = JSON.parse(envio.itens);
             } catch (e) {
-              console.warn("Erro ao parsear 'itens' do envio na store:", e, "Dados originais:", envio.itens);
+              console.warn("Erro ao parsear 'itens':", e);
               parsedItens = [];
             }
-          } else if (envio.itens && typeof envio.itens === 'object') { // Se for um objeto único
-            parsedItens = [envio.itens];
           }
-
+          
+          // Supondo que o backend agora envia `data_envio` e `data_recebimento_confirmado`
+          // sem formatação.
           return {
             ...envio, // Mantém todos os outros campos que vieram da API
-            // Formata as datas se elas não vierem formatadas do backend
-            data_envio_formatada: envio.data_envio_formatada || (envio.data_envio 
-              ? new Date(envio.data_envio).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
-              : 'Data Indisponível'),
-            data_recebimento_confirmado_formatada: envio.data_recebimento_confirmado_formatada || (envio.data_recebimento_confirmado 
-              ? new Date(envio.data_recebimento_confirmado).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) 
-              : null),
-            itens: parsedItens, // Usa os itens parseados ou originais se já eram array
-            // Se o backend já envia 'nome_usuario_confirmacao', 'usuario_sme_nome', 'nome_escola', etc.
-            // eles serão preservados pelo ...envio.
+            
+            // Usamos nossa nova função para criar os campos formatados
+            data_envio_formatada: formatarDataParaBrasilia(envio.data_envio) || 'Data Indisponível',
+            data_recebimento_confirmado_formatada: formatarDataParaBrasilia(envio.data_recebimento_confirmado),
+
+            itens: parsedItens,
           };
         });
+
         this.totalPages = data.totalPages;
         this.totalItems = data.totalItems;
-        // this.currentPage já foi setado no início da action
 
       } catch (err) {
         console.error("Erro ao buscar histórico de envios SME:", err);

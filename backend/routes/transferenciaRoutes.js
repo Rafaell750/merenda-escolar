@@ -168,7 +168,7 @@ router.post('/', (req, res) => {
                                     const sqlBuscaCompleta = `
                                         SELECT
                                             t.id AS transferencia_id,
-                                            strftime('%d/%m/%Y %H:%M', t.data_transferencia, 'localtime') AS data_envio_formatada,
+                                            t.data_transferencia AS data_envio, 
                                             u_sme.username AS usuario_sme_nome,
                                             e.nome AS nome_escola,
                                             e.id AS escola_id,
@@ -181,7 +181,7 @@ router.post('/', (req, res) => {
                                                             'unidade_medida', p_sub.unidade_medida,
                                                             'quantidade_enviada', ti_sub.quantidade_enviada,
                                                             'status', ti_sub.status,
-                                                            'data_processamento', strftime('%d/%m/%Y %H:%M', ti_sub.data_recebimento, 'localtime')
+                                                            'data_processamento', ti_sub.data_recebimento 
                                                         )
                                                     )
                                                     FROM transferencia_itens ti_sub
@@ -255,11 +255,9 @@ router.get('/confirmadas/por-escola/:escolaId', (req, res) => {
     const sqlGetTransferenciasComItensConfirmados = `
         SELECT DISTINCT
             t.id AS transferencia_id,
-            -- Usamos a data da transferência original como referência
-            strftime('%d/%m/%Y %H:%M', t.data_transferencia, 'localtime') AS data_envio_original_formatada,
-            -- Opcional: a data de confirmação geral, se houver
-            strftime('%d/%m/%Y %H:%M', t.data_recebimento_confirmado, 'localtime') AS data_conclusao_formatada,
-            u.username AS nome_usuario -- Nome do usuário da SME que realizou o envio.
+            t.data_transferencia AS data_envio_original, 
+            t.data_recebimento_confirmado AS data_conclusao, 
+            u.username AS nome_usuario
         FROM
             transferencias t
         JOIN
@@ -290,8 +288,7 @@ router.get('/confirmadas/por-escola/:escolaId', (req, res) => {
                         p.nome AS nome_produto,
                         p.unidade_medida,
                         ti.quantidade_enviada,
-                        -- Trazemos a data de confirmação do item individual para o frontend
-                        strftime('%d/%m/%Y %H:%M:%S', ti.data_recebimento, 'localtime') AS data_recebimento_item_formatada
+                        ti.data_recebimento AS data_recebimento_item 
                     FROM transferencia_itens ti
                     JOIN produtos p ON ti.produto_id = p.id
                     WHERE
@@ -311,31 +308,10 @@ router.get('/confirmadas/por-escola/:escolaId', (req, res) => {
 
         Promise.all(promessasItens)
             .then(transferenciasComItens => {
-                // Seu frontend espera uma estrutura específica. A lógica dele é robusta e vai juntar os itens de diferentes
-                // "transferências" retornadas aqui em um único estoque consolidado.
-                // A chave é que agora ele vai receber os itens confirmados individualmente.
-                // Precisamos ajustar o objeto para que o frontend o entenda.
+                // ALTERADO: Simplificamos a resposta, o frontend agora faz a formatação
                  const resultadoFinal = transferenciasComItens.map(t => {
-                    // Para cada transferência, vamos criar pseudo-transferências para cada item,
-                    // para que o `flatMap` do frontend funcione perfeitamente.
                     if (!t.itens || t.itens.length === 0) return null;
-
-                    // O frontend usa a data de recebimento para o histórico. Vamos usar a do item.
-                    // O mais importante é que a lista de `itens` esteja correta.
-                    const itemMaisRecente = t.itens.reduce((latest, current) => {
-                        // Precisa de uma função para parsear a data pt-BR aqui, se for comparar
-                        return latest; // simplificado, a lógica do seu frontend já resolve
-                    });
-
-                    return {
-                        transferencia_id: t.transferencia_id,
-                        // O seu frontend usa 'data_recebimento_confirmado_formatada' para cada item.
-                        // Vamos dar a ele a data de conclusão geral, e o item individual terá sua própria data.
-                        // A sua lógica de `itensConsolidados` já é inteligente o suficiente para lidar com isso.
-                        data_recebimento_confirmado_formatada: t.data_conclusao_formatada || t.data_envio_original_formatada,
-                        nome_usuario: t.nome_usuario,
-                        itens: t.itens
-                    };
+                    return t; // Retorna o objeto completo com as datas cruas
                 }).filter(t => t !== null);
 
                 res.json(resultadoFinal);
@@ -362,7 +338,7 @@ router.get('/pendentes/por-escola/:escolaId', (req, res) => {
     const sqlTransferenciasPendentes = `
         SELECT DISTINCT
             t.id AS transferencia_id,
-            strftime('%d/%m/%Y %H:%M', t.data_transferencia, 'localtime') AS data_formatada,
+            t.data_transferencia, 
             u.username AS nome_usuario
         FROM
             transferencias t
@@ -708,11 +684,10 @@ router.get('/historico-sme', (req, res) => {
         let sqlHistoricoEnviosSME = `
             SELECT
                 t.id AS transferencia_id,
-                strftime('%d/%m/%Y %H:%M', t.data_transferencia, 'localtime') AS data_envio_formatada,
+                t.data_transferencia AS data_envio, 
                 u_sme.username AS usuario_sme_nome,
                 e.nome AS nome_escola,
                 e.id AS escola_id,
-                -- Agrupamos todos os itens de uma transferência em um objeto JSON
                 COALESCE(
                   (
                     SELECT JSON_GROUP_ARRAY(
@@ -722,7 +697,7 @@ router.get('/historico-sme', (req, res) => {
                                 'unidade_medida', p_sub.unidade_medida,
                                 'quantidade_enviada', ti_sub.quantidade_enviada,
                                 'status', ti_sub.status,
-                                'data_processamento', strftime('%d/%m/%Y %H:%M', ti_sub.data_recebimento, 'localtime')
+                                'data_processamento', ti_sub.data_recebimento 
                               )
                             )
                     FROM transferencia_itens ti_sub
